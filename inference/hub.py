@@ -73,27 +73,25 @@ class ServerHub:
         with self.lock:
             # 查询原始key是否存在
             if key in self.infers:
-                infer=self.infers[key]
+                infer = self.infers[key]
             else:
                 # 尝试加载，根据加载结果查询key是否存在
                 _, loaded_id = InferServer.load_model(model_id, env_name)
                 key = get_model_name(env_name, loaded_id)
                 if key in self.infers:
-                    infer=self.infers[key]
+                    infer = self.infers[key]
                 else:
                     # 都不存在，创建infer
                     infer = InferServer(loaded_id, env_name)
                     self.infers[key] = infer
                     infer.start()
                     self.logger.info(f'Registered new infer {infer.name}.')
-
         # 等待sock文件创建
         start = time.time()
         while not infer.is_ready:
             time.sleep(0.01)
             if time.time() - start > 10:
                 raise RuntimeError(f"Infer server model {infer.name} socket creation timed out!")
-
         return infer.socket_path
 
     def remove_infer(self, model_name: str) -> None:

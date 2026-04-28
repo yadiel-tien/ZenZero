@@ -2,7 +2,7 @@ from utils.functions import register_sigint
 from utils.config import game_name
 import time
 from inference.train_server import TrainServer
-from network.functions import read_best_index, read_latest_index
+from network.functions import read_best_index, read_latest_index, save_best_index
 
 
 def main():

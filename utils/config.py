@@ -64,7 +64,6 @@ class AppConfig(TypedDict):
     buffer_name: str
     best_index_name: str
     ema_name: str
-    rates_dir: str
     training_steps_per_sample: int
     win_threshold: float
 
@@ -89,7 +88,7 @@ CONFIG: AppConfig = {
         'buffer_size': 300_000,
         'avg_game_steps': 80,
         'selfplay': {
-            'tau_decay_rate': 0.99,
+            'tau_decay_rate': 0.96,
             'exploration_steps': 30
         },
         'evaluation': {
@@ -150,10 +149,9 @@ CONFIG: AppConfig = {
     'buffer_name': 'buffer.pkl',
     'best_index_name': 'best_index.pkl',
     'ema_name': 'ema.pkl',
-    'rates_dir': './rates/',
     'training_steps_per_sample': 30,
     'win_threshold': 0.52,
-    'game_name': 'ChineseChess'
+    'game_name': 'Gomoku'
 }
 
 game_name = CONFIG['game_name']

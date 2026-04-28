@@ -29,6 +29,7 @@ class SelfPlayManager:
         self.best_index = read_best_index()
         self.pool = ThreadPoolExecutor(self.n_workers)
         self.opening_buffer = NPZLoader("env/chess_step10.npz")
+        self.endgame_buffer = NPZLoader("env/chess_step50.npz")
         self.debug_logger = get_logger('debug')
 
     def run(self, n_games: int) -> None:
@@ -123,8 +124,12 @@ class SelfPlayManager:
 
         env = self.env_class()
         # 70%概率选择开局库开局，增加多样性
-        if random.random() < 0.7:
+        p=random.random()
+        if p < 0.3:
             env.state, env.last_action, env.steps, = self.opening_buffer.sample()
+            env.player_to_move = env.steps % 2
+        elif p<0.7:
+            env.state, env.last_action, env.steps, = self.endgame_buffer.sample()
             env.player_to_move = env.steps % 2
 
         mcts = NeuronMCTS.make_selfplay_mcts(state=env.state,

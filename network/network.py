@@ -1,6 +1,7 @@
 import glob
 import json
 import os
+import traceback
 from typing import Self
 
 import torch
@@ -169,9 +170,11 @@ class BaseNet(nn.Module):
             model.load_state_dict(checkpoint['model'])
         except (FileNotFoundError, KeyError):
             success = False
-            print('Checkpoint read error,  creating new model from default settings.')
             model = cls(eval_model=eval_model, device=device)
-
+        except Exception as e:
+            print(e)
+            traceback.print_exc()
+            raise
         return model, success
 
 

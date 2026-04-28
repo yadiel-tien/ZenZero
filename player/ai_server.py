@@ -27,7 +27,7 @@ class AIServer(Player):
 
     def update_state(self, state: NDArray, last_action: int, player_to_move: int) -> None:
         """同步当前棋盘，如果是root的子节点就扩展，否则新建.然后进行mcts模拟走子"""
-        print('思考中...')
+        self._print_verbose('思考中...')
         if self.mcts is None:  # 新建
             self.mcts = NeuronMCTS.make_socket_mcts(
                 state=state,

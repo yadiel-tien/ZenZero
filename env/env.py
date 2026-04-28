@@ -71,10 +71,10 @@ class BaseEnv(gym.Env, ABC):
             player.update_state(self.state, self.last_action, self.player_to_move)
             action = player.pending_action
             _, reward, terminated, truncated, _ = self.step(action)
-            if hasattr(player, 'win_rate'):
+            if hasattr(player, 'win_rate') and not silent:
                 print(f'win rate:{player.win_rate:.2%}')
-            self.describe_last_move()
             if not silent:
+                self.describe_last_move()
                 self.render()
             if terminated or truncated:
                 outcome = self.winner

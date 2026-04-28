@@ -48,7 +48,7 @@ class Game:
 
 if __name__ == '__main__':
     # 解析参数，如果参数个数设置模式为人人，人机，机机对战。
-    index1, index2 = 297, -1
+    index1, index2 = 97, -1
     if len(sys.argv) > 1:
         index1 = int(sys.argv[1])
     if len(sys.argv) > 2:

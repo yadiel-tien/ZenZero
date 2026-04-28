@@ -27,7 +27,7 @@ class NeuronNode:
                  player_to_move: int,
                  env_class: type[BaseEnv],
                  parent: Self = None,
-                 c=3.5):
+                 c=5):
         self.state = state
         self.parent = parent if parent else DummyNode()
         self.c = c
@@ -170,7 +170,7 @@ class NeuronNode:
         # max_eps = 0.5
         # min_eps = 0.1
         # eps = max_eps - (max_eps - min_eps) * ratio
-        eps=0.25
+        eps = 0.25
         # 按照alphazero的参数，根据合法动作个数调整
         alpha = 0.03 * 361 / legal_len
         noise = np.random.dirichlet([alpha] * legal_len)
@@ -252,8 +252,12 @@ class NeuronMCTS:
         self.root = NeuronNode(state, last_action, player_to_move, env_class)
 
     def choose_action(self) -> int:
-        """选择访问量最大的孩子作为根节点，并裁剪树"""
-        action = int(np.argmax(self.root.child_n))
+        """选择访问量最大的孩子作为根节点，并裁剪树,第一步有随机性，其他无随机性"""
+        if self.root.last_action == -1:
+            pi = self.get_pi(3)
+            action = np.random.choice(len(pi), p=pi)
+        else:
+            action = int(np.argmax(self.root.child_n))
         self.apply_action(action)
         return action
 

@@ -87,4 +87,4 @@ def pgn_to_numpy_dataset(pgn_path: str, output_path: str, sample_step: int):
 
 if __name__ == "__main__":
     # 使用方法
-    pgn_to_numpy_dataset("env/dpxq-99813games.pgns", "env/chess", 10)
+    pgn_to_numpy_dataset("env/dpxq-99813games.pgns", "env/chess", 50)

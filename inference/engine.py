@@ -40,13 +40,16 @@ class InferenceEngine:
         self.start_time = time.time()
         self.total_requests = 0
         self.finished_requests = 0
+        self.max_batch_size = 50
 
     @classmethod
     def load_model(cls, model_index: int, env_name: EnvName, eval_mode=True) -> tuple[Net, int]:
         """尝试加载模型，加载失败时使用初始参数，index为-1"""
         model_path = get_checkpoint_path(env_name, model_index)
         model, success = Net.load_from_checkpoint(model_path, eval_model=eval_mode)
+        print(f'Success: {success}')
         index = model_index if success else -1
+        print(f'model index is {index}')
         return model, index
 
     def start(self) -> None:
@@ -66,13 +69,13 @@ class InferenceEngine:
         while not self.stop_event.is_set():
             batch_size = 1
             threshold = 32
-            max_size = 50
+            # max_size = 50
             n_pending = self.infer_queue.qsize()
             delay = 1e-4 + 1e-3 * n_pending  # 根据queue排队情况，动态调整
             phase = 'ramp up'
             requests = []
 
-            while len(requests) < min(batch_size, max_size):
+            while len(requests) < min(batch_size, self.max_batch_size):
                 # 思路参考tcp拥塞控制
                 try:
                     request = self.request_queue.get(timeout=delay)

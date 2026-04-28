@@ -1,6 +1,7 @@
 import os
 import pickle
 import random
+import threading
 
 from tqdm import tqdm
 
@@ -19,16 +20,79 @@ class Arena:
         self.logger = get_logger('arena')
         self.env_name = env_name
         self.load()
+        self.stop_event = threading.Event()
 
     def run(self, n_games: int) -> None:
+        """随机选择对手进行n局对弈"""
         with ThreadPoolExecutor(max_workers=5) as executor:
             futures = [executor.submit(self.vs_worker) for _ in range(n_games)]
             for future in tqdm(as_completed(futures), total=n_games):
                 future.result()
 
-    def vs_worker(self) -> None:
-        index1, index2 = self.get_random_models()
+    def run_gauntlet(self, games_per_model=15) -> None:
+        """
+        【新增方法】车轮战模式：
+        遍历每一个模型当'擂主'，让它去打 N 局随机对手。
+        这样能保证每个模型都有足够的曝光度。
+        """
+        # 获取所有模型ID并排序
+        all_models = sorted(list(self.rates.keys()))
+
+        print(f"开始车轮战！共 {len(all_models)} 个模型，每人打 {games_per_model} 局...")
+
+        for hero_idx in all_models:
+            if hero_idx < 56:
+                continue
+            self.logger.info(f"=== 当前擂主: Model {hero_idx} ===")
+            # 专门为这个擂主跑 N 局
+            self.run_for_specific_hero(hero_idx, n_games=games_per_model)
+
+            # 每测完一个擂主，显示一次排名，反馈感很强
+            self.show_rank(limit=10, ascend=True)
+            self.show_rank(limit=10, ascend=False)
+
+    def run_for_specific_hero(self, hero_idx: int, n_games: int) -> None:
+        """为指定擂主启动多线程对战"""
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            # 提交任务时，把 hero_idx 传进去
+            futures = [executor.submit(self.vs_worker, hero_idx) for _ in range(n_games)]
+            for future in tqdm(as_completed(futures), total=n_games, desc=f"Model {hero_idx} vs All"):
+                future.result()
+
+    def vs_worker(self, hero_idx: int = None) -> None:
+        """
+        修改后的工作线程：
+        如果传入了 hero_idx，就固定它为一方，另一方随机。
+        如果没有传入（None），就还是全随机（兼容旧模式）。
+        """
+        if hero_idx is not None:
+            # 【车轮战逻辑】
+            index1 = hero_idx
+            # 为擂主挑选一个合适的对手 (排除了擂主自己)
+            index2 = self.get_rival_for_hero(hero_idx)
+        else:
+            # 【旧逻辑】全随机
+            index1, index2 = self.get_random_models()
+
         self.versus(index1, index2)
+
+    def get_rival_for_hero(self, hero_idx: int) -> int:
+        """为擂主挑选对手"""
+        # 候选人列表（排除自己）
+        candidates = list(self.rates.keys())
+        if hero_idx in candidates:
+            candidates.remove(hero_idx)
+
+        if not candidates:
+            raise ValueError("没有足够的对手！")
+
+        # 策略A：完全随机挑选 (简单粗暴，覆盖面广)
+        # return random.choice(candidates)
+
+        # 策略B：优先挑分数接近的 (收敛最快，推荐)
+        hero_score = self.rates[hero_idx].scores
+        weights = [1 / (abs(self.rates[c].scores - hero_score) + 1e-6) for c in candidates]
+        return random.choices(candidates, weights=weights, k=1)[0]
 
     def get_random_models(self) -> tuple[int, int]:
         """选择两个model id 以供比赛"""
@@ -52,18 +116,27 @@ class Arena:
             self.logger.info(f'{index1} VS {index2}: Pre_game:{self.rates[index1]}  {self.rates[index2]}')
             env = get_class(self.env_name)()
             # 对弈
-            with AIServer(self.env_name, index1) as p1, AIServer(self.env_name, index2) as p2:
+            with AIServer(self.env_name, index1, n_simulation=300, verbose=False) as p1, AIServer(self.env_name, index2,
+                                                                                                  n_simulation=300,
+                                                                                                  verbose=False) as p2:
                 outcome = env.random_order_play((p1, p2), silent=True)
             # 更新score
             e1, e2 = self.rates[index1], self.rates[index2]
-            if outcome == (1, 0):
+            result = ''
+            if outcome == 0:
                 e1.defeat(e2)
-            elif outcome == (0, 1):
+                result = 'win'
+            elif outcome == 1:
                 e2.defeat(e1)
-            elif outcome == (0, 0):
+                result = 'lose'
+            elif outcome == -1:
                 e1.draw(e2)
+                result = 'draw'
+
             self.save()
-            self.logger.info(f'{index1} VS {index2}: Post_game:{self.rates[index1]}  {self.rates[index2]}')
+            self.logger.info(f'{index1} VS {index2}: {result}')
+            self.logger.info(f'----{e1}')
+            self.logger.info(f'----{e2}')
         else:
             self.logger.info(f'{index1} or {index2} not found.')
 
@@ -85,7 +158,8 @@ class Arena:
         if os.path.exists(self.list_path):
             self.logger.info(f'Adjusting candidate list from {self.list_path}.')
             with open(self.list_path, "r") as f:
-                lst_set = set(map(int, f.readline().strip().split(',')))
+                line = f.readline().strip()
+                lst_set = set(int(x) for x in line.split(',') if x.strip())
                 for i in lst_set:
                     if i not in self.rates:
                         self.rates[i] = Elo(i)
@@ -96,16 +170,27 @@ class Arena:
 
     @property
     def rates_path(self) -> str:
-        return os.path.join(CONFIG['rates_dir'], self.env_name, 'rates.pkl')
+        return os.path.join(CONFIG['data_dir'], self.env_name, 'rates', 'rates.pkl')
 
     @property
     def list_path(self) -> str:
-        return os.path.join(CONFIG['rates_dir'], self.env_name, 'candidates.txt')
+        return os.path.join(CONFIG['data_dir'], self.env_name, 'rates', 'candidates.txt')
 
-    def show_rank(self) -> None:
+    def show_rank(self, limit: int = 10, ascend=True) -> None:
         """从高到低显示所有排名情况"""
         if not self.rates:
-            self.logger.info('No candidate rates to show.')
+            print('No candidate rates to show.')
             return
-        for idx, (_, v) in enumerate(sorted(self.rates.items(), key=lambda x: x[1].scores, reverse=True)):
-            self.logger.info(f'{idx:>3} {v}')
+        if ascend:
+            print('=' * 15 + f' Top {limit} ' + '=' * 15)
+        else:
+            print('=' * 15 + f' Bottom {limit} ' + '=' * 15)
+        for idx, (_, v) in enumerate(sorted(self.rates.items(), key=lambda x: x[1].scores, reverse=ascend)):
+            print(f'{idx + 1:>3} {v}')
+            if idx + 1 >= limit:
+                break
+
+    def scheduled_show(self, interval: int) -> None:
+        while not self.stop_event.wait(interval):
+            self.show_rank(10, True)
+            self.show_rank(10, False)
