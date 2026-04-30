@@ -2,6 +2,10 @@ import pygame
 from core.utils.config import CONFIG, color_key
 
 class Button:
+    # 静态类变量，避免每个按钮重复加载
+    hover_sound = None
+    click_sound = None
+
     def __init__(self, text, action, pos, size=(240, 60), color: color_key = 'blue'):
         self.text = text
         self.action = action
@@ -13,6 +17,16 @@ class Button:
         
         # 字体预加载
         self.font = pygame.font.SysFont('Arial', int(self.size[1] * 0.45), bold=True)
+
+        # 加载音效
+        if Button.hover_sound is None:
+            try:
+                Button.hover_sound = pygame.mixer.Sound('./apps/assets/sound/ui_hover.wav')
+                Button.hover_sound.set_volume(0.3)
+                Button.click_sound = pygame.mixer.Sound('./apps/assets/sound/ui_click.wav')
+                Button.click_sound.set_volume(0.5)
+            except:
+                pass
 
     def draw(self):
         # 颜色逻辑
@@ -75,11 +89,16 @@ class Button:
 
     def handle_input(self, event):
         if event.type == pygame.MOUSEMOTION:
-            if self.rect.collidepoint(event.pos):
+            is_hover = self.rect.collidepoint(event.pos)
+            if is_hover and self.state != 'hover':
+                if Button.hover_sound:
+                    Button.hover_sound.play()
                 self.state = 'hover'
-            else:
+            elif not is_hover:
                 self.state = 'normal'
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1 and self.rect.collidepoint(event.pos):
+                if Button.click_sound:
+                    Button.click_sound.play()
                 self.state = 'click'
                 self.action()

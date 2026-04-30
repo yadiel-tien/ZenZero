@@ -1,18 +1,18 @@
 # ZenZero - 中国象棋与五子棋 AI (ZenZero - Chinese Chess & Gomoku AI)
 
-这是一个基于AlphaZero思想实现的通用棋类AI框架，目前已支持中国象棋（Chinese Chess）和五子棋（Gomoku）。项目采用了高度优化的架构，旨在充分利用多核CPU和GPU资源，实现高性能的自我对弈训练和对战。
+这是一个基于 AlphaZero 思想实现的通用棋类 AI 框架，目前已支持中国象棋（Chinese Chess）和五子棋（Gomoku）。项目采用了高度优化的架构，旨在充分利用多核 CPU 和 GPU 资源，实现高性能的自我对弈训练和对战。
 
 ## 🚀 核心特性 (Features)
 
-* **高性能自我对弈:** 采用移除了GIL的`free-threading` Python (`nogil`)，结合`ThreadPoolExecutor`，实现了真正并行的自我对弈数据生成。
-* **动态批处理推理:** 独立的推理服务器，采用动态批处理（Dynamic Batching）技术，能根据请求压力自动调整批次大小，最大化GPU利用率。
-* **Cython核心加速:** 游戏的核心逻辑，如走法生成和胜负判断，已使用Cython进行了C级别的优化，极大地提升了计算速度。
-* **AI竞技场 (Arena):** 内建一个自动化的AI竞技场，可以让不同版本的模型进行对战，并根据结果更新其ELO等级分，用于科学地评估模型棋力的进展。
+* **高性能自我对弈:** 采用移除了 GIL 的 `free-threading` Python (`nogil`)，实现了真正并行的自我对弈数据生成。
+* **动态批处理推理:** 独立的推理服务器，采用动态批处理（Dynamic Batching）技术，最大化 GPU 利用率。
+* **Cython 核心加速:** 走法生成和胜负判断等核心逻辑使用 Cython 进行了 C 级别的优化。
+* **AI 竞技场 (Arena):** 自动化的 AI 竞技场，通过对战更新 ELO 等级分，科学评估模型棋力。
 * **前后端分离架构:**
-    * **训练端:** 采用高效的本地Unix Socket进行低延迟通信。
-    * **对战端:** 提供了基于Flask的Web API服务器，可以轻松地与各种客户端（如网页、桌面应用）进行对战。
-* **图形化对战界面 (GUI):** 基于Pygame实现了功能完善的图形化界面，支持人类 vs. AI、AI vs. AI多种对战模式。
-* **模块化设计:** 项目的各个部分（环境、MCTS、网络、播放器、UI）都进行了清晰的模块化分离，易于维护和扩展。
+    * **训练端:** 采用高效的本地 Unix Socket 进行低延迟通信。
+    * **对战端:** 支持 AI 算力与 UI 界面分布式部署（例如：高性能服务器负责 MCTS 搜索，本地轻便设备仅负责图形交互）。
+* **图形化对战界面 (GUI):** 基于 Pygame 实现，支持 Human vs. AI、AI vs. AI 等多种模式。
+* **模块化设计:** 环境、MCTS、网络、播放器、UI 模块清晰分离，易于扩展。
 
 ## ⚙️ 项目结构 (Project Structure)
 
@@ -28,144 +28,63 @@ ZenZero/
 
 ## 🛠️ 安装与设定 (Setup & Installation)
 
-本项目需要两个独立的Python环境：一个用于高性能计算的`nogil`环境，一个用于UI的标准Python环境。
+建议准备两个 Python 环境：一个用于高性能计算的 `nogil` 环境，一个用于 UI 的标准环境。
 
-1.  **克隆项目:**
-    ```bash
-    git clone git@github.com:yadiel-tien/AlphaGomoku.git
-    cd five_in_a_row
-    ```
+### 1. 克隆项目
+```bash
+git clone git@github.com:yadiel-tien/AlphaGomoku.git
+cd ZenZero
+```
 
-2.  **创建`nogil`计算环境 (用于训练和推理):**
-    * 推荐使用 [uv](https://github.com/astral-sh/uv) 快速安装并管理 free-threading 版本的 Python。
-    * 安装 Python 3.14t 并创建虚拟环境：
-        ```bash
-        # 安装 3.14t (free-threading)
-        uv python install 3.14t
-        # 创建虚拟环境
-        uv venv --python 3.14t nogil_venv
-        # 激活环境
-        source nogil_venv/bin/activate
-        ```
-    * 安装依赖：
-        ```bash
-        uv pip install torch numpy 
-        # 或者如果有 requirements.txt
-        # uv pip install -r requirements.txt
-        ```
+### 2. 创建 nogil 计算环境 (用于训练和推理)
+推荐使用 [uv](https://github.com/astral-sh/uv) 管理 free-threading 版本的 Python：
+```bash
+# 安装 3.14t (free-threading)
+uv python install 3.14t
+# 创建虚拟环境
+uv venv --python 3.14t nogil_venv
+# 激活环境
+source nogil_venv/bin/activate
+# 安装核心依赖 (示例)
+uv pip install torch numpy requests
+```
 
-3.  **创建标准UI环境 (用于图形界面):**
-    * 使用您系统的标准Python创建虚拟环境：
-        ```bash
-        python3 -m venv standard_venv
-        source standard_venv/bin/activate
-        ```
-    * 安装依赖 (主要是 `pygame` 和 `requests`):
-        ```bash
-        pip install pygame requests
-        ```
+### 3. 创建标准 UI 环境 (用于图形界面)
+```bash
+python3 -m venv standard_venv
+source standard_venv/bin/activate
+pip install pygame requests numpy
+```
 
-4.  **编译Cython模块:**
-    * 已含编译后so文件，可直接使用
-    * **必须**使用`nogil`环境来编译，以确保线程安全。
-    * 首先，切换虚拟环境：
-        ```bash
-        source nogil_venv/bin/activate
-        ```
-    * 然后执行编译：
-        ```bash
-        cd env
-        python setup.py build_ext --inplace
-        cd ..
-        ```
+### 4. 编译 Cython 模块
+必须使用 `nogil` 环境编译以确保线程安全：
+```bash
+source nogil_venv/bin/activate
+cd core/env
+python setup.py build_ext --inplace
+cd ../..
+```
 
 ## 🎮 使用方法 (Usage)
 
-所有指令都在项目根目录下执行。
+### 1. 训练新模型
+需要两个终端，均使用 `nogil_venv` 环境：
+* **终端 1 (服务器):** `python -m scripts.train_server`
+* **终端 2 (自我对弈):** `python -X gil=0 -m scripts.selfplay`
 
-### 1. 训练新模型 (自我对弈 + 训练)
+### 2. 图形化对战 (推荐)
+1. **终端 1 (Hub 服务):** `python -m scripts.infer_hub` (标准环境)
+2. **终端 2 (对战后端):** `python -m scripts.play_server` (标准环境)
+3. **终端 3 (GUI 界面):** `python -m scripts.ui_play` (标准环境)
 
-这需要同时开启两个终端窗口，并且都**启用`nogil_venv`环境**。
+### 3. AI 竞技场
+```bash
+source nogil_venv/bin/activate
+python -m scripts.arena
+```
 
-* **在【终端1】，启动训练与推理服务器:**
-    ```bash
-    source nogil_venv/bin/activate
-    python -m scripts.train_server
-    ```
-    服务器会开始运行，等待来自自我对弈客户端的连接和训练指令。
-
-* **在【终端2】，启动自我对弈客户端:**
-    ```bash
-    source nogil_venv/bin/activate
-    # 使用 -X gil=0 标志来彻底禁用GIL
-    python -X gil=0 -m scripts.selfplay
-    ```
-    自我对弈程序会开始高速生成棋局数据，并在每轮结束后通知服务器进行训练。
-### 2. 命令行对战 (Human vs. AI)
-
-这需要两个终端，分别在**不同**的Python环境中运行。
-
-* **在【终端1 - 管理中心】，启动Hub服务器:**
-    * Hub负责动态创建和管理推理服务。
-    * 在**标准Python环境**环境中运行。
-    ```bash
-    conda active fiveInARow
-    python -m scripts.infer_hub # 假设这是您的Hub启动脚本
-  ```
-* **在【终端2 - 命令行对战界面】，启动AI对战API服务器:**
-    * 这个服务器负责接收UI的请求并进行MCTS计算。
-    * 在**标准Python环境**环境中运行或 **`nogil_venv`环境**都可以。
-    ```bash
-    conda active fiveInARow
-    python -m scripts.play_server # 这是您的Flask服务器
-    ```
-
-
-### 3. 图形化对战 (Human vs. AI)
-
-这需要两个终端，分别在**不同**的Python环境中运行。
-
-* **在【终端1 - 管理中心】，启动Hub服务器:**
-    * Hub负责动态创建和管理推理服务。
-    * 在**标准Python环境**环境中运行。
-    ```bash
-    conda active fiveInARow
-    python -m scripts.infer_hub # 假设这是您的Hub启动脚本
-  ```
-* **在【终端2 - 远程后端服务】，启动AI对战API服务器:**
-    * 这个服务器负责接收UI的请求并进行MCTS计算。通过http服务传输，支持局域网不同主机通信。
-    * 在**标准Python环境**环境中运行。。
-    ```bash
-    conda active fiveInARow
-    python -m scripts.play_server # 这是您的Flask服务器
-    ```
-
-* **在【终端3 - 游戏界面】，启动Pygame UI客户端:**
-    * 这个程序只负责图形界面，不进行复杂计算。
-    * **必须**在能稳定运行Pygame的**标准Python环境**中运行。
-    ```bash
-    conda active fiveInARow
-    python -m scripts.ui_play # 这是您的Pygame主程序
-    ```
-    Pygame窗口将会启动，您可以与通过API服务器运行的AI进行对战。
-
-### 4. AI竞技场 (评估模型棋力)
-
-* **准备工作:** 在`data/rates/ChineseChess/` (或Gomoku) 目录下，创建一个 `candidates.txt` 文件，里面用逗号分隔写上您想评估的模型ID，例如：`450,460,470,480`。
-
-* **启动竞技场:**
-    * 竞技场会并行地进行多场AI对战，也需要在`nogil_venv`环境中运行。
-    ```bash
-    source nogil_venv/bin/activate
-    python scripts/run_arena.py # 假设您有一个启动Arena的脚本
-    ```
-
-## 📝 设置 (Configuration)
-
-项目的主要参数，如文件路径、模型超参数等，都可以在 `utils/config.py` 中进行修改。
+## 📝 配置 (Configuration)
+文件路径、模型超参数等均可在 `core/utils/config.py` 中修改。
 
 ## 📜 授权 (License)
-
-MIT License。
-
----
+MIT License.

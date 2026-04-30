@@ -23,7 +23,7 @@ class GameUI(ABC):
         self.piece_sound = pygame.mixer.Sound('./apps/assets/sound/place_stone.mp3')
         self.win_sound = pygame.mixer.Sound('./apps/assets/sound/win.mp3')
         pygame.mixer.music.load('./apps/assets/sound/bgm.mp3')
-        pygame.mixer.music.set_volume(0.5)
+        pygame.mixer.music.set_volume(0.35)
         self.start_btn = Button("Start", self.start, (110, 710), (180, 50), color='green')
         self.reverse_player_btn = Button(f'First: {players[0].description}', self.reverse_player, pos=(310, 710),
                                          size=(180, 50), color='grey')
@@ -57,27 +57,28 @@ class GameUI(ABC):
         if self.status in ['playing', 'finished']:
             return
             
-        # 1. 标题 (书法感 + 阴影)
-        font_big = pygame.font.Font(self.font_path, 42)
+        # 1. 标题 (书法感 + 阴影) - 放置在上方空白区域的正中间
+        font_big = pygame.font.Font(self.font_path, 54)
         title_text = "ZenZero"
         shadow_color = (200, 190, 170)
         main_color = (40, 40, 40)
+        title_y = 40 # 居中于顶端与棋盘之间的空白 (约 130px 高度)
         
         # 绘制浅色阴影
         shadow_surf = font_big.render(title_text, True, shadow_color)
-        self.screen.blit(shadow_surf, (self.rect.centerx - shadow_surf.get_width()//2 + 2, 10))
+        self.screen.blit(shadow_surf, (self.rect.centerx - shadow_surf.get_width()//2 + 2, title_y + 2))
         # 绘制主标题
         title_surf = font_big.render(title_text, True, main_color)
-        self.screen.blit(title_surf, (self.rect.centerx - title_surf.get_width()//2, 8))
+        self.screen.blit(title_surf, (self.rect.centerx - title_surf.get_width()//2, title_y))
         
-        # 2. 装饰性红印章 (缩小版)
-        seal_x, seal_y = self.rect.centerx + 95, 8
-        pygame.draw.rect(self.screen, (150, 20, 20), (seal_x, seal_y, 28, 28), border_radius=4)
-        pygame.draw.rect(self.screen, (200, 160, 40), (seal_x + 3, seal_y + 3, 22, 22), width=1, border_radius=3)
+        # 2. 装饰性红印章 (同步下移)
+        seal_x, seal_y = self.rect.centerx + 120, title_y + 2
+        pygame.draw.rect(self.screen, (150, 20, 20), (seal_x, seal_y, 34, 34), border_radius=5)
+        pygame.draw.rect(self.screen, (200, 160, 40), (seal_x + 4, seal_y + 4, 26, 26), width=1, border_radius=4)
         
-        font_seal = pygame.font.Font(self.font_path, 14)
+        font_seal = pygame.font.Font(self.font_path, 18)
         seal_txt = font_seal.render("AI", True, (250, 240, 210))
-        self.screen.blit(seal_txt, (seal_x + 6, seal_y + 5))
+        self.screen.blit(seal_txt, (seal_x + 8, seal_y + 6))
 
     @property
     def is_view_flipped(self) -> bool:

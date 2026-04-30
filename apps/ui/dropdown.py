@@ -2,6 +2,10 @@ import pygame
 from core.utils.config import CONFIG
 
 class Dropdown:
+    # 静态音效
+    scroll_sound = None
+    select_sound = None
+
     def __init__(self, options, pos, size=(240, 50), default_text="Select Model", default_index=-1):
         self.options = options # 列表: [(label, value), ...]
         self.pos = pos
@@ -11,6 +15,7 @@ class Dropdown:
         
         self.is_open = False
         self.selected_index = default_index
+        self.hovered_index = -1
         self.default_text = default_text
         
         # 滚动相关
@@ -20,6 +25,16 @@ class Dropdown:
         
         # 样式配置 (取自蓝色主题)
         self.colors = CONFIG['color_themes']['blue']
+
+        # 加载音效
+        if Dropdown.scroll_sound is None:
+            try:
+                Dropdown.scroll_sound = pygame.mixer.Sound('./apps/assets/sound/ui_scroll.wav')
+                Dropdown.scroll_sound.set_volume(0.3)
+                Dropdown.select_sound = pygame.mixer.Sound('./apps/assets/sound/ui_click.wav')
+                Dropdown.select_sound.set_volume(0.5)
+            except:
+                pass
         
     def draw(self):
         # 1. 绘制主框
@@ -101,9 +116,26 @@ class Dropdown:
         self.screen.blit(surf, text_pos)
 
     def handle_input(self, event):
+        if event.type == pygame.MOUSEMOTION:
+            if self.is_open:
+                num_show = min(len(self.options), self.max_visible)
+                list_rect = pygame.Rect(self.rect.x, self.rect.bottom + 5, self.size[0], num_show * self.item_height)
+                if list_rect.collidepoint(event.pos):
+                    # 计算当前悬停的是哪个索引
+                    new_hover = int((event.pos[1] - (self.rect.bottom + 5) + self.scroll_offset) // self.item_height)
+                    if 0 <= new_hover < len(self.options) and new_hover != self.hovered_index:
+                        self.hovered_index = new_hover
+                        if Dropdown.scroll_sound:
+                            Dropdown.scroll_sound.play()
+                else:
+                    self.hovered_index = -1
+            return False
+
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1: # 左键点击
                 if self.rect.collidepoint(event.pos):
+                    if Dropdown.select_sound:
+                        Dropdown.select_sound.play()
                     self.is_open = not self.is_open
                     return True
                 
@@ -114,6 +146,8 @@ class Dropdown:
                         # 计算点击的是哪个索引
                         clicked_idx = int((event.pos[1] - (self.rect.bottom + 5) + self.scroll_offset) // self.item_height)
                         if 0 <= clicked_idx < len(self.options):
+                            if Dropdown.select_sound:
+                                Dropdown.select_sound.play()
                             self.selected_index = clicked_idx
                             self.is_open = False
                             return True
@@ -122,11 +156,17 @@ class Dropdown:
             elif self.is_open: # 滚轮事件
                 max_scroll = max(0, len(self.options) * self.item_height - (min(len(self.options), self.max_visible) * self.item_height))
                 if event.button == 4: # 向上滚
-                    self.scroll_offset = max(0, self.scroll_offset - self.item_height)
-                    return True
+                    if self.scroll_offset > 0:
+                        self.scroll_offset = max(0, self.scroll_offset - self.item_height)
+                        if Dropdown.scroll_sound:
+                            Dropdown.scroll_sound.play()
+                        return True
                 elif event.button == 5: # 向下滚
-                    self.scroll_offset = min(max_scroll, self.scroll_offset + self.item_height)
-                    return True
+                    if self.scroll_offset < max_scroll:
+                        self.scroll_offset = min(max_scroll, self.scroll_offset + self.item_height)
+                        if Dropdown.scroll_sound:
+                            Dropdown.scroll_sound.play()
+                        return True
                     
         return False
 

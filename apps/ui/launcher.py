@@ -25,6 +25,9 @@ class LauncherUI:
         self.dropdowns = []
         self.setup_game_buttons()
         
+        # 启动背景音乐
+        self.start_music()
+        
         # 缓存背景渐变，避免每帧重复计算
         self.bg_surface = pygame.Surface(self.rect.size)
         self.render_background_cache()
@@ -80,9 +83,9 @@ class LauncherUI:
         self.dropdowns = []
         center_x = self.rect.centerx - 120
         self.buttons = [
-            Button("Human vs Human", lambda: self.select_mode("HvH"), (center_x, 250), color='green'),
-            Button("Human vs AI", lambda: self.select_mode("HvAI"), (center_x, 330), color='orange'),
-            Button("AI vs AI", lambda: self.select_mode("AIvAI"), (center_x, 410), color='grey'),
+            Button("Local PvP", lambda: self.select_mode("HvH"), (center_x, 280), color='green'),
+            Button("Human vs AI", lambda: self.select_mode("HvAI"), (center_x, 360), color='orange'),
+            Button("AI vs AI", lambda: self.select_mode("AIvAI"), (center_x, 440), color='grey'),
             Button("Back", self.setup_game_buttons, (30, 30), (100, 40), color='black')
         ]
 
@@ -132,6 +135,20 @@ class LauncherUI:
             if v1 is not None and v2 is not None:
                 self.finish(v1, v2)
 
+    def start_music(self):
+        try:
+            # 确保音频设备已初始化
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
+            pygame.mixer.music.load('./apps/assets/sound/launcher_bgm.wav')
+            pygame.mixer.music.set_volume(0.8)
+            pygame.mixer.music.play(-1) # 循环播放
+        except:
+            pass
+
+    def stop_music(self):
+        pygame.mixer.music.stop()
+
     def select_game(self, game):
         self.selected_game = game
         CONFIG['game_name'] = game
@@ -180,17 +197,18 @@ class LauncherUI:
 
             pygame.draw.circle(self.screen, p["color"], (int(display_x), int(display_y)), p["size"])
 
-        # 3. 标题 (书法感 + 阴影)
+        # 3. 标题 (书法感 + 阴影) - 位置下移
         font_big = pygame.font.Font(self.font_path, 72)
+        title_y = 115
         # 绘制浅色阴影
         shadow_surf = font_big.render("ZenZero", True, (200, 190, 170))
-        self.screen.blit(shadow_surf, (self.rect.centerx - shadow_surf.get_width()//2 + 3, 83))
+        self.screen.blit(shadow_surf, (self.rect.centerx - shadow_surf.get_width()//2 + 3, title_y + 3))
         # 绘制主标题
         title_surf = font_big.render("ZenZero", True, (40, 40, 40))
-        self.screen.blit(title_surf, (self.rect.centerx - title_surf.get_width()//2, 80))
+        self.screen.blit(title_surf, (self.rect.centerx - title_surf.get_width()//2, title_y))
         
-        # 装饰性红印章 (设计感增强: 圆角与阴影)
-        seal_x, seal_y = self.rect.centerx + 165, 75
+        # 装饰性红印章 (位置同步下移)
+        seal_x, seal_y = self.rect.centerx + 165, title_y - 5
         # 印章投影
         pygame.draw.rect(self.screen, (160, 150, 130), (seal_x + 2, seal_y + 2, 42, 42), border_radius=6)
         # 印章主体
@@ -202,7 +220,7 @@ class LauncherUI:
         seal_txt = font_seal.render("AI", True, (250, 240, 210))
         self.screen.blit(seal_txt, (seal_x + 10, seal_y + 8))
 
-        # 副标题: 优化显示逻辑与长度控制
+        # 副标题: 优化显示逻辑与长度控制 - 位置同步下移
         status_text = self.state.replace('_', ' ')
         if self.selected_game:
             game_name = "Chess" if self.selected_game == "ChineseChess" else self.selected_game
@@ -216,7 +234,7 @@ class LauncherUI:
             font_small = pygame.font.Font(self.font_path, 18)
             sub_surf = font_small.render(status_text, True, (110, 100, 90))
 
-        self.screen.blit(sub_surf, (self.rect.centerx - sub_surf.get_width()//2, 165))
+        self.screen.blit(sub_surf, (self.rect.centerx - sub_surf.get_width()//2, title_y + 85))
 
         # 4. 绘制交互组件
         for btn in self.buttons:
