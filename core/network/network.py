@@ -8,6 +8,9 @@ import torch
 from torch import Tensor, nn
 
 from core.utils.config import CONFIG, settings, NetConfig
+from core.utils.logger import get_logger
+
+logger = get_logger('network')
 
 
 class ConvBlock(nn.Module):
@@ -137,10 +140,7 @@ class BaseNet(nn.Module):
         if self.eval_model:
             self.eval()
         mode = 'eval' if self.eval_model else 'training'
-        print(f'Network initialized in {mode} mode on {self.device}, configuration as below:')
-        # 打印配置
-        print(json.dumps(self.config, indent=2))
-        print("=" * 60)
+        logger.info(f'Network initialized in {mode} mode on {self.device}. Configuration: {json.dumps(self.config, indent=2)}')
 
     @classmethod
     def load_latest_from_folder(cls, folder: str, eval_model: bool = True, device=CONFIG['device']) -> tuple[Self, int]:
@@ -168,12 +168,12 @@ class BaseNet(nn.Module):
             model = cls(config, eval_model=eval_model, device=device)
             # 加载参数
             model.load_state_dict(checkpoint['model'])
-        except (FileNotFoundError, KeyError):
+        except (FileNotFoundError, KeyError) as e:
             success = False
+            logger.warning(f"Checkpoint not found or invalid: {path}. Error: {e}")
             model = cls(eval_model=eval_model, device=device)
         except Exception as e:
-            print(e)
-            traceback.print_exc()
+            logger.error(f"Error loading checkpoint from {path}: {e}", exc_info=True)
             raise
         return model, success
 

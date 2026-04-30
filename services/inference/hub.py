@@ -108,12 +108,12 @@ class ServerHub:
     def show_status(self):
         """定期显示连接数量"""
         while not self.stop_event.wait(30):
-            title = 'Connection Status'
-            print(f'{title:-^70}')
             with self.lock:
-                for name, infer in self.infers.items():
-                    print(f'{name}: {infer.client_count} clients')
-            print(f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"):-^70}')
+                if not self.infers:
+                    continue
+                
+                status_msg = " | ".join([f"{name}: {infer.client_count} clients" for name, infer in self.infers.items()])
+                self.logger.info(f"Inference Engines Status: {status_msg}")
 
     @staticmethod
     def _clean_socket() -> None:

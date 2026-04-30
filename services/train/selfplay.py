@@ -172,8 +172,8 @@ class SelfPlayManager:
         # 截断的不收集数据
         if env.truncated:
             return [], env.winner
-        env.render()
-        print(f'winner: {env.winner},steps: {env.steps}')
+        # env.render()
+        self.logger.info(f'Game end. Winner: {env.winner}, steps: {env.steps}')
 
         # 平局或着截断数据大部分丢弃
         # if env.winner in (-1, 2) and random.random() < 0.5:
@@ -295,8 +295,8 @@ class SelfPlayManager:
 
         winner = model_list[env.winner]
 
-        env.render()
-        print(f'winner: {env.winner},tester win:{winner == iteration},steps: {env.steps}')
+        # env.render()
+        self.logger.info(f'Evaluation result - winner: {env.winner}, tester win:{winner == iteration}, steps: {env.steps}')
 
         if winner == iteration:
             return 0, env.steps

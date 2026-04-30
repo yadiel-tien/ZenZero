@@ -5,6 +5,9 @@ from numpy.typing import NDArray
 from core.mcts.deepMcts import NeuronMCTS
 from core.utils.types import EnvName
 from .player import Player
+from core.utils.logger import get_logger
+
+logger = get_logger('ai_server')
 
 
 class AIServer(Player):
@@ -19,7 +22,7 @@ class AIServer(Player):
     def _print_verbose(self, msg: str) -> None:
         """只在verbose 模式下打印"""
         if self.verbose:
-            print(msg)
+            logger.info(msg)
 
     @property
     def description(self):
@@ -27,7 +30,7 @@ class AIServer(Player):
 
     def update_state(self, state: NDArray, last_action: int, player_to_move: int) -> None:
         """同步当前棋盘，如果是root的子节点就扩展，否则新建.然后进行mcts模拟走子"""
-        self._print_verbose('思考中...')
+        self._print_verbose(f'Thinking... (Model: {self.model_id})')
         if self.mcts is None:  # 新建
             self.mcts = NeuronMCTS.make_socket_mcts(
                 state=state,

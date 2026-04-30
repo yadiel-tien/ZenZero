@@ -136,10 +136,12 @@ class InferenceEngine:
                 self.deliver_result(requests, probs, values)
 
                 self.finished_requests += len(requests)
-                msg = f'Batch size: {len(requests):>2}.Pending:{self.infer_queue.qsize():2}.'
-                msg += f' total{self.finished_requests:>8}.'
-                msg += f' cost:{(time.time() - self.start_time) * 1000 / self.finished_requests:.6f}sec per 1000 requests.'
-                print(msg, end='\r')
+                # 每 1000 个请求打印一次吞吐量统计，避免频繁刷新控制台
+                if self.finished_requests % 1000 == 0:
+                    avg_cost = (time.time() - self.start_time) * 1000 / self.finished_requests
+                    msg = f"Throughput: {len(requests):>2} batch | Pending: {self.infer_queue.qsize():2} | "
+                    msg += f"Total: {self.finished_requests:>8} | Avg: {avg_cost:.4f}s/1k req"
+                    self.logger.info(msg)
 
             except queue.Empty:
                 continue

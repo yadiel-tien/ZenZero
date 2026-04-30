@@ -11,6 +11,9 @@ from numpy.typing import NDArray
 from core.utils.types import EnvName
 from .player import Player
 from core.utils.config import CONFIG
+from core.utils.logger import get_logger
+
+logger = get_logger('ai_client')
 
 
 class ClientStatus(Enum):
@@ -133,23 +136,23 @@ class AIClient(Player):
             return response.json()
 
         except requests.exceptions.HTTPError as http_err:
-            error_msg = f'HTTP错误 ({response.status_code if response else "Unknown"}): '
+            error_msg = f'HTTP Error ({response.status_code if response else "Unknown"}): '
             try:
                 error_data = response.json()
                 error_msg += str(error_data.get('error', error_data))
             except ValueError:
                 error_msg += response.text or str(http_err)
-            print(error_msg)
+            logger.error(error_msg)
             raise  # 重新抛出异常
 
         except json.JSONDecodeError as json_err:
-            error_msg = f'响应不是有效的JSON: {str(json_err)}'
-            print(error_msg)
+            error_msg = f'Invalid JSON response: {str(json_err)}'
+            logger.error(error_msg)
             raise requests.exceptions.RequestException(error_msg)
 
         except requests.exceptions.RequestException as e:
-            error_msg = f'请求失败: {str(e)}'
-            print(error_msg)
+            error_msg = f'Request failed: {str(e)}'
+            logger.error(error_msg)
             raise  # 重新抛出异常
 
     def reset(self) -> None:
@@ -168,7 +171,7 @@ class AIClient(Player):
             response.raise_for_status()
             return response.json()
         except Exception as e:
-            print(f"Failed to fetch models from server: {e}")
+            logger.warning(f"Failed to fetch models from server: {e}")
             return {'indices': [], 'best_index': -1}
 
     def shutdown(self) -> None:
