@@ -9,7 +9,7 @@ ZenZero 是一个基于 AlphaZero 算法实现的通用棋类 AI 框架，专注
 
 ### 2. 高效推理引擎 (High-Performance Inference)
 *   **动态批处理 (Dynamic Batching)**: 推理服务器根据负载动态调整 Batch Size，极大提升 GPU 吞吐量。
-*   **多级缓冲与低开销 IPC**: 训练侧 (selfplay + 推理 + 训练) 单进程运行，MCTS 通过进程内队列直接请求推理，无序列化开销；对战侧跨进程使用 Unix Domain Socket 低延迟通信。
+*   **全进程内零拷贝 IPC**: 训练与对战均已统一为进程内队列 (queue) 请求推理，无 socket / pickle 序列化开销；跨机器仅 GUI 走 HTTP。
 
 ### 3. C 级核心优化 (Cython Acceleration)
 *   中国象棋的走法生成、合法性检查以及五子棋的五子连珠判定均使用 **Cython** 编写，搜索性能相比纯 Python 提升约 30 倍。
@@ -61,13 +61,12 @@ cd ../..
 
 ### 2. 图形化 GUI 对战
 支持人机对战、双人对战及 AI 观战。前端与后端可同机，也可跨机器 (前端在 Mac/Windows，后端在 GPU 服务器，HTTP 通信)：
-1. **启动后端** (后端环境): `python -m scripts.play_server` (Flask API + 推理引擎 + hub)
+1. **启动后端** (后端环境): `python -m scripts.play_server` (Flask API + 进程内推理引擎管理)
 2. **启动前端** (前端环境): `python -m scripts.ui_play` (GUI 界面；跨机器时先改 `base_url` 指向后端)
 
 ### 3. 本地命令行对战 (CLI)
-适用于同一台机器上的轻量级命令行交互模式 (均在后端环境 `.venv`)：
-1. **终端 1**: `python -m scripts.infer_hub` (启动推理调度中心)
-2. **终端 2**: `python -m scripts.cli_play` (启动命令行对战)
+单进程自含推理引擎，无需启动任何服务 (后端环境 `.venv`)：
+`python -m scripts.cli_play`
 
 ### 4. Piskvork (Gomocup) 对战
 适用于与 Piskvork 客户端或 Gomocup 兼容的外部软件进行对战 (后端环境 `.venv`)：

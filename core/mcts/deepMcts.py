@@ -1,13 +1,12 @@
 import collections
 import queue
-import socket
 from typing import Self, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
 from core.env.env import BaseEnv
-from services.inference.client import send_request, apply_for_socket_path
+from services.inference.client import send_via_queue
 from core.utils.types import GameResult, EnvName
 
 
@@ -110,7 +109,7 @@ class NeuronNode:
         action = self.valid_actions[index]
         return self.get_child(int(action))
 
-    def evaluate(self, infer_queue: queue.Queue, sock: socket.socket, is_self_play=False) -> float:
+    def evaluate(self, infer_queue: queue.Queue, is_self_play=False) -> float:
         """评估当前state，返回其对上个玩家的平均奖励，以便上个玩家选择奖励最大的动作"""
         # 因为选择时会从子节点中选择最大的，直接使用上个玩家视角，选择其奖励最大的。
         # check_winner函数也要求使用落子玩家的视角
@@ -124,8 +123,8 @@ class NeuronNode:
             return float(self.leaf_reward)
         # 转换为适合神经网络的表示
         state = self.env.convert_to_network(self.state, self.player_to_move)
-        # 发送到推理进程推理，获取policy和value
-        policy, value = send_request(sock, state, cast(EnvName, self.env.__name__), infer_queue, is_self_play)
+        # 发送到推理引擎推理，获取policy和value
+        policy, value = send_via_queue(state, cast(EnvName, self.env.__name__), infer_queue, is_self_play)
         # 象棋采用了红黑交换，需要对应反转概率。类似象棋这样的env都要有switch_side_policy函数实现该功能
         if self.player_to_move == 1 and hasattr(self.env, "switch_side_policy"):
             policy = self.env.switch_side_policy(policy)
@@ -201,7 +200,6 @@ class NeuronMCTS:
             parent=None,
         )
         self.infer_queue: queue.Queue | None = None
-        self.sock: socket.socket | None = None
         self.is_self_play = False
 
     @classmethod
@@ -217,21 +215,6 @@ class NeuronMCTS:
         mcts = cls(state, env_class, last_action, player_to_move)
         mcts.infer_queue = infer_q
         mcts.is_self_play = is_self_play
-        return mcts
-
-    @classmethod
-    def make_socket_mcts(cls,
-                         env_class: type[BaseEnv],
-                         state: NDArray,
-                         last_action: int,
-                         player_to_move: int,
-                         model_id: int
-                         ) -> Self:
-        """通过hub分发socket path，适合并发的推理任务，支持多模型同时运行。支持3.14 no gil运行mcts。需启动hub"""
-        mcts = cls(state, env_class, last_action, player_to_move)
-        sock_path = apply_for_socket_path(model_id, env_class.__name__)
-        mcts.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        mcts.sock.connect(sock_path)
         return mcts
 
     def set_root(self, state: NDArray, last_action: int, player_to_move: int) -> None:
@@ -277,7 +260,7 @@ class NeuronMCTS:
             while node.is_expanded:
                 node = node.select()
             # Evaluation
-            value = node.evaluate(self.infer_queue, self.sock, is_self_play=self.is_self_play)
+            value = node.evaluate(self.infer_queue, is_self_play=self.is_self_play)
             # Back Propagation
             node.back_propagate(value)
 
@@ -314,7 +297,5 @@ class NeuronMCTS:
         return f'root=({self.root.__repr__()})'
 
     def shutdown(self):
-        """关闭时断开socket连接"""
-        if self.sock:
-            self.sock.close()
-            self.sock = None
+        """释放引用"""
+        self.infer_queue = None

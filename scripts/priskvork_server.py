@@ -5,13 +5,14 @@ import time
 from core.env.gomoku import Gomoku
 from core.network.functions import read_best_index
 from core.player.ai_server import AIServer
+from services.inference.hub import ServerHub
 
 
 class GomokuSession:
-    def __init__(self, conn: socket.socket, model_id: int, n_simulation: int) -> None:
+    def __init__(self, conn: socket.socket, model_id: int, n_simulation: int, hub: ServerHub) -> None:
         self.conn = conn
         self.f_reader = conn.makefile('r', encoding='utf-8')
-        self.player = AIServer('Gomoku', model_id=model_id, n_simulation=n_simulation, verbose=False)
+        self.player = AIServer('Gomoku', model_id=model_id, n_simulation=n_simulation, verbose=False, hub=hub)
         self.env = Gomoku()
         self.is_running = True
 
@@ -147,6 +148,8 @@ class GomokuSession:
 
 
 def run_server(host='0.0.0.0', port=12345) -> None:
+    # 进程内推理引擎管理中心，多个会话共享引擎
+    hub = ServerHub()
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         # 允许端口复用，防止重启时报错 "Address already in use"
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -163,7 +166,7 @@ def run_server(host='0.0.0.0', port=12345) -> None:
                 conn, addr = s.accept()
                 print(f"[Net] New connection from {addr}")
                 best_idx = read_best_index('Gomoku')
-                session = GomokuSession(conn, model_id=best_idx, n_simulation=1000)
+                session = GomokuSession(conn, model_id=best_idx, n_simulation=1000, hub=hub)
                 session.run()
             except KeyboardInterrupt:
                 break

@@ -10,7 +10,7 @@ from numpy.typing import NDArray
 from core.utils.logger import get_logger
 from core.utils.types import EnvName
 from .functions import get_checkpoint_path, get_model_name
-from .request import QueueRequest, SocketRequest
+from .request import QueueRequest
 from core.utils.config import CONFIG
 from core.network.network import Net
 
@@ -22,16 +22,16 @@ class InferenceEngine:
         self.env_name = env_name
         self.name = get_model_name(self.env_name, self.model_index)
         # 负责单个request的发送接收
-        self.request_queue: queue.Queue[QueueRequest | SocketRequest] = queue.Queue()
+        self.request_queue: queue.Queue[QueueRequest] = queue.Queue()
         self._collector_thread: threading.Thread | None = None
         # 负责多个request组成batch转为tensor
-        self.preprocess_queue: queue.Queue[list[QueueRequest | SocketRequest]] = queue.Queue()
+        self.preprocess_queue: queue.Queue[list[QueueRequest]] = queue.Queue()
         self._preprocess_thread: threading.Thread | None = None
         # 负责推理
-        self.infer_queue: queue.Queue[tuple[list[QueueRequest | SocketRequest], torch.Tensor]] = queue.Queue()
+        self.infer_queue: queue.Queue[tuple[list[QueueRequest], torch.Tensor]] = queue.Queue()
         self._infer_thread: threading.Thread | None = None
         # 负责推理结果的处理
-        self.result_queue: queue.Queue[tuple[list[QueueRequest | SocketRequest], NDArray, NDArray]] = queue.Queue()
+        self.result_queue: queue.Queue[tuple[list[QueueRequest], NDArray, NDArray]] = queue.Queue()
         self._result_thread: threading.Thread | None = None
 
         self.stop_event = threading.Event()

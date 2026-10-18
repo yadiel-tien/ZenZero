@@ -15,13 +15,14 @@ from services.inference.hub import ServerHub
 
 
 class PlayApiServer:
-    def __init__(self, standalone_hub: bool = True):
+    def __init__(self):
         self.app = Flask(__name__)
         self.ai_players: dict[str, AIServer] = {}
         self.clients_live_time: dict[str, float] = {}
         self.lock = threading.Lock()
-        self.standalone_hub = standalone_hub
         self.logger = get_logger('play_server')
+        # 进程内推理引擎管理中心，所有AIServer共享
+        self.hub = ServerHub()
         
         # 注册路由
         self._setup_routes()
@@ -65,7 +66,7 @@ class PlayApiServer:
                 pid = str(uuid.uuid4())
                 with self.lock:
                     self.clients_live_time[pid] = time.time()
-                    player = AIServer(env_name, model_id, 1000, verbose=False)
+                    player = AIServer(env_name, model_id, 1000, verbose=False, hub=self.hub)
                     self.ai_players[pid] = player
                 self.logger.info(f"New session created: {pid[:8]}... (Game: {env_name}, Model: {model_id})")
                 return jsonify({'pid': pid, 'model_id': player.model_id})
@@ -159,11 +160,5 @@ class PlayApiServer:
                     self.logger.info(f"Session {pid[:8]} cleaned up due to inactivity.")
 
     def run(self, host='0.0.0.0', port=5000):
-        if self.standalone_hub:
-            self.logger.info("Starting background Inference Hub in standalone mode...")
-            hub = ServerHub()
-            threading.Thread(target=hub.start, daemon=True).start()
-            time.sleep(1)
-        
         self.logger.info(f"Play API Server running on {host}:{port}")
         self.app.run(host=host, port=port, debug=False)

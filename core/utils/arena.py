@@ -7,6 +7,7 @@ from tqdm import tqdm
 
 from core.env.functions import get_class
 from core.player.ai_server import AIServer
+from services.inference.hub import ServerHub
 from core.utils.config import CONFIG
 from core.utils.elo import Elo
 from core.utils.logger import get_logger
@@ -21,6 +22,8 @@ class Arena:
         self.env_name = env_name
         self.load()
         self.stop_event = threading.Event()
+        # 进程内推理引擎管理中心，多个AIServer共享引擎
+        self.hub = ServerHub()
 
     def run(self, n_games: int) -> None:
         """随机选择对手进行n局对弈"""
@@ -116,9 +119,8 @@ class Arena:
             self.logger.info(f'{index1} VS {index2}: Pre_game:{self.rates[index1]}  {self.rates[index2]}')
             env = get_class(self.env_name)()
             # 对弈
-            with AIServer(self.env_name, index1, n_simulation=300, verbose=False) as p1, AIServer(self.env_name, index2,
-                                                                                                  n_simulation=300,
-                                                                                                  verbose=False) as p2:
+            with AIServer(self.env_name, index1, n_simulation=300, verbose=False, hub=self.hub) as p1, AIServer(
+                    self.env_name, index2, n_simulation=300, verbose=False, hub=self.hub) as p2:
                 outcome = env.random_order_play((p1, p2), silent=True)
             # 更新score
             e1, e2 = self.rates[index1], self.rates[index2]

@@ -20,7 +20,6 @@ ROOT_DIR = Path(__file__).parent.parent.parent
 (ROOT_DIR / "data/ChineseChess").mkdir(exist_ok=True)
 (ROOT_DIR / "data/Gomoku").mkdir(exist_ok=True)
 (ROOT_DIR / "logs").mkdir(exist_ok=True)
-(ROOT_DIR / "services/inference/socks").mkdir(parents=True, exist_ok=True)
 
 color_key = Literal['blue', 'green', 'red', 'orange', 'grey', 'black']
 
@@ -65,8 +64,6 @@ class AppConfig(TypedDict):
     base_url: str
     device: str
     game_name: EnvName
-    socket_path_prefix: str
-    hub_socket_path: str
     data_dir: str
     log_dir: str
     buffer_name: str
@@ -150,8 +147,6 @@ CONFIG: AppConfig = {
     'dirichlet': 0.2,
     'base_url': 'http://192.168.0.126:5000/',
     'device': 'cuda:0',
-    'socket_path_prefix': str(ROOT_DIR / 'services/inference/socks/'),
-    'hub_socket_path': str(ROOT_DIR / 'services/inference/socks/hub.sock'),
     'log_dir': str(ROOT_DIR / 'logs'),
     'buffer_name': 'buffer.pkl',
     'best_index_name': 'best_index.pkl',

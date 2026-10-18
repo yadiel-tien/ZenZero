@@ -72,7 +72,7 @@ if __name__ == "__main__":
         print(f"\nGame Over! Winner: {result}")
         
     except ConnectionError:
-        logger.error("Failed to connect to Play Server. Please run 'python -m scripts.play_server' first!")
+        logger.error("Failed to start AI. Check the checkpoint files under data/!")
         sys.exit(1)
     except Exception as e:
         logger.error(f"An error occurred: {e}", exc_info=True)
