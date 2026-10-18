@@ -13,16 +13,18 @@ from core.utils.npz_loader import NPZLoader
 from core.utils.replay import ReplayBuffer
 from core.utils.config import game_name, settings, CONFIG
 from core.mcts.deepMcts import NeuronMCTS
-from services.inference.client import require_fit, require_eval_model_update, \
-    require_model_removal, require_statistic_reset
+from services.inference.engine import InferenceEngine
+from services.inference.train_server import TrainServer
 from core.network.functions import read_latest_index, save_best_index, read_best_index
 import random
 
 
 class SelfPlayManager:
-    def __init__(self, n_workers: int):
+    def __init__(self, n_workers: int, train_server: TrainServer):
         self.logger = get_logger('selfplay')
         self.n_workers = n_workers
+        # 进程内训练服务器(推理引擎)，直接方法调用与队列请求，无需socket
+        self.train_server = train_server
         self.buffer = ReplayBuffer(settings['buffer_size'], 2048)
         self.buffer.load()
         self.env_class = get_class(game_name)
@@ -46,11 +48,11 @@ class SelfPlayManager:
                 self.logger.info(f'Collecting data.Current buffer size: {self.buffer.size}.')
 
             # 开始selfplay。新数据会进行积累，直到新模型产生。
-            require_statistic_reset()  # 重置engine的推理统计数据
+            self.train_server.reset_statistic()  # 重置engine的推理统计数据
             n_data = self.self_play(iteration=iteration, n_games=n_games)
 
-            # 服务端进行模型训练，并保存参数，升级infer model
-            done = require_fit(iteration, n_data)
+            # 直接调用训练服务器进行模型训练，并保存参数
+            done = self.train_server.fit(n_collected_samples=n_data, iteration=iteration)
             self.logger.info(f'Received message :{done}.')
 
             # 以防模型还没创建好
@@ -132,10 +134,13 @@ class SelfPlayManager:
             env.state, env.last_action, env.steps, = self.endgame_buffer.sample()
             env.player_to_move = env.steps % 2
 
-        mcts = NeuronMCTS.make_selfplay_mcts(state=env.state,
-                                             env_class=self.env_class,
-                                             last_action=env.last_action,
-                                             player_to_move=env.player_to_move)
+        # 进程内直接通过队列请求训练服务器的推理引擎
+        mcts = NeuronMCTS.make_queue_mcts(infer_q=self.train_server.request_queue,
+                                          env_class=self.env_class,
+                                          state=env.state,
+                                          last_action=env.last_action,
+                                          player_to_move=env.player_to_move,
+                                          is_self_play=True)
         samples = []
         exploration_steps = settings['selfplay']['exploration_steps']
         tau_decay_rate = settings['selfplay']['tau_decay_rate']
@@ -202,54 +207,70 @@ class SelfPlayManager:
     def evaluation(self, iteration: int, n_games: int) -> None:
         """评估模型，对战就模型胜率超过55%才更新模型"""
         start_time = time.time()
-        # 额外提交20%任务，总数达到后停止，避免个别长时间等待
-        stop_signal = threading.Event()
-        futures = [self.pool.submit(self.evaluation_worker, iteration, stop_signal) for _ in
-                   range(int(n_games))]
-        win_count, lose_count, draw_count, win_rate, total_steps = 0, 0, 0, 0.0, 0
-        threshold = CONFIG['win_threshold']
-        # 进度条
-        with tqdm(total=n_games, desc=f'{iteration} VS {self.best_index}') as pbar:
-            for future in as_completed(futures):
-                if future.exception() is not None:
-                    self.logger.info(f'exception:{future.exception()}')
-                    stop_signal.set()
-                    raise future.exception()
-                else:
-                    winner, steps = future.result()
+        # 为参赛的两个模型创建进程内推理引擎，无需hub/socket
+        engine_new = InferenceEngine(iteration, game_name)
+        engine_new.start()
+        engines = {iteration: engine_new}
+        if self.best_index == iteration:
+            engines[self.best_index] = engine_new
+        else:
+            engine_old = InferenceEngine(self.best_index, game_name)
+            engine_old.start()
+            engines[self.best_index] = engine_old
+        try:
+            # 额外提交20%任务，总数达到后停止，避免个别长时间等待
+            stop_signal = threading.Event()
+            futures = [self.pool.submit(self.evaluation_worker, iteration, stop_signal, engines) for _ in
+                       range(int(n_games))]
+            win_count, lose_count, draw_count, win_rate, total_steps = 0, 0, 0, 0.0, 0
+            threshold = CONFIG['win_threshold']
+            # 进度条
+            with tqdm(total=n_games, desc=f'{iteration} VS {self.best_index}') as pbar:
+                for future in as_completed(futures):
+                    if future.exception() is not None:
+                        self.logger.info(f'exception:{future.exception()}')
+                        stop_signal.set()
+                        raise future.exception()
+                    else:
+                        winner, steps = future.result()
 
-                pbar.update(1)
-                total_steps += steps
-                win_count += winner == 0
-                lose_count += winner == 1
-                draw_count += winner == -1
-                score = win_count + draw_count / 2
-                completed = win_count + lose_count + draw_count
-                win_rate = score / completed
-                pbar.set_postfix({'win_rate': f'{win_rate:.2%}'})  # 进度条后面添加当前胜率
+                    pbar.update(1)
+                    total_steps += steps
+                    win_count += winner == 0
+                    lose_count += winner == 1
+                    draw_count += winner == -1
+                    score = win_count + draw_count / 2
+                    completed = win_count + lose_count + draw_count
+                    win_rate = score / completed
+                    pbar.set_postfix({'win_rate': f'{win_rate:.2%}'})  # 进度条后面添加当前胜率
 
-                # 胜负已定，取消后面的比赛
-                already_won = score / n_games > threshold
-                already_lost = (score + n_games - completed) / n_games <= threshold
+                    # 胜负已定，取消后面的比赛
+                    already_won = score / n_games > threshold
+                    already_lost = (score + n_games - completed) / n_games <= threshold
 
-                if completed >= n_games or already_won or already_lost:
-                    stop_signal.set()
-                    break
+                    if completed >= n_games or already_won or already_lost:
+                        stop_signal.set()
+                        break
+        finally:
+            engine_new.shutdown()
+            if self.best_index != iteration:
+                engines[self.best_index].shutdown()
 
         self.logger.info(
             f'Model {iteration} VS {self.best_index}，胜:{win_count},负:{lose_count},平:{draw_count},总:{completed}, 胜率{win_rate:.2%}。')
         if win_rate > threshold:  # 通过测试
             self.best_index = iteration
             save_best_index(iteration)
-            require_eval_model_update(iteration)
+            self.train_server.update_eval_model(iteration)
             self.logger.info(
                 f'更新最佳模型为{iteration}，平均步数{total_steps // n_games}步，评估用时{time.time() - start_time:.2f}秒.')
         else:
             self.logger.info(
                 f'最佳模型仍旧为{self.best_index}，平均步数{total_steps // n_games}步， 评估用时{time.time() - start_time:.2f}秒.')
-            require_model_removal(iteration_to_remove=iteration)
+            self.train_server.remove_failed_model(iteration)
 
-    def evaluation_worker(self, iteration: int, stop_signal: threading.Event) -> tuple[int, int]:
+    def evaluation_worker(self, iteration: int, stop_signal: threading.Event,
+                          engines: dict[int, InferenceEngine]) -> tuple[int, int]:
         """iteration对战最佳模型，随机先手顺序。
         :return 0新模型胜，1老模型胜，-1平"""
         env = self.env_class()
@@ -259,12 +280,12 @@ class SelfPlayManager:
             env.player_to_move = env.steps % 2
         # 随机先后手
         model_list = [iteration, self.best_index] if random.random() < 0.5 else [self.best_index, iteration]
-        competitors = [NeuronMCTS.make_socket_mcts(
+        competitors = [NeuronMCTS.make_queue_mcts(
+            infer_q=engines[index].request_queue,
             env_class=self.env_class,
             state=env.state,
             last_action=env.last_action,
-            player_to_move=env.player_to_move,
-            model_id=index
+            player_to_move=env.player_to_move
         ) for index in model_list]
 
         # 随机模拟测试
@@ -305,4 +326,3 @@ class SelfPlayManager:
 
     def shutdown(self):
         self.pool.shutdown()
-        # require_train_server_shutdown()

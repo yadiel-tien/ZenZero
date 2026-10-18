@@ -67,7 +67,6 @@ class AppConfig(TypedDict):
     game_name: EnvName
     socket_path_prefix: str
     hub_socket_path: str
-    train_socket_path: str
     data_dir: str
     log_dir: str
     buffer_name: str
@@ -153,7 +152,6 @@ CONFIG: AppConfig = {
     'device': 'cuda:0',
     'socket_path_prefix': str(ROOT_DIR / 'services/inference/socks/'),
     'hub_socket_path': str(ROOT_DIR / 'services/inference/socks/hub.sock'),
-    'train_socket_path': str(ROOT_DIR / 'services/inference/socks/train.sock'),
     'log_dir': str(ROOT_DIR / 'logs'),
     'buffer_name': 'buffer.pkl',
     'best_index_name': 'best_index.pkl',

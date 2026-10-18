@@ -8,7 +8,6 @@ from numpy.typing import NDArray
 
 from core.env.env import BaseEnv
 from services.inference.client import send_request, apply_for_socket_path
-from core.utils.config import CONFIG
 from core.utils.types import GameResult, EnvName
 
 
@@ -211,23 +210,13 @@ class NeuronMCTS:
                         env_class: type[BaseEnv],
                         state: NDArray,
                         last_action: int,
-                        player_to_move: int) -> Self:
-        """多线程queue直接传递state，简单，无需启动后台服务"""
+                        player_to_move: int,
+                        is_self_play: bool = False) -> Self:
+        """进程内多线程queue直接传递state，简单，无需启动后台服务。
+        is_self_play=True时每次请求对state做随机对称变换以增加数据多样性(仅训练用)"""
         mcts = cls(state, env_class, last_action, player_to_move)
         mcts.infer_queue = infer_q
-        return mcts
-
-    @classmethod
-    def make_selfplay_mcts(cls,
-                           env_class: type[BaseEnv],
-                           state: NDArray,
-                           last_action: int,
-                           player_to_move: int) -> Self:
-        """训练时使用的mcts，直接将state通过socket发送至train server。可以用3.14 no gil运行mcts。需另外启动train server"""
-        mcts = cls(state, env_class, last_action, player_to_move)
-        mcts.is_self_play = True
-        mcts.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        mcts.sock.connect(CONFIG['train_socket_path'])
+        mcts.is_self_play = is_self_play
         return mcts
 
     @classmethod

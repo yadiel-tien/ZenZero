@@ -1,9 +1,0 @@
-numpy
-torch
-pygame
-requests
-flask
-gymnasium
-tqdm
-matplotlib
-Cython

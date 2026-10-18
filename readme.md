@@ -1,141 +1,107 @@
-# ZenZero - 中国象棋与五子棋 AI (ZenZero - Chinese Chess & Gomoku AI)
+# ZenZero - 高性能 AlphaZero 棋类 AI 框架
 
-这是一个基于 AlphaZero 思想实现的通用棋类 AI 框架，目前已支持中国象棋（Chinese Chess）和五子棋（Gomoku）。项目采用了高度优化的架构，旨在充分利用多核 CPU 和 GPU 资源，实现高性能的自我对弈训练和对战。
+ZenZero 是一个基于 AlphaZero 算法实现的通用棋类 AI 框架，专注于中国象棋 (Chinese Chess) 和五子棋 (Gomoku)。项目利用 **Python 3.14 (nogil)** 的 free-threading 特性，配合 Cython 核心加速与分布式推理架构，实现了极致的训练与对战性能。
 
-## 🚀 核心特性 (Features)
+## 🌟 核心亮点 (Technical Highlights)
 
-* **高性能自我对弈:** 采用移除了 GIL 的 `free-threading` Python (`nogil`)，实现了真正并行的自我对弈数据生成。
-* **动态批处理推理:** 独立的推理服务器，采用动态批处理（Dynamic Batching）技术，最大化 GPU 利用率。
-* **Cython 核心加速:** 走法生成和胜负判断等核心逻辑使用 Cython 进行了 C 级别的优化。
-* **AI 竞技场 (Arena):** 自动化的 AI 竞技场，通过对战更新 ELO 等级分，科学评估模型棋力。
-* **前后端分离架构:**
-    * **训练端:** 采用高效的本地 Unix Socket 进行低延迟通信。
-    * **对战端:** 支持 AI 算力与 UI 界面分布式部署（例如：高性能服务器负责 MCTS 搜索，本地轻便设备仅负责图形交互）。
-* **图形化对战界面 (GUI):** 基于 Pygame 实现，支持 Human vs. AI、AI vs. AI 等多种模式。
-* **模块化设计:** 环境、MCTS、网络、播放器、UI 模块清晰分离，易于扩展。
+### 1. 真正的并行自我对弈 (True Parallelism)
+传统 Python 受 GIL 限制。ZenZero 采用 **Python 3.14 free-threading (nogil)**，使数十个 MCTS 线程能真正并行运行在不同 CPU 核心上，自我对弈数据生成速度提升显著。
 
-## 📥 预训练权重 (Pre-trained Models)
+### 2. 高效推理引擎 (High-Performance Inference)
+*   **动态批处理 (Dynamic Batching)**: 推理服务器根据负载动态调整 Batch Size，极大提升 GPU 吞吐量。
+*   **多级缓冲与低开销 IPC**: 训练侧 (selfplay + 推理 + 训练) 单进程运行，MCTS 通过进程内队列直接请求推理，无序列化开销；对战侧跨进程使用 Unix Domain Socket 低延迟通信。
 
-本项目不直接在仓库中包含大体积模型文件。为了直接开始对战，请按以下步骤配置：
+### 3. C 级核心优化 (Cython Acceleration)
+*   中国象棋的走法生成、合法性检查以及五子棋的五子连珠判定均使用 **Cython** 编写，搜索性能相比纯 Python 提升约 30 倍。
 
-1.  前往 [Releases 页面](https://github.com/yadiel-tien/AlphaGomoku/releases) 下载对应游戏的 `checkpoint_xxx.pt` 文件。
-2.  运行一次程序，系统将自动创建 `data/ChineseChess/` 和 `data/Gomoku/` 目录。
-3.  将下载的 `.pt` 文件放入对应的游戏子目录下即可。
-4.  **注意：** 系统会自动识别编号最大的 `checkpoint` 作为最强模型，您无需手动配置 `best_index.pkl`。
+---
 
-解压或放置后的目录结构示例：
+## ⚙️ 快速开始 (Quick Start)
+
+### 📥 预训练权重配置
+前往 [Releases](https://github.com/yadiel-tien/AlphaGomoku/releases) 下载 `.pt` 模型文件，并按以下结构放置：
 ```text
 data/
-├── ChineseChess/
-│   └── checkpoint_498.pt
-└── Gomoku/
-    └── checkpoint_141.pt
+├── ChineseChess/  # 放入 checkpoint_498.pt
+└── Gomoku/        # 放入 checkpoint_141.pt
+```
+*系统会自动识别编号最大的 `checkpoint` 作为最强模型。*
+
+### 🛠️ 环境搭建
+项目只分**前端 / 后端**两套依赖（需先安装 [uv](https://docs.astral.sh/uv/)）：
+
+| 环境类型 | 适用场景 | 安装指令 |
+| :--- | :--- | :--- |
+| **后端 (`.venv`)** | 训练 (selfplay + 推理 + 权重更新, 单进程) + 对战服务 (play_server) + CLI / Piskvork / 竞技场。训练与对战共用同一套 torch 依赖。 | `uv venv -p cpython-3.14t .venv` <br> `uv pip install -r requirements-backend.txt --extra-index-url https://download.pytorch.org/whl/cu132` |
+| **前端 (`.venv-front`)** | GUI 对战客户端 (`ui_play`)，可通过 HTTP 连接任意后端。可部署在 Mac / Windows 等无 GPU 机器上，**不需要 torch**。 | `uv venv -p cpython-3.14t .venv-front` <br> `uv pip install -r requirements-frontend.txt` |
+
+> **注意**: 后端 `torch` 固定为 `2.14.1+cu132` 构建，要求 NVIDIA 驱动 R595 及以上 (CUDA 13.2)。安装时必须带 `--extra-index-url`，否则会装到 PyPI 默认的 cu12x 构建，与驱动不匹配。
+> 前端跨机器使用时，把 `core/utils/config.py` 中的 `base_url` 指向后端地址（如 `http://<GPU服务器IP>:5000/`）。
+
+### 🏗️ 编译 Cython 模块 (可选)
+核心逻辑提供了 Cython 优化版，编译后可显著提升搜索速度。仅后端需要编译（前端缺少 `.so` 时自动回退纯 Python 实现）：
+```bash
+cd core/env
+.venv/bin/python setup.py build_ext --inplace
+cd ../..
 ```
 
-## ⚙️ 项目结构 (Project Structure)
+---
 
-```
+## 📖 使用指南 (Usage)
+
+### 1. 训练新模型
+1. **指定游戏**: 在 `core/utils/config.py` 中修改 `game_name`。
+2. **启动训练** (后端环境 `.venv`，单进程，一条命令):
+    * `python -X gil=0 -m scripts.train_server`
+    * 推理引擎、selfplay、模型训练运行在同一进程中：MCTS 通过队列直接请求推理，
+      训练命令为直接方法调用，无 socket 开销。
+    * `-X gil=0` 必须保留：首次 forward 会惰性导入 triton 并试图重开 GIL，
+      强制关闭后 100 个 MCTS 线程才能真并行。
+
+### 2. 图形化 GUI 对战
+支持人机对战、双人对战及 AI 观战。前端与后端可同机，也可跨机器 (前端在 Mac/Windows，后端在 GPU 服务器，HTTP 通信)：
+1. **启动后端** (后端环境): `python -m scripts.play_server` (Flask API + 推理引擎 + hub)
+2. **启动前端** (前端环境): `python -m scripts.ui_play` (GUI 界面；跨机器时先改 `base_url` 指向后端)
+
+### 3. 本地命令行对战 (CLI)
+适用于同一台机器上的轻量级命令行交互模式 (均在后端环境 `.venv`)：
+1. **终端 1**: `python -m scripts.infer_hub` (启动推理调度中心)
+2. **终端 2**: `python -m scripts.cli_play` (启动命令行对战)
+
+### 4. Piskvork (Gomocup) 对战
+适用于与 Piskvork 客户端或 Gomocup 兼容的外部软件进行对战 (后端环境 `.venv`)：
+1. **启动服务**: `python -m scripts.priskvork_server` (默认端口 12345)
+2. **连接**: 在 Piskvork 客户端中添加该 AI 的 IP 和端口。
+
+### 5. AI 竞技场 (Arena)
+自动化评估不同版本模型的棋力，并维护 ELO 等级分 (后端环境 `.venv`)。
+1. **配置名单**: 在 `data/<游戏名>/rates/candidates.txt` 中写入模型编号（如 `10,20,141`）。
+2. **运行**: `python -m scripts.arena`。
+
+---
+
+## 🏗️ 项目结构 (Project Structure)
+
+```text
 ZenZero/
 ├── core/               # 核心逻辑 (env, mcts, network, player, utils)
 ├── services/           # 后端服务 (inference, train)
 ├── apps/               # 应用层 (ui, assets)
 ├── scripts/            # 启动脚本
-├── logs/               # 日志文件
-└── data/               # 存放模型、棋谱等数据 (需手动创建)
+└── data/               # 模型、棋谱、ELO 数据及配置名单
 ```
 
-## 🧩 扩展新游戏 (Extending to New Games)
+---
 
-ZenZero 旨在作为一个通用的 AlphaZero 框架。除了内置的象棋和五子棋，您可以轻松添加其他棋类游戏：
+## 🧩 扩展性 (Extensibility)
 
-### 1. 实现环境 (Environment)
-在 `core/env/` 目录下创建新的环境类，继承自 `BaseEnv`。您需要实现以下核心接口：
-- `get_valid_actions()`: 获取当前合法走法。
-- `step(action)`: 执行动作并返回新状态。
-- `is_terminated()`: 判断比赛是否结束。
-- `convert_to_network_input()`: 将棋盘状态转换为神经网络所需的 Tensor。
-
-### 2. 配置参数 (Configuration)
-在 `core/utils/config.py` 中为新游戏添加配置项（包括 `screen_size`, `grid_size`, `n_res_blocks` 等），并修改全局 `game_name`：
-```python
-CONFIG = {
-    'game_name': 'YourNewGame',  # 在这里切换当前要训练/运行的游戏
-    'YourNewGame': {
-        # 具体的网络结构和游戏参数
-    }
-}
-```
-
-### 3. 实现 UI (可选)
-在 `apps/ui/` 下参考 `chess.py` 或 `gomoku.py` 实现图形化界面。
-
-## 🛠️ 安装与设定 (Setup & Installation)
-
-根据您的需求选择环境配置。
-
-### 1. 客户端环境 (仅玩游戏)
-如果您只需在本地运行图形界面，与已有的远程服务器对战，请配置此轻量级环境。建议使用 Python 3.11+。
-```bash
-python3 -m venv client_venv
-source client_venv/bin/activate
-pip install -r requirements-client.txt
-```
-
-### 2. 完整开发与服务器环境 (训练、推理、对战)
-如果您需要运行推理服务器（Play Server / Train Server）或进行本地开发，请配置完整环境。
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 3. 创建 nogil 环境 (可选：仅在需要高性能训练时)
-用于运行大规模并行的自我对弈（Self-play）。如果您不打算自己训练模型，可以跳过此步。
-推荐使用 [uv](https://github.com/astral-sh/uv) 安装 free-threading 版本：
-```bash
-# 安装 3.14t 并创建环境
-uv python install 3.14t
-uv venv --python 3.14t nogil_venv
-source nogil_venv/bin/activate
-# nogil 环境主要负责环境模拟和 MCTS 搜索，不需要 torch
-uv pip install -r requirements-nogil.txt
-```
-
-### 3. 编译 Cython 模块 (可选)
-核心逻辑（如招法生成）提供了 Cython 优化版。编译后可显著提升**训练**时的搜索速度。如果您只是**玩游戏**，可以跳过此步，系统会自动回退到纯 Python 实现。
-```bash
-# 如需编译，在激活的环境中运行：
-cd core/env
-python setup.py build_ext --inplace
-cd ../..
-```
+接入新游戏需三步：
+1. **实现环境**: 继承 `core/env/env.py` 中的 `BaseEnv`。
+2. **配置参数**: 在 `core/utils/config.py` 中定义 `GameConfig`。
+3. **UI 开发**: 在 `apps/ui/` 下参考现有游戏实现图形界面。
 
 
-## 🎮 使用方法 (Usage)
-
-### 1. 训练新模型
-1. **指定游戏**: 在 `core/utils/config.py` 中修改 `game_name`。
-2. **启动训练**:
-    * **终端 1 (标准环境)**: `python -m scripts.train_server` (负责权重更新与推理)
-    * **终端 2 (nogil 环境)**: `python -X gil=0 -m scripts.selfplay` (负责并行产生数据)
-
-### 2. 图形化对战 (支持跨设备)
-1. **终端 1 (标准环境)**: `python -m scripts.play_server` (对战 API 服务，已集成推理调度功能,计算中心)
-2. **终端 2 (客户端环境)**: `python -m scripts.ui_play` (GUI 界面)
-
-### 3. 本地命令行对战 (CLI)
-适用于同一台机器上的命令行交互模式：
-1. **终端 1 (标准环境)**: `python -m scripts.infer_hub` (启动推理调度中心)
-2. **终端 2 (标准环境)**: `python -m scripts.cli_play` (启动命令行对战)
-
-### 4. AI 竞技场
-```bash
-source nogil_venv/bin/activate
-python -m scripts.arena
-```
-
-## 📝 配置 (Configuration)
-文件路径、模型超参数等均可在 `core/utils/config.py` 中修改。
 
 ## 📜 授权 (License)
-MIT License.
+本项目采用 [MIT License](LICENSE)。欢迎提交 Issue 或 Pull Request 贡献代码！

@@ -1,0 +1,27 @@
+# ZenZero 后端 (Backend)
+# 用途: 训练 (scripts.train_server: selfplay + 推理 + 模型训练, 单进程)
+#       + 对战服务 (scripts.play_server: Flask API + 推理引擎 + hub)
+#       + 竞技场 (scripts.arena) + Piskvork (scripts.priskvork_server)
+#       + 命令行对战 (scripts.cli_play)
+# 训练与对战共用同一套依赖 (torch)，不区分环境。
+#
+# 使用 free-threaded (nogil) Python 3.14t，安装方式 (uv):
+#   uv venv -p cpython-3.14t .venv
+#   uv pip install -r requirements-backend.txt --extra-index-url https://download.pytorch.org/whl/cu132
+#
+# 注意: torch 必须固定 +cu132 版本 (匹配驱动 R595 / CUDA 13.2)，
+#       且必须带 --extra-index-url，否则会装到 PyPI 的默认 cu12x 构建。
+#       本环境仅适用于 GPU 服务器 (Linux)；GUI 客户端请用 requirements-frontend.txt。
+
+torch==2.14.1+cu132
+numpy==2.4.4
+gymnasium==1.3.0
+tqdm==4.67.3
+requests==2.34.2
+Cython==3.2.4
+setuptools==82.0.1
+tensorboard==2.21.0
+flask==3.1.3
+# 可选: core.utils.visualize 可视化模块
+# matplotlib==3.11.2
+# seaborn==0.13.2

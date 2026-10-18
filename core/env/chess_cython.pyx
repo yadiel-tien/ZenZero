@@ -1,4 +1,6 @@
-# cython: boundscheck=False, wraparound=False, cdivision=True,initializedcheck=False
+# cython: boundscheck=False, wraparound=False, cdivision=True,initializedcheck=False,freethreading_compatible=True
+# freethreading_compatible=True: 声明本模块可在无GIL环境下运行——模块级变量均为只读常量表，
+# 各函数只读写调用方传入的数组，无模块级可变状态，多线程安全。
 import numpy as np
 from libc.stdint cimport int32_t
 cimport numpy as cnp

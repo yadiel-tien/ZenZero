@@ -1,27 +1,28 @@
 import os
-from datetime import datetime
-from typing import cast
 import time
-import torch
-from numpy.typing import NDArray
+from datetime import datetime
 
-import socket
-import numpy as np
+import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from core.network.network import Net
 from core.utils.replay import ReplayBuffer
 from core.utils.types import EnvName
-from .infer_server import InferServer
-from .functions import recv, get_checkpoint_path, send
+from .engine import InferenceEngine
+from .functions import get_checkpoint_path
 from core.utils.config import CONFIG, settings
 from core.utils.logger import get_logger
-from .request import SocketRequest
 
 
-class TrainServer(InferServer):
-    def __init__(self, model_id: int, env_name: EnvName, max_listen_workers: int = 100):
-        super().__init__(model_id, env_name, max_listen_workers)
+class TrainServer(InferenceEngine):
+    """训练服务器：进程内推理引擎 + 模型训练。
+
+    selfplay 与本类运行在同一进程中，MCTS 通过 request_queue 直接请求推理，
+    训练命令 (fit/更新模型/删除模型/重置统计) 为直接方法调用，无需 socket。
+    """
+
+    def __init__(self, model_id: int, env_name: EnvName):
+        super().__init__(model_id, env_name)
         self.fit_logger = get_logger('fit')
         # 模型
         self.fit_model = Net(self.eval_model.config, eval_model=False)
@@ -81,57 +82,6 @@ class TrainServer(InferServer):
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
 
-    @property
-    def socket_path(self) -> str:
-        return CONFIG['train_socket_path']
-
-    def _listen_loop(self) -> None:
-        """监听socket发来的请求"""
-        self._setup_socket()
-        while not self.stop_event.is_set():
-            try:
-                # accept会阻塞，无法检查running状态，设置超时继续
-                conn, _ = self._server_sock.accept()
-                self._listen_pool.submit(self.handle_client, conn)
-            except socket.timeout:
-                continue
-            except OSError as e:
-                self.fit_logger.info(f"[-] InferenceServer {self.name} listen loop was forced to shutdown: {e}")
-                break
-            except Exception as e:
-                if self.stop_event.is_set():
-                    break
-                self.fit_logger.error(e)
-
-    def handle_client(self, client_sock: socket.socket) -> None:
-        """socket接收到state，通过队列发送给推理线程"""
-        client_sock.settimeout(1)
-        while not self.stop_event.is_set():
-            try:
-                data = recv(client_sock)
-                if isinstance(data, np.ndarray):  # 接收到state，放入推理队列
-                    self.request_queue.put(SocketRequest(cast(NDArray, data), client_sock))
-                elif isinstance(data, dict) and 'command' in data:
-                    if data['command'] == 'fit':  # 训练模型
-                        self.fit(client_sock, n_collected_samples=data['n_exp'], iteration=data['iteration_to_remove'])
-                    elif data['command'] == 'shutdown':  # 关闭整个train server
-                        self.shutdown()
-                    elif data['command'] == 'update_eval_model':  # 训练有效，更新推理模型
-                        self.update_eval_model(data['iteration_update_to'])
-                    elif data['command'] == 'remove_failed_model':  # 训练失败，删除淘汰模型
-                        self.remove_failed_model(data['iteration_to_remove'])
-                    elif data['command'] == 'reset_statistic':  # 重置统计数据
-                        self.reset_statistic()
-                    else:
-                        self.fit_logger.info(f'[-] Received unsupported command: {data["command"]}')
-                else:
-                    self.fit_logger.info(f'[-] Received unsupported data: {data}')
-            except socket.timeout:
-                continue
-            except ConnectionError:  # 对方断开了连接，结束循环
-                break
-        client_sock.close()
-
     def remove_failed_model(self, iteration_to_remove: int) -> None:
         """移除未通过测试的模型"""
         path = get_checkpoint_path(self.env_name, iteration_to_remove)
@@ -147,11 +97,7 @@ class TrainServer(InferServer):
             self.model_index = iteration
         self.fit_logger.info(f"Evaluation model updated to {iteration}.")
 
-    @property
-    def socket_name(self) -> str:
-        return self._server_sock.getsockname()
-
-    def fit(self, sock: socket, n_collected_samples: int, iteration: int) -> None:
+    def fit(self, n_collected_samples: int, iteration: int) -> str:
         """从buffer中获取数据，训练神经网络"""
         start = time.time()
         # 加载最新buffer
@@ -189,16 +135,6 @@ class TrainServer(InferServer):
             self.optimizer.zero_grad()  # 清空旧梯度
             loss.backward()  # 反向传播
 
-            # 检查梯度，debug用
-            # print("--- Value Head Gradients ---")
-            # for name, param in self.fit_model.value.named_parameters():
-            #     if param.grad is not None:
-            #         # 打印梯度的平均绝对值，比均值更能反映梯度大小
-            #         print(f"{name}: {param.grad.abs().mean().item():.6f}", end=', ')
-            #     else:
-            #         print(f"{name}:None", end=', ')
-            # print("\n--------------------------")
-
             torch.nn.utils.clip_grad_norm_(self.fit_model.parameters(), max_norm=1.0)  # 将梯度范数裁剪到1.0
             self.optimizer.step()  # 更新参数
 
@@ -227,8 +163,7 @@ class TrainServer(InferServer):
         duration = time.time() - start
         self.fit_logger.info(f"iteration_to_remove{iteration}:{n_training_steps}轮训练完成，共用时{duration:.2f}秒。")
 
-        # 通知trainer学习完成，可以进行评估
-        send(sock, 'Fit done!')
+        return 'Fit done!'
 
     def shutdown(self) -> None:
         if self.writer:

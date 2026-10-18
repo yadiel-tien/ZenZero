@@ -12,46 +12,6 @@ from core.utils.mirror import random_mirror_state
 from .request import QueueRequest
 
 
-def require_fit(iteration: int, n_exp: int) -> str:
-    """请求train server更新训练模型"""
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
-        s.connect(CONFIG['train_socket_path'])
-        payload = {'command': 'fit',
-                   'iteration_to_remove': iteration,
-                   'n_exp': n_exp}
-        send(s, payload)
-        return recv(s)
-
-
-def require_eval_model_update(iteration: int) -> None:
-    """训练时要求服务器同步学习模型参数到推理模型"""
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
-        s.connect(CONFIG['train_socket_path'])
-        payload = {'command': 'update_eval_model', 'iteration_update_to': iteration}
-        send(s, payload)
-
-
-def require_model_removal(iteration_to_remove: int) -> None:
-    """训练时因学习模型未通过测验，将对应模型文件删除"""
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
-        s.connect(CONFIG['train_socket_path'])
-        payload = {'command': 'remove_failed_model', 'iteration_to_remove': iteration_to_remove}
-        send(s, payload)
-
-
-def require_statistic_reset() -> None:
-    """重置统计数据"""
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
-        s.connect(CONFIG['train_socket_path'])
-        payload = {'command': 'reset_statistic'}
-        send(s, payload)
-
-
-def require_train_server_shutdown() -> None:
-    """通知train server 关闭"""
-    _require_shutdown(CONFIG['train_socket_path'])
-
-
 def require_hub_shutdown() -> None:
     """通知hub关闭"""
     _require_shutdown(CONFIG['hub_socket_path'])
