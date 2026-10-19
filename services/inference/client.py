@@ -21,7 +21,8 @@ def send_via_queue(state: NDArray, env_name: EnvName, q: queue.Queue, is_self_pl
     request = QueueRequest(state, event=event)
     # 发给推理引擎，等待结果
     q.put(request)
-    event.wait()  # 阻塞等待推理线程处理完并设置 event
+    if not event.wait(timeout=300):  # 防御：推理丢失/卡死时快速失败而非永久挂起
+        raise TimeoutError('Inference request timed out after 300s')
 
     policy = postprocess_policy(request.policy, symmetric_idx, env_name)
     return policy, request.value

@@ -1,4 +1,3 @@
-from gymnasium import spaces
 from numpy.typing import NDArray
 from core.utils.config import CONFIG
 from core.utils.mirror import mirror_action_policy, apply_symmetry
@@ -33,8 +32,6 @@ class ChineseChess(BaseEnv):
         super().__init__()
         self.shape: tuple[int, int, int] = settings['state_shape']
         self.init_class_dicts()
-        self.action_space = spaces.Discrete(self.n_actions)
-        self.observation_space = spaces.Box(-1, 13, shape=self.shape, dtype=np.float32)
         # self.history: list[NDArray[np.float32]] = []
         self.reset()
 

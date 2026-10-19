@@ -46,7 +46,7 @@ class TrainServer(InferenceEngine):
         """读取并加载存档"""
         path = get_checkpoint_path(self.env_name, iteration)
         if os.path.exists(path):
-            checkpoint = torch.load(path, map_location=CONFIG['device'])
+            checkpoint = torch.load(path, map_location='cpu')
             self.fit_model.load_state_dict(checkpoint['model'])
             if 'optimizer' in checkpoint:
                 self.optimizer.load_state_dict(checkpoint['optimizer'])

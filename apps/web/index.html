@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>ZenZero · 禅缘棋境</title>
+<link rel="icon" type="image/png" href="assets/graphics/chess/piece4.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="particles" aria-hidden="true"></canvas>
+
+<div id="app">
+  <!-- ======= 600x800 游戏舞台（与 pygame 版布局对齐，整体缩放） ======= -->
+  <div id="stage-wrap">
+    <div id="stage" class="hidden">
+
+      <!-- 顶部：返回 / 投降 -->
+      <button id="btn-back" class="zz-btn mini black hidden">返回</button>
+      <button id="btn-resign" class="zz-btn mini red hidden">认输</button>
+      <button id="btn-undo" class="zz-btn mini grey hidden">悔棋</button>
+
+      <!-- Logo -->
+      <div id="logo" class="hidden">
+        <span class="logo-text">ZenZero</span><span class="logo-seal">AI</span>
+      </div>
+
+      <!-- 双方信息（上=players[1] 下=players[0]） -->
+      <div id="info-top" class="side-info hidden"></div>
+      <div id="info-bottom" class="side-info hidden"></div>
+
+      <!-- 棋盘 -->
+      <div id="board-wrap">
+        <img id="board-img" alt="board">
+        <div id="l-under" class="layer"></div>
+        <div id="l-pieces" class="layer"></div>
+        <div id="l-over" class="layer"></div>
+        <!-- 五子棋悬停幽灵子：持久元素只改坐标，避免全量重绘闪烁 -->
+        <img id="gomoku-ghost" class="mark sm ghost hidden" src="assets/graphics/gomoku/cursor.png" alt="">
+      </div>
+
+      <!-- 底部控制 -->
+      <button id="btn-start" class="zz-btn big green hidden">开始对弈</button>
+      <button id="btn-reverse" class="zz-btn big grey hidden">先手：玩家</button>
+
+      <!-- 退出确认 -->
+      <div id="dlg-quit" class="scrim hidden">
+        <div class="dlg">
+          <p>放弃当前对局？</p>
+          <div class="dlg-row">
+            <button id="btn-quit-yes" class="zz-btn big red">确认离开</button>
+            <button id="btn-quit-no" class="zz-btn big green">继续对弈</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 结果展示 -->
+      <div id="dlg-result" class="scrim hidden">
+        <div class="dlg result">
+          <img id="result-badge" alt="">
+          <p id="result-text">胜负已分</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= 侧栏（宽屏显示：胜率/棋谱/设置） ======= -->
+  <aside id="panel" class="hidden">
+    <div class="p-head">
+      <div class="p-title">ZenZero</div>
+      <div id="p-subtitle">棋道 · 心境</div>
+    </div>
+
+    <div class="p-sec">
+      <div class="p-label">对局</div>
+      <div id="p-mode">—</div>
+    </div>
+
+    <div class="p-sec servers">
+      <div class="p-label">推理服务</div>
+      <div class="srv-row">
+        <span id="srv-dot" class="srv-ind"></span>
+        <span id="srv-url">同源</span>
+        <button id="btn-settings" class="link-btn">设置</button>
+      </div>
+      <div id="p-device" class="p-device hidden"></div>
+    </div>
+
+    <div class="p-sec wr-sec">
+      <div class="wr-block">
+        <div class="p-label" id="wr-label-0">红方</div>
+        <div class="wr-bar"><i id="wr-0" style="width:50%"></i></div>
+        <div class="wr-val" id="wr-val-0">--</div>
+      </div>
+      <div class="wr-block">
+        <div class="p-label" id="wr-label-1">黑方</div>
+        <div class="wr-bar"><i id="wr-1" style="width:50%"></i></div>
+        <div class="wr-val" id="wr-val-1">--</div>
+      </div>
+    </div>
+
+    <div class="p-sec grow">
+      <div class="p-label">棋谱</div>
+      <ol id="moves"></ol>
+    </div>
+
+    <div class="p-sec p-foot">
+      <button id="btn-sfx" class="chip on" title="音效">🔔 音效</button>
+      <button id="btn-bgm" class="chip" title="背景音乐">🎵 音乐</button>
+    </div>
+  </aside>
+</div>
+
+<!-- ======= 启动器 ======= -->
+<div id="launcher" class="screen">
+  <div id="l-stage">
+    <div id="l-logo"><span class="logo-text big-text">ZenZero</span><span class="logo-seal big-seal">AI</span></div>
+    <div id="l-sub">选择对弈游戏</div>
+
+    <div id="l-step-game" class="l-step">
+      <button class="card-btn red" data-game="ChineseChess">
+        <img src="assets/graphics/chess/piece4.png" alt=""><span>中国象棋</span><small>Chinese Chess</small>
+      </button>
+      <button class="card-btn blue" data-game="Gomoku">
+        <img src="assets/graphics/gomoku/black.png" alt=""><span>五子棋</span><small>Gomoku</small>
+      </button>
+    </div>
+
+    <div id="l-step-mode" class="l-step hidden">
+      <button class="row-btn green" data-mode="HvH">双人同屏 <small>Local PvP</small></button>
+      <button class="row-btn orange" data-mode="HvAI">人机对战 <small>Human vs AI</small></button>
+      <button class="row-btn grey" data-mode="AIvAI">AI 观战 <small>AI vs AI</small></button>
+      <button class="row-btn black tiny" data-back="game">返回</button>
+    </div>
+
+    <div id="l-step-model" class="l-step hidden">
+      <div id="model-hint" class="hidden">
+        未检测到模型文件。<br>请从 GitHub Release 下载 .pt 放入 data/&lt;游戏名&gt;/ 目录。
+      </div>
+      <div class="dd-label" id="dd1-label">AI 1（执先手）</div>
+      <div id="dd1" class="dropdown"><button class="dd-btn">请选择 AI 模型</button><ul class="dd-list"></ul></div>
+      <div id="dd2-box">
+        <div class="dd-label">AI 2（执后手）</div>
+        <div id="dd2" class="dropdown"><button class="dd-btn">请选择 AI 模型</button><ul class="dd-list"></ul></div>
+      </div>
+      <button id="btn-launch" class="row-btn red">开始对局</button>
+      <button class="row-btn black tiny" data-back="mode">返回</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======= 设置 ======= -->
+<div id="dlg-settings" class="scrim full hidden">
+  <div class="dlg settings">
+    <p class="dlg-title">推理服务地址</p>
+    <input id="in-url" type="text" placeholder="留空 = 与网页同源（推荐：由 play_server 直接托管）">
+    <p class="hint">跨机器对战时填写后端地址，例如 <code>http://192.168.0.126:5000/</code>。<br>
+      后端启动命令：<code>python -m scripts.play_server</code></p>
+    <div class="dlg-row">
+      <button id="btn-save-url" class="zz-btn big green">保存</button>
+      <button id="btn-close-settings" class="zz-btn big black">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="hidden"></div>
+
+<script src="js/api.js"></script>
+<script src="js/env-chess.js"></script>
+<script src="js/env-gomoku.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,6 +1,5 @@
 import re
 
-from gymnasium import spaces
 
 from numpy.typing import NDArray
 
@@ -21,9 +20,7 @@ class Gomoku(BaseEnv):
     def __init__(self, rows: int = 15, columns: int = 15):
         super().__init__()
         self.shape: tuple[int, int, int] = 2, rows, columns
-        self.action_space = spaces.Discrete(rows * columns)
         self.n_actions = rows * columns
-        self.observation_space = spaces.Box(0, 1, shape=self.shape, dtype=np.float32)
         self.reset()
 
     def reset(self, seed=None, options=None) -> tuple[NDArray[np.int_], dict]:

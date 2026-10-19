@@ -1,16 +1,28 @@
 import glob
 import json
 import os
+import re
 import traceback
 from typing import Self
 
 import torch
 from torch import Tensor, nn
 
+import core.utils.config as app_config
 from core.utils.config import CONFIG, settings, NetConfig
 from core.utils.logger import get_logger
 
 logger = get_logger('network')
+
+
+def _brief_cuda_error(e: Exception) -> str:
+    """torch CUDA 异常常含多行文档链接，压缩成一句人话"""
+    s = str(e)
+    m = re.search(r'CUDA error:\s*([\w ]+)', s)
+    if m:
+        return m.group(1).strip().lower().replace('_', ' ')
+    first = next((ln.strip() for ln in s.splitlines() if ln.strip()), '未知错误')
+    return re.sub(r'\s*Search for.*', '', first)[:100]
 
 
 class ConvBlock(nn.Module):
@@ -134,8 +146,48 @@ class BaseNet(nn.Module):
         self.device = device
         self.eval_model = eval_model
 
+    # 显存探测余量：CUDA context + cuDNN workspace + torch 缓存碎片
+    _VRAM_RESERVE = 600 * 1024 * 1024
+
+    def _fit_device(self) -> str:
+        """CUDA 加载前探测显存水位；不足（如被其他进程占用）则整体降级 CPU 并记录说明。
+        降级写入全局 CONFIG['device']，保证 engine/MCTS/训练端行为一致。"""
+        dev = str(self.device)
+        app_config.DEVICE = CONFIG['device']
+        if not dev.startswith('cuda'):
+            return dev
+        if not torch.cuda.is_available():
+            return self._degrade_cpu('CUDA 运行时不可用（驱动/权限异常），已改用 CPU 推理')
+        need = sum(p.numel() for p in self.parameters()) * 4 * 1.3 + self._VRAM_RESERVE
+        try:
+            idx = torch.device(dev).index or 0
+            free, total = torch.cuda.mem_get_info(idx)
+        except Exception:
+            return dev  # 查询失败不阻塞加载，交给下面的 OOM 兜底
+        if free < need:
+            return self._degrade_cpu(
+                f'显存不足：{dev} 空闲 {free / 2 ** 30:.1f}GiB < 本模型预估需 {need / 2 ** 30:.1f}GiB'
+                f'（共 {total / 2 ** 30:.1f}GiB，可能被其他进程占用），已自动改用 CPU 推理，MCTS 速度会明显下降')
+        logger.info(f'VRAM check passed on {dev}: free {free / 2 ** 30:.1f}GiB, '
+                    f'estimated need {need / 2 ** 30:.1f}GiB')
+        return dev
+
+    def _degrade_cpu(self, msg: str) -> str:
+        logger.warning(msg)
+        CONFIG['device'] = 'cpu'
+        app_config.DEVICE = 'cpu'
+        app_config.DEVICE_NOTE = msg
+        return 'cpu'
+
     def initialize(self):
-        self.to(self.device)
+        self.device = self._fit_device()
+        try:
+            self.to(self.device)
+        except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
+            if not str(self.device).startswith('cuda'):
+                raise
+            self.device = self._degrade_cpu(f'CUDA 显存不可用（{_brief_cuda_error(e)}），已改用 CPU 推理')
+            self.to(self.device)
         # 推理模式
         if self.eval_model:
             self.eval()
@@ -162,7 +214,7 @@ class BaseNet(nn.Module):
         :return model和是否成功"""
         success = True
         try:
-            checkpoint = torch.load(path, map_location=CONFIG['device'])
+            checkpoint = torch.load(path, map_location='cpu')  # 先落 CPU 再 .to(device)，支持跨设备加载
             config = checkpoint['config']
             # 创建网络
             model = cls(config, eval_model=eval_model, device=device)

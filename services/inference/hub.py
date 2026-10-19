@@ -55,6 +55,25 @@ class ServerHub:
             self.ref_counts[key] = self.ref_counts.get(key, 0) + 1
             return engine, loaded_id
 
+    def relocate_all(self, device: str, rollback_to: str) -> str | None:
+        """把所有已加载引擎迁移到 device；任一失败则已迁移的回滚，返回错误原因"""
+        with self.lock:
+            engines = list(self.engines.values())
+        moved = []
+        for eng in engines:
+            try:
+                eng.relocate(device)
+                moved.append(eng)
+            except Exception as e:
+                from core.network.network import _brief_cuda_error
+                for m in moved:
+                    try:
+                        m.relocate(rollback_to)
+                    except Exception:
+                        self.logger.error('relocate rollback failed', exc_info=True)
+                return _brief_cuda_error(e) if 'CUDA' in str(e) or 'cuda' in str(e) else str(e)[:150]
+        return None
+
     def release(self, name: str) -> None:
         """使用方退出时释放引用，计数归零后引擎等待回收"""
         with self.lock:

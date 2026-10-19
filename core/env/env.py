@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 import random
 from collections.abc import Sequence
 
-import gymnasium as gym
 import numpy as np
 from numpy.typing import NDArray
 
@@ -13,7 +12,7 @@ if typing.TYPE_CHECKING:
     from core.player.player import Player
 
 
-class BaseEnv(gym.Env, ABC):
+class BaseEnv(ABC):
     n_actions: int
 
     def __init__(self):
