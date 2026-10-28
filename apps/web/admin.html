@@ -104,7 +104,6 @@
   <span class="pill" id="meta">—</span>
   <span style="flex:1"></span>
   <span class="pill" id="pending-stop" style="display:none">将在本轮结束后退出</span>
-  <button class="primary" id="btn-start">启动训练</button>
   <button id="btn-stop-round" title="= 发送 SIGINT：取消还没开跑的局，把手上正在下的几十局收完并入池，存盘后退出">等本轮结束</button>
   <button class="danger" id="btn-stop" title="= kill -9：直接杀进程，本轮已下完的局不会存盘">立即结束</button>
   <a href="/" class="pill" style="text-decoration:none">← 对弈</a>
@@ -562,7 +561,7 @@ function renderSnapshot(s){
   // 训练进程
   $('trainer').textContent = running? `训练中 pid ${tr.pid} · ${secs(tr.uptime_s)}` : '训练未运行';
   $('trainer').className = 'pill ' + (running?'run':'stop');
-  $('btn-start').disabled = running; $('btn-stop').disabled = !running;
+  $('btn-stop').disabled = !running;
   $('btn-start2').disabled = running;
   const pending = !!tr.stop_after_round;
   $('btn-stop-round').disabled = !running || pending;
@@ -943,7 +942,6 @@ async function tickSeries(){
 }
 $('btn-theme').onclick = () => cycleTheme();
 applyTheme(themeMode(), false);      // 同步按钮文案 + 图表配色（不改 localStorage）
-$('btn-start').onclick = startTraining;
 $('btn-start2').onclick = startTraining;
 $('btn-stop').onclick = () => stopTraining('kill');
 $('btn-stop-round').onclick = () => stopTraining('interrupt');
