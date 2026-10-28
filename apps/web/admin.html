@@ -606,10 +606,10 @@ async function loadArtifacts(){
       <tr><td><input type=checkbox class=ck data-kind=checkpoint ${isSel('t_ckpt',c.path)?'checked':''} value="${esc(c.path)}"></td><td class="num">${c.iteration}${c.iteration===d.best_index?' <span class="pill run">best</span>':''}</td>
           <td class="num">${gb(c.size)}</td><td class="hint">${new Date(c.mtime*1000).toLocaleString()}</td>
           <td><button class="mini" onclick="promote(${c.iteration})">设为best</button>
-              <button class="mini danger" onclick="delArtifact('checkpoint','${c.path}','delete')" title="删除此代">🗑</button></td></tr>`).join('');
+              <button class="mini danger" onclick="delArtifact('checkpoint','${c.path}','delete')" title="删除此代">${ICO_TRASH}</button></td></tr>`).join('');
     $('t_runs').innerHTML = `<tr><th><input type=checkbox class=ckall data-t=t_runs></th><th>run</th><th>大小</th><th></th></tr>` + d.runs.slice(0,20).map(r=>`
       <tr><td><input type=checkbox class=ck data-kind=run ${isSel('t_runs',r.path)?'checked':''} value="${esc(r.path)}"></td><td class="hint">${esc(r.name)}</td><td class="num">${gb(r.size)}</td>
-          <td><button class="mini danger" onclick="delArtifact('run','${r.path}','delete')" title="删除此 run">🗑</button></td></tr>`).join('');
+          <td><button class="mini danger" onclick="delArtifact('run','${r.path}','delete')" title="删除此 run">${ICO_TRASH}</button></td></tr>`).join('');
     tidySel('t_ckpt', d.checkpoints.map(c=>c.path));
     tidySel('t_runs', d.runs.slice(0,20).map(r=>r.path));
     loadPools(game);
@@ -629,7 +629,7 @@ async function loadPools(game){
           <td><b>${esc(b.ref)}</b></td>
           <td class="num">${num(b.size)} / ${num(b.capacity)}</td>
           <td class="hint">${esc(src)}<br>${esc((b.updated_at||'').slice(5,16)).replace('T',' ')}</td>
-          <td><button class="mini" title="克隆为新池" onclick="clonePool('${esc(b.ref)}')">⧉</button> <button class="mini danger" title="删除此池（数据不可恢复）" onclick="delPool('${esc(b.ref)}')">🗑</button></td></tr>`;
+          <td><button class="mini" title="克隆为新池" onclick="clonePool('${esc(b.ref)}')">${ICO_COPY}</button> <button class="mini danger" title="删除此池（数据不可恢复）" onclick="delPool('${esc(b.ref)}')">${ICO_TRASH}</button></td></tr>`;
     }).join('') : (selMap.t_pools.clear(), '<tr><td colspan="5" class="hint">本棋种还没有经验池——训练表单里可直接新建</td></tr>'));
   syncBtn('t_pools');
   }catch(e){ t.innerHTML = `<tr><td class="hint">经验池读取失败：${esc(e.message)}</td></tr>`; }
@@ -679,6 +679,8 @@ function syncBtn(tid){
   const n = selMap[tid].size;
   btn.hidden = !n; btn.textContent = `删除 ${n}`;
 }
+const ICO_COPY = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+const ICO_TRASH = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-2px"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
 /* 重绘后调用：清掉本次列表里已不存在的勾选（文件被删/切了棋种），并校正表头全选态 */
 function tidySel(tid, rows){
   const alive = new Set(rows);
