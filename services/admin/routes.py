@@ -114,13 +114,56 @@ def _suggested_target() -> dict:
     return {'game': CONFIG['game_name'], 'profile': os.environ.get('ZZ_PROFILE', 'm')}
 
 
+_DEVICES: list | None = None
+
+
+def devices_info() -> list:
+    """「推理设备」下拉的选项。不能用 torch 探测——服务进程启动时把
+    CUDA_VISIBLE_DEVICES 置空（让 GPU 给 LLM），torch 会谎称没有卡；
+    以 nvidia-smi 为准枚举物理卡。hidden 标记本服务当前没授权 CUDA。"""
+    global _DEVICES
+    if _DEVICES is None:
+        out: list = []
+        try:
+            import subprocess
+            r = subprocess.run(['nvidia-smi', '--query-gpu=index,name', '--format=csv,noheader'],
+                               capture_output=True, text=True, timeout=8)
+            import re as _re
+            for line in (r.stdout if r.returncode == 0 else '').splitlines():
+                m = _re.match(r'^(\d+),\s*(.+)$', line.strip())
+                if not m:
+                    continue
+                idx, name = m.group(1), m.group(2)
+                out.append({'value': f'cuda:{idx.strip()}', 'label': f'cuda:{idx.strip()} · {name.strip()}'})
+        except Exception:
+            pass
+        try:
+            import torch
+            if out and not torch.cuda.is_available():
+                for d in out:
+                    d['hidden'] = True
+                    d['label'] += '（本服务当前未授权 CUDA，需重启服务时不带隔离变量）'
+            mps = getattr(torch.backends, 'mps', None)
+            if mps and mps.is_available():
+                out.append({'value': 'mps', 'label': 'mps · Apple GPU'})
+        except Exception:
+            pass
+        out.append({'value': 'cpu', 'label': 'cpu'})
+        cur = str(CONFIG.get('device') or '')
+        if cur and not any(d['value'] == cur or cur.startswith(d['value'].split(':')[0] + ':') for d in out):
+            out.insert(0, {'value': cur, 'label': f'{cur} · 当前生效（本服务探测不到该设备）'})
+        _DEVICES = out
+    return _DEVICES
+
+
+
 @bp.get('/api/admin/env')
 def env_info():
     """表单默认值：当前生效的档位/旋钮（含进程环境里已有的覆盖）。"""
     return jsonify({
         'suggested': _suggested_target(),
         'game': CONFIG['game_name'], 'profile': os.environ.get('ZZ_PROFILE', 'm'),
-        'device': CONFIG['device'], 'workers': CONFIG.get('selfplay_workers'),
+        'device': CONFIG['device'], 'devices': devices_info(), 'workers': CONFIG.get('selfplay_workers'),
         'games_per_round': CONFIG.get('selfplay_games_per_round'),
         'batch_leaves': CONFIG.get('mcts_batch_leaves'),
         'max_batch': os.environ.get('ZZ_MAX_BATCH', ''),

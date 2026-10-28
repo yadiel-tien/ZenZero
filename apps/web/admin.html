@@ -148,7 +148,7 @@
         <div class="field"><label>每轮局数</label><input id="f_games" type="number" min="1" value="400"></div>
         <div class="field"><label>并行 leaf 数 K</label><input id="f_leaves" type="number" min="1" value="12"></div>
         <div class="field"><label>batch 上限</label><input id="f_maxbatch" type="number" min="1" placeholder="默认256"></div>
-        <div class="field"><label>设备</label><input id="f_device" placeholder="auto / cuda:0 / cpu"></div>
+        <div class="field"><label>推理设备</label><select id="f_device" title="自博弈与 fit 的神经网络计算跑在哪个设备上"></select></div>
       </div>
       <div class="row">
         <div class="field"><label>起点</label><select id="f_start">
@@ -723,7 +723,7 @@ function launchOpts(){
   if($('f_games').value) o.games_per_round = +$('f_games').value;
   if($('f_leaves').value) o.batch_leaves = +$('f_leaves').value;
   if($('f_maxbatch').value) o.max_batch = +$('f_maxbatch').value;
-  if($('f_device').value.trim()) o.device = $('f_device').value.trim();
+  o.device = $('f_device').value;
   const st = $('f_start').value;
   if(st === 'fork'){
     const n = +$('f_startn').value;
@@ -1000,7 +1000,9 @@ window.addEventListener('resize', ()=>{ if(tab==='monitor') tickSeries(); });
     if(env.games_per_round) $('f_games').value = env.games_per_round;
     if(env.batch_leaves) $('f_leaves').value = env.batch_leaves;
     if(env.max_batch) $('f_maxbatch').value = env.max_batch;
-    if(env.device) $('f_device').value = env.device;
+    const devs = env.devices || [{value:'cuda:0',label:'cuda:0'},{value:'cpu',label:'cpu'}];
+    $('f_device').innerHTML = devs.map(d=>`<option value="${esc(d.value)}">${esc(d.label)}</option>`).join('');
+    if(devs.some(d=>d.value===env.device)) $('f_device').value = env.device;
     $('launch_hint').textContent = `当前生效：${env.net.n_filters}x${env.net.n_res_blocks} · 线程 ${env.workers} · 每轮 ${env.games_per_round} 局 · K=${env.batch_leaves}`;
   }catch(e){ /* 忽略 */ }
   loadProfiles(); loadBuffers();
