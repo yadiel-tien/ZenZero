@@ -301,15 +301,15 @@
         const idxs = (info.indices || []).slice().sort((a, b) => b - a);
         const gopts = idxs.map((i) => ({
           value: { index: i, profile: prof },
-          label: i === -1 ? '原生模型（未训练）'
-                          : (i === info.best_index ? `★ v${i}（最强）` : `v${i}`),
+          label: i === -1 ? '原生'
+                          : (i === info.best_index ? `★ ${i} 代` : `${i} 代`),
         }));
         const d = gopts.findIndex((o) => o.value.index === info.best_index);
         dd.setOptions(gopts, d >= 0 ? d : 0);
       };
       const kindOpts = order.map((pp) => ({
         value: pp,
-        label: `网络 ${pp}${pp === data.profile ? '（默认）' : ''}`,
+        label: pp,
       }));
       fillGens(this.dd1, order[0]);
       fillGens(this.dd2, order[0]);
