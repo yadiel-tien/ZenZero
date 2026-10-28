@@ -652,35 +652,38 @@ async function stopTraining(mode){
 }
 
 /* ---------- 日志 ---------- */
-const LOG_CAT_ORDER = ['训练','自博弈','引擎','服务','任务','系统','其它'];
 const LIVE = '● 实时';
 let LOGS_CACHE = [];
 function logOpt(x){ return `<option value="${esc(x.path)}">${esc(x.name)} (${gb(x.size||0)})</option>`; }
 function filesOf(cat){
   if(cat === LIVE) return [{path:'current', name:'当前训练进程（自动跟随最新 console 日志）', size:0}];
-  return LOGS_CACHE.filter(x=>(x.cat||'其它')===cat);
+  return LOGS_CACHE.filter(x=>x.cat===cat);
+}
+function catOrder(){
+  // 分类 = 日志目录名；排序 = 该目录内最新一份的时间（最近在写的排最前）
+  const last = {};
+  LOGS_CACHE.forEach(x=>{ if(!(x.cat in last) || x.mtime > last[x.cat]) last[x.cat] = x.mtime; });
+  const cats = Object.keys(last).sort((a,b)=>last[b]-last[a]);
+  if(TRAIN_RUNNING) cats.unshift(LIVE);
+  return cats;
 }
 function renderFileSel(keep){
   const fs = filesOf($('l_cat').value), sel = $('l_name');
   const shown = fs.slice(0, 10);
   let html = shown.map(logOpt).join('');
-  if(fs.length > shown.length) html += `<option disabled>── 另有 ${fs.length-shown.length} 份更早（清 logs/console 可缩短）──</option>`;
-  sel.innerHTML = html || '<option value="">（该类暂无日志）</option>';
-  const vals=[...sel.options].map(o=>o.value).filter(Boolean);
-  if(keep && vals.includes(keep)) sel.value = keep;
-  else if(vals.length) sel.value = vals[0];            // 组内已按 mtime 倒序 → 默认最新
+  if(fs.length > shown.length) html += `<option disabled>── 另有 ${fs.length-shown.length} 份更早 ──</option>`;
+  sel.innerHTML = html || '<option value="">（暂无）</option>';
+  const vals = [...sel.options].map(o=>o.value).filter(Boolean);
+  sel.value = (keep && vals.includes(keep)) ? keep : (vals[0] || '');   // 组内 mtime 倒序，默认最新
 }
 function renderCatSel(keep){
-  const cats = LOG_CAT_ORDER.filter(c=>LOGS_CACHE.some(x=>(x.cat||'其它')===c));
-  if(TRAIN_RUNNING) cats.unshift(LIVE);
-  const sel = $('l_cat');
+  const cats = catOrder(), sel = $('l_cat');
   sel.innerHTML = cats.map(c=>{
-    const n = c===LIVE ? 1 : LOGS_CACHE.filter(x=>(x.cat||'其它')===c).length;
-    return `<option value="${c}">${c}（${n}）</option>`;
+    const n = c===LIVE ? 1 : LOGS_CACHE.filter(x=>x.cat===c).length;
+    return `<option value="${esc(c)}">${esc(c)}（${n}）</option>`;
   }).join('');
   if(keep && cats.includes(keep)) sel.value = keep;
   else if(TRAIN_RUNNING) sel.value = LIVE;
-  else if(cats.includes('训练')) sel.value = '训练';     // 进页默认看训练类（最新在首位）
   renderFileSel();
 }
 async function loadLogList(){
