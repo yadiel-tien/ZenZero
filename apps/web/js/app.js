@@ -289,8 +289,9 @@
         $('model-hint').innerHTML = `未检测到模型文件。<br>请从 GitHub Release 下载 .pt 放入 data/${envName}/ 目录。`;
         return;
       }
-      // 两个层次：先列"种类"（模型 m/s/l），再列该档的序号。
-      // 之前只给默认档的序号，于是 m 档（老模型）在对弈页里彻底看不见了。
+      // 两个层次：先列神经网络（m/s/l/自定义名），再列该网络下的模型（第 N 代权重）。
+      // 术语定案：档位(profile)=神经网络；模型=权重 checkpoint。
+      // 曾经只列默认档，于是 m 网络的权重在对弈页里彻底看不见——两级都要跨网络。
       const order = [data.profile]
         .concat(Object.keys(profiles).filter((p) => p !== data.profile))
         .filter((p) => p && profiles[p] && (profiles[p].indices || []).length);
@@ -299,21 +300,21 @@
       order.forEach((prof) => {
         const info = profiles[prof];
         const idxs = (info.indices || []).slice().sort((a, b) => b - a);
-        opts.push({ group: true, label: `— ${prof} 档${prof === data.profile ? '（最近有更新）' : ''} —` });
+        opts.push({ group: true, label: `— 网络 ${prof}${prof === data.profile ? '（最近有更新）' : ''} —` });
         idxs.forEach((i) => {
           const isBest = i === info.best_index;
           opts.push({
             value: { index: i, profile: prof },
-            label: i === -1 ? `${prof} 档 · 原生模型`
-                            : `${isBest ? '★ 最强' : 'AI'} · ${prof} 档 v${i}`
+            label: i === -1 ? `${prof} · 原生模型（未训练）`
+                            : `${isBest ? '★ 最强' : 'AI'} · ${prof} · v${i}`
           });
           if (prof === data.profile && i === best) bestIdx = opts.length - 1;
         });
       });
-      this.profile = data.profile || null;   // 默认档（最近有产出的那档）
-      const kinds = order.map((pp) => `${pp} 档 ${profiles[pp].indices.length} 个`).join(' · ');
+      this.profile = data.profile || null;   // 默认网络（最近有产出的那个）
+      const kinds = order.map((pp) => `${pp}（${profiles[pp].indices.length} 个模型）`).join(' · ');
       $('model-hint').classList.remove('hidden');
-      $('model-hint').textContent = `可用模型：${kinds}　（默认选中 ${data.profile} 档最新最强，可展开切换档位）`;
+      $('model-hint').textContent = `神经网络：${kinds}　（默认 ${data.profile} 最新最强，展开可跨网络选模型）`;
       this.dd1.setOptions(opts, bestIdx);
       this.dd2.setOptions(opts, bestIdx);
       $('btn-launch').disabled = false;

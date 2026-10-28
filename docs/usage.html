@@ -104,7 +104,7 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
 <div class="step"><div class="n">1</div><div class="b"><b>装环境</b>（一次性）——Python 3.14t + 依赖，见第 1 节。</div></div>
 <div class="step"><div class="n">2</div><div class="b"><b>启动服务</b>：<code>python main.py</code>（默认绑定本机回环 127.0.0.1:5000；局域网开放加 <code>--host 0.0.0.0</code>，
 换端口加 <code>--port 8080</code>）。浏览器访问 <code>http://&lt;主机&gt;:5000/</code> 即可开始对局。</div></div>
-<div class="step"><div class="n">3</div><div class="b"><b>训练模型</b>：开 <code>http://&lt;主机IP&gt;:5000/admin</code> → 训练页 → 核对棋种/档位/参数 →
+<div class="step"><div class="n">3</div><div class="b"><b>训练模型</b>：开 <code>http://&lt;主机IP&gt;:5000/admin</code> → 训练页 → 核对棋种/神经网络/参数 →
 点击「启动训练」；训练结束时点「等本轮结束」。全程无需终端操作。</div></div>
 
 <h2 id="s1">1　安装</h2>
@@ -122,8 +122,8 @@ uv pip install -r requirements-backend.txt --extra-index-url https://download.py
 </ul>
 
 <h2 id="s2">2　对战</h2>
-<p>服务起后（第 0 步②），对弈页支持：<b>人机</b>（可选模型档位与序号、执红执黑）· <b>双人同屏</b> · <b>AI 观战</b>；
-悔棋、100s 每步、中文记谱、双胜率条、音效；手机/平板同网段直接访问。选模型下拉是两层的：先种类（档位）再序号。</p>
+<p>服务起后（第 0 步②），对弈页支持：<b>人机</b>（可选神经网络与模型代数、执红执黑）· <b>双人同屏</b> · <b>AI 观战</b>；
+悔棋、100s 每步、中文记谱、双胜率条、音效；手机/平板同网段直接访问。选模型下拉是两层的：先神经网络（s/m/l/…），再该网络下的模型代数。</p>
 <table>
 <tr><th>要点</th><th>行为</th></tr>
 <tr><td>未放置任何模型</td><td>可双人玩；人机/观战会提示模型列表为空（错误框给出放置路径）</td></tr>
@@ -135,7 +135,7 @@ uv pip install -r requirements-backend.txt --extra-index-url https://download.py
 <h2 id="s3">3　训练</h2>
 <h3>3.1　推荐路径：管理台</h3>
 <pre><code>http://&lt;主机IP&gt;:5000/admin　→　「训练」页　→　启动训练</code></pre>
-<p>表单字段就是训练旋钮：棋种、档位（s/m/l）、并发线程、每轮局数、虚拟损失 K、（可选）批上限与设备。
+<p>表单字段就是训练旋钮：棋种、神经网络（s/m/l/自定义）、并发线程、每轮局数、虚拟损失 K、（可选）批上限与设备。
 启动后"监控"页看实时；停止三档：<b>等本轮结束</b>（推荐，自博弈+fit+守擂全做完）· <b>优雅停止</b>（在跑的局收完入仓即退）·
 <b>立即结束</b>（kill -9，丢当轮未落盘数据）。</p>
 <h3>3.2　裸命令（服务外的独立终端）</h3>
@@ -145,7 +145,7 @@ ZZ_GAME=ChineseChess ZZ_PROFILE=s ZZ_WORKERS=32 ZZ_GAMES_PER_ROUND=400 \
 ZZ_BATCH_LEAVES=12 ZZ_DEVICE=auto python -X gil=0 -m scripts.train_server</code></pre>
 <ul>
 <li><code>-X gil=0</code> 必须保留（首次 forward 会惰性 import triton 试图重开 GIL，不加则多线程 MCTS 假并行）。</li>
-<li>续训自动从"最新 checkpoint + 仓"接上：同档位目录里有 ckpt 即热启动；冷启动首个模型自动晋升（无守擂者）。</li>
+<li>续训自动从"最新 checkpoint + 仓"接上：同一神经网络目录里有 ckpt 即热启动；冷启动首个模型自动晋升（无守擂者）。</li>
 <li>表示版本换代的处理是自动的：feature_version 与 best 模型不匹配时从新网络开训、旧 best 留任守擂（§1 篇 §6）。</li>
 <li>何时该停：§4 篇第 7 节四条判据（KL 连续 10 代不降 / value 平台 / 晋升胜率均值 &lt;54% / 跨代对局 &lt;60%）。</li>
 </ul>
@@ -168,21 +168,21 @@ ZZ_BATCH_LEAVES=12 ZZ_DEVICE=auto python -X gil=0 -m scripts.train_server</code>
 <tr><td><code>python -m scripts.priskvork_server --host 0.0.0.0 --port 12345</code></td><td>Gomocup 协议对外（Piskvork GUI 可连）</td></tr>
 <tr><td colspan="2"><b>以上 priskvork / arena / bench / build_cython 已接入控制台「任务」页</b>：在线启停、参数白名单校验、日志查看（接口契约见 §5 篇 7 节）。</td></tr>
 <tr><td><code>python -m scripts.arena</code></td><td>ELO 天梯：向 <code>data/&lt;Game&gt;/rates/candidates.txt</code> 写候选（如 <code>10,20,34</code>）批量互刷等级分</td></tr>
-<tr><td><code>python -m tests.drills.model_match --a s:48 --b m:498 --games 40 --sims 800</code></td><td>任意两个"档位:序号"真金对打，得分率 ±2σ 判强弱（<b>务必 GPU</b>：CPU 测量无效，§4 篇 10.2）</td></tr>
+<tr><td><code>python -m tests.drills.model_match --a s:48 --b m:498 --games 40 --sims 800</code></td><td>任意两个"网络:代数"真金对打，得分率 ±2σ 判强弱（<b>务必 GPU</b>：CPU 测量无效，§4 篇 10.2）</td></tr>
 <tr><td><code>python scripts/bench_batch_sweep.py</code></td><td>引擎批扫描，看成本模型还准不准</td></tr>
 </table>
 
 <h2 id="s6">6　选档与配置速查</h2>
 <ul>
 <li><b>起点与仓</b>：训练表单可选<b>起点</b>（续训 / 从头训练：随机新网络但代数接续永不覆盖 / 从指定代数分叉）与<b>数据仓</b>（默认原位仓 / 已有命名仓直接共享引用 / ＋建仓）。命名仓落 <code>data/&lt;Game&gt;/buffers/&lt;name&gt;/</code>，元数据自动记录棋种、表示版本、最新内容来自哪个模型的第几代；跨表示版本的仓会被启动闸门拒绝（§5 篇 4.3）。</li>
-<li><b>自定义档位</b>：控制台「训练 → 模型配置」给规模组合起名字（如 <code>mini64</code>），保存后训练表单、对弈页、制品页的档位下拉即刻可选；删除只移除名字、磁盘模型原样保留（重加同名配置即接上）。</li>
-<li><b>档位怎么选</b>：s（8M）练得快、一夜可追平老 m 档（§4 篇 10.3）；m（25M）默认、老资产在这；
-l（30M）天花板实验。<b>仓跨档通用</b>（同表示版本），大档热身可拷小档 buffer。</li>
+<li><b>自定义神经网络</b>：控制台「训练 → 神经网络配置」给规模组合起名字（如 <code>mini64</code>），保存后训练表单、对弈页、制品页的神经网络下拉即刻可选；删除只移除名字、磁盘上的模型（权重）原样保留（重加同名网络即接上）。</li>
+<li><b>网络怎么选</b>：s（8M）练得快、一夜可追平老 m 网络（§4 篇 10.3）；m（25M）默认、老资产在这；
+l（30M）天花板实验。<b>仓跨网络通用</b>（同表示版本），大网络热身可拷小网络的仓。</li>
 <li><b>全部运行期旋钮</b> = 环境变量九个（<code>ZZ_GAME / ZZ_PROFILE / ZZ_DEVICE / ZZ_WORKERS /
 ZZ_GAMES_PER_ROUND / ZZ_BATCH_LEAVES / ZZ_MAX_BATCH / ZZ_INFER_WORKERS / ZZ_ADMIN_TOKEN</code>），
 语义与默认值见 §5 篇表 4；不改仓库 config 文件。</li>
 <li><b>版本从哪看</b>：对弈页「设置」底部与控制台标题徽章（形如 <code>v2.0.0 · 60e4578</code>），
-或 <code>python main.py --version</code>；四轴版本（应用/表示/档位/代数）的分工见 §5 篇 4.4。
+或 <code>python main.py --version</code>；四轴版本（应用/表示/神经网络/模型代数）的分工见 §5 篇 4.4。
 <li><b>静态默认值</b>在 <code>core/utils/config.py</code>（c_puct、温度调度、dirichlet、阈值、sims 爬坡、presets 规模）。</li>
 </ul>
 
@@ -190,7 +190,7 @@ ZZ_GAMES_PER_ROUND / ZZ_BATCH_LEAVES / ZZ_MAX_BATCH / ZZ_INFER_WORKERS / ZZ_ADMI
 <table>
 <tr><th>症状</th><th>先看这</th></tr>
 <tr><td>起服务报端口占用</td><td><code>--port</code> 换一个；或找到旧进程（训练进程由控制台管理，不会撞 web 端口）</td></tr>
-<tr><td>界面提示"无法获取模型列表"</td><td>服务没起 / 该档位目录没有 <code>.pt</code>；模型下拉换档再试</td></tr>
+<tr><td>界面提示"无法获取模型列表"</td><td>服务没起 / 该神经网络目录没有 <code>.pt</code>；下拉换网络或代数再试</td></tr>
 <tr><td>训练启动即停</td><td>日志页「● 实时」跟随（文件即 <code>logs/train/console.log</code>，历次会话追加）。最常见：仓不足以喂一个 batch（将自动先行填充缓冲区，等待其完成即可）；或显式设备不可用（设计如此，改 <code>ZZ_DEVICE=auto</code>）</td></tr>
 <tr><td>面板数字是"缓存"</td><td>看卡片副标题：标"实时"走心跳，标"上轮/已停"是 perf 记录或日志启发式；训练进程不在时全部转灰属正常</td></tr>
 <tr><td>怀疑哪里炸了</td><td><code>logs/crash/latest.log</code>（线程级异常全进这里，带堆栈）；面板顶部红色横幅同址提示</td></tr>
