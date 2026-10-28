@@ -84,8 +84,11 @@ body {
 }
 /* 棋子抬起投喂感：选中时脚下投影加重（drop-shadow 已随 selected 变） */
 .piece-chess:hover { filter: drop-shadow(0 2px 2px rgba(30, 20, 10, .35)) brightness(1.05); }
-.dd-pair { display: flex; gap: 8px; margin-bottom: 8px; }
-.dd-pair .dropdown { flex: 1; min-width: 0; }
+.dd-pair { display: flex; gap: 10px; justify-content: center; margin-bottom: 8px; }
+.dd-pair .dropdown { width: auto; flex: 0 0 auto; }
+.dd-pair .kind .dd-btn { min-width: 88px; }
+.dd-pair .dropdown:not(.kind) .dd-btn { min-width: 130px; }
+.dd-list { min-width: 100%; white-space: nowrap; }
 /* 棋盘外框质感 */
 #board-wrap { border-radius: 14px; box-shadow: 0 12px 36px rgba(0,0,0,.30); overflow: hidden; }
 
