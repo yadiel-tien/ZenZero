@@ -625,13 +625,15 @@ async function loadPools(game){
     const d = await api('/api/admin/buffers?game='+encodeURIComponent(game));
     const pools = (d.buffers||[]).filter(b=>b.kind==='named');
     const num = (v)=> v>=1000 ? (v/1000).toFixed(1)+'k' : String(v??0);
-    t.innerHTML = '<tr><th>池</th><th>已用 / 容量</th><th>最新写入</th><th>更新</th><th></th></tr>' + (pools.length ? pools.map(b=>`
-      <tr><td><b>${esc(b.ref)}</b>${b.note?`<div class="hint" style="max-width:220px">${esc(b.note)}</div>`:''}</td>
+    t.innerHTML = '<tr><th>池</th><th>已用/容量</th><th>来源</th><th></th></tr>' + (pools.length ? pools.map(b=>{
+      const src = b.source ? `${b.source.model} 网络 · 第 ${b.source.iteration} 代` : '尚无数据';
+      return `
+      <tr title="${esc(b.note||'')}\n输入特征编码：v${b.feature_version??'?'} · 棋种 ${b.game}\n更新：${esc(b.updated_at||b.created_at||'—')}" style="cursor:help">
+          <td><b>${esc(b.ref)}</b></td>
           <td class="num">${num(b.size)} / ${num(b.capacity)}</td>
-          <td class="hint">${b.source ? esc(b.source.model)+' 网络 · 第'+b.source.iteration+'代' : '尚无数据'}</td>
-          <td class="hint">${esc((b.updated_at||b.created_at||'').slice(0,16))}</td>
-          <td><button class="mini" title="整体复制为自动编号的新池；原池保持不动" onclick="clonePool('${esc(b.ref)}')">⧉ 克隆</button></td></tr>`).join('')
-      : '<tr><td colspan="5" class="hint">本棋种还没有经验池——训练表单里可直接新建</td></tr>');
+          <td class="hint">${esc(src)}<br>${esc((b.updated_at||'').slice(5,16)).replace('T',' ')}</td>
+          <td><button class="mini" title="整体复制为自动编号的新池；原池保持不动" onclick="clonePool('${esc(b.ref)}')">⧉</button></td></tr>`;
+    }).join('') : '<tr><td colspan="4" class="hint">本棋种还没有经验池——训练表单里可直接新建</td></tr>');
   }catch(e){ t.innerHTML = `<tr><td class="hint">经验池读取失败：${esc(e.message)}</td></tr>`; }
 }
 async function clonePool(src){
