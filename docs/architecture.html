@@ -108,7 +108,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 <table>
 <tr><th>术语</th><th>一句话定义</th><th>详见</th></tr>
 <tr><td>代 / 轮（iteration / round）</td><td>代 = 模型版本号（每完成一轮 +1）；轮 = 一次"自博弈→fit→守擂"循环</td><td>§4 篇 1、3 节</td></tr>
-<tr><td>档位（profile）</td><td>同一棋种下的网络规模档位：s / m / l；数据目录与引擎命名都带档</td><td>本篇 4 节</td></tr>
+<tr><td>档位（profile）</td><td>同一棋种下的<b>命名模型配置</b>：内置 s / m / l，可自定义；数据目录与引擎命名都带档</td><td>本篇 4 节</td></tr>
 <tr><td>表示版本（feature_version，文中亦称 epoch）</td><td>棋盘张量的布局版本号；不同版本互不兼容，引擎与转换必须对齐</td><td>§1 篇 §6</td></tr>
 <tr><td>引擎（InferenceEngine）</td><td>绑定一份权重 + 档位 + 表示版本的常驻推理单元</td><td>§3 篇 1 节</td></tr>
 <tr><td>登记簿（ServerHub）</td><td>进程内的引擎目录与引用计数；不是网络组件</td><td>§3 篇 8 节</td></tr>
@@ -174,6 +174,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 </table>
 
 <h2 id="s4">4　模型管理：注册表 + 档位制</h2>
+<p class="note">自 2.1 起，「档位」即<b>命名模型配置</b>：内置 s/m/l 之外，可在控制台「训练 → 模型配置」以名字自定义规模模板（存 <code>data/profiles.json</code>，名字即数据目录，棋种下拉同步出现）。只允许覆写规模键（通道数 / 残差块 / value 隐层 / SE）；表示层与棋规层的键被白名单拒收——防手滑，也防把"档位"用成"换游戏"。</p>
 <h3>4.1　架构注册表</h3>
 <pre><code>core/network/network.py   BaseNet：设备适配、加载先落 CPU（checkpoint 跨设备通用）
                           Net（"resnet_v1"）    标准 AlphaZero 双头：Conv stem → N×ResBlock(±SE) → 双头
@@ -214,7 +215,7 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <tr><td>表示版本 feature_version</td><td><code>1</code> / <code>2</code></td>
 <td>棋盘张量布局 epoch，烧进 checkpoint；决定特征转换与网络通道数，跨 epoch 不兼容（§1 篇 §6）。</td></tr>
 <tr><td>档位 profile</td><td><code>s</code> / <code>m</code> / <code>l</code></td>
-<td>网络规模；只影响体量与数据目录，不影响兼容性（4.2 节）。</td></tr>
+<td>命名模型配置（内置 s/m/l ∪ profiles.json 自定义）；只影响体量与数据目录，不影响兼容性（4.2 节）。</td></tr>
 <tr><td>模型代数 iteration</td><td><code>34</code></td>
 <td>档位内自博弈世代（checkpoint_N.pt），守擂晋升推进（§4 篇 8 节）。</td></tr>
 </table>

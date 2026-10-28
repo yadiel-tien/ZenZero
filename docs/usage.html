@@ -174,6 +174,7 @@ ZZ_BATCH_LEAVES=12 ZZ_DEVICE=auto python -X gil=0 -m scripts.train_server</code>
 
 <h2 id="s6">6　选档与配置速查</h2>
 <ul>
+<li><b>自定义档位</b>：控制台「训练 → 模型配置」给规模组合起名字（如 <code>mini64</code>），保存后训练表单、对弈页、制品页的档位下拉即刻可选；删除只移除名字、磁盘模型原样保留（重加同名配置即接上）。</li>
 <li><b>档位怎么选</b>：s（8M）练得快、一夜可追平老 m 档（§4 篇 10.3）；m（25M）默认、老资产在这；
 l（30M）天花板实验。<b>仓跨档通用</b>（同表示版本），大档热身可拷小档 buffer。</li>
 <li><b>全部运行期旋钮</b> = 环境变量九个（<code>ZZ_GAME / ZZ_PROFILE / ZZ_DEVICE / ZZ_WORKERS /

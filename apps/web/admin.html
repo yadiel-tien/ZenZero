@@ -162,7 +162,20 @@
       <div class="hint" style="margin-bottom:8px">启动即独立进程（新会话），本服务重启不影响它；停止走 SIGINT → 优雅退出 → SIGTERM → SIGKILL。</div>
       <pre id="trainer_log" style="max-height:340px">（尚无进程日志）</pre>
     </div>
-  </section>
+  
+      <h2 style="margin-top:16px">模型配置（命名档位）<span class="lg">data/profiles.json · 只许规模键 · 名字即数据目录</span></h2>
+      <table><tr><th>配置名</th><th>网络规模</th><th>来源</th><th>模型</th><th></th></tr></thead>
+        <tbody id="pf_rows"><tr><td colspan="5" class="hint">加载中…</td></tr></tbody></table>
+      <div class="row" style="margin-top:8px">
+        <div class="field"><label>新配置名</label><input id="pf_name" placeholder="mini64（小写字母开头）" style="max-width:130px"></div>
+        <div class="field"><label>通道数</label><input id="pf_filters" type="number" value="96" min="16" max="1024"></div>
+        <div class="field"><label>残差块</label><input id="pf_blocks" type="number" value="4" min="1" max="64"></div>
+        <div class="field"><label>value 隐层</label><input id="pf_vh" type="number" value="48" min="8" max="2048"></div>
+        <div class="field"><label>SE 注意力</label><select id="pf_se"><option value="1">开</option><option value="0">关</option></select></div>
+        <button id="pf_add" title="校验通过后写入 data/profiles.json，下拉立即可选">新增配置</button>
+      </div>
+      <div class="hint">新增后在上方「档位」选它开训；删除只移除配置名，磁盘上已训练的模型保留（重新添加同名配置即可再接上）。</div>
+</section>
 
   <!-- ============ 制品 ============ -->
   <section class="tab" id="tab-artifacts">
@@ -540,6 +553,48 @@ async function promote(it){
   }catch(e){ toast('失败: '+e.message); }
 }
 
+/* ---------- 模型配置（命名档位） ---------- */
+let PROFILES = [];
+async function loadProfiles(){
+  const game = $('f_game').value;
+  let d;
+  try{ d = await api('/api/admin/profiles?game='+encodeURIComponent(game)); }
+  catch(e){ $('pf_rows').innerHTML = `<tr><td colspan="5" class="hint">读取失败: ${esc(e.message)}</td></tr>`; return; }
+  PROFILES = d.profiles || [];
+  $('pf_rows').innerHTML = PROFILES.map(p=>`<tr>
+      <td class="num">${esc(p.name)}${p.builtin?'':' <span class="pill" style="font-size:10px">自定义</span>'}</td>
+      <td class="hint">${esc(String(p.net.n_filters||'?'))}×${esc(String(p.net.n_res_blocks||'?'))} · vh ${esc(String(p.net.n_value_hidden_channels||'?'))}${p.net.use_se?' · SE':''}</td>
+      <td class="hint">${p.builtin?'内置':'profiles.json'}</td>
+      <td class="num">${p.models}${p.best>=0?` <span class="pill" style="font-size:10px">best ${p.best}</span>`:''}</td>
+      <td>${p.builtin?'':`<button class="mini danger" onclick="pfDel('${esc(p.name)}',${p.models})">删名</button>`}</td></tr>`).join('')
+    || '<tr><td colspan="5" class="hint">无</td></tr>';
+  // 两个档位下拉：内置在前、自定义带 ✦；保留当前选中值
+  ['f_profile','a_profile'].forEach(id=>{
+    const sel = $(id), old = sel.value;
+    sel.innerHTML = PROFILES.map(p=>`<option value="${esc(p.name)}">${esc(p.name)}${p.builtin?'':' ✦'} ${p.net.n_filters||'?'}×${p.net.n_res_blocks||'?'}</option>`).join('');
+    if (PROFILES.some(p=>p.name===old)) sel.value = old;
+  });
+}
+$('pf_add').onclick = async ()=>{
+  const body = {name: $('pf_name').value.trim(), net: {
+    n_filters: +$('pf_filters').value, n_res_blocks: +$('pf_blocks').value,
+    n_value_hidden_channels: +$('pf_vh').value, use_se: $('pf_se').value==='1'}};
+  try{
+    const r = await api('/api/admin/profiles/save', {method:'POST', body: JSON.stringify(body)});
+    r.ok ? (toast(`已创建配置 ${body.name}`, true), $('pf_name').value='', loadProfiles()) : toast('创建失败: '+r.error);
+  }catch(e){ toast('创建失败: '+e.message); }
+};
+async function pfDel(name, models){
+  const extra = models ? `\n名下还有 ${models} 个模型文件（保留在磁盘，仅移除配置名）。` : '';
+  if(!window.confirm(`删除配置「${name}」？${extra}`)) return;
+  try{
+    const body = {name};
+    if(models) body.confirm = 'delete-profile-with-models';
+    const r = await api('/api/admin/profiles/delete', {method:'POST', body: JSON.stringify(body)});
+    r.ok ? (toast('已删除配置 '+name, true), loadProfiles()) : toast('删除被拒: '+r.error);
+  }catch(e){ toast('删除失败: '+e.message); }
+}
+
 /* ---------- 训练控制 ---------- */
 function launchOpts(){
   const o = {game:$('f_game').value, profile:$('f_profile').value};
@@ -688,6 +743,7 @@ $('btn-refresh-art').onclick = loadArtifacts;
 $('btn-promote').onclick = ()=>promote();
 $('btn-load-log').onclick = loadLog;
 $('a_game').onchange = $('a_profile').onchange = loadArtifacts;
+$('f_game').onchange = loadProfiles;
 $('l_name').onchange = loadLog;
 window.addEventListener('resize', ()=>{ if(tab==='monitor') tickSeries(); });
 
@@ -704,6 +760,7 @@ window.addEventListener('resize', ()=>{ if(tab==='monitor') tickSeries(); });
     if(env.device) $('f_device').value = env.device;
     $('launch_hint').textContent = `当前生效：${env.net.n_filters}x${env.net.n_res_blocks} · 线程 ${env.workers} · 每轮 ${env.games_per_round} 局 · K=${env.batch_leaves}`;
   }catch(e){ /* 忽略 */ }
+  loadProfiles();
   tick(); tickSeries();
   setInterval(tick, 2000);
   setInterval(()=>{ if(tab==='tasks') loadTasks(false); }, 5000);

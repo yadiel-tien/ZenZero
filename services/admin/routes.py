@@ -158,6 +158,71 @@ def train_stop():
     return jsonify(_r().stop(mode=mode, grace=float(data.get('grace') or 150.0)))
 
 
+# ---------------------------------------------------------------- 命名模型配置
+@bp.get('/api/admin/profiles')
+def profiles_list():
+    """内置档位(s/m/l) ∪ data/profiles.json 自定义命名配置，含各自模型数。"""
+    from core.utils.config import CONFIG, available_profiles, net_config_for
+    game = str(request.args.get('game') or CONFIG['game_name'])
+    try:
+        builtin = set((CONFIG[game].get('presets') or {}).keys())
+    except KeyError:
+        return jsonify({'ok': False, 'error': f'未知棋种 {game}'}), 400
+    out = []
+    for name, over in available_profiles(game).items():
+        cfg = {}
+        try:
+            cfg = net_config_for(name, game)
+        except Exception:                                # noqa: BLE001 坏条目不炸列表
+            pass
+        n_models, best = 0, -1
+        try:
+            from core.network.functions import list_all_indices, read_best_index
+            n_models = len(list_all_indices(game, name))
+            best = read_best_index(game, name) if n_models else -1
+        except Exception:                                # noqa: BLE001
+            pass
+        out.append({'name': name, 'builtin': name in builtin,
+                    'net': {k: cfg.get(k) for k in ('arch', 'n_filters', 'n_res_blocks',
+                                                    'n_value_hidden_channels', 'use_se')},
+                    'override': over, 'models': n_models, 'best': best})
+    return jsonify({'game': game, 'profiles': out})
+
+
+@bp.post('/api/admin/profiles/save')
+def profiles_save():
+    err, data = _guard()
+    if err:
+        return err
+    from core.utils.config import save_custom_profile
+    ok, msg = save_custom_profile(str(data.get('name') or ''),
+                                  data.get('net') if isinstance(data.get('net'), dict) else {})
+    res = {'ok': ok, 'message': msg} if ok else {'ok': False, 'error': msg}
+    return jsonify(res), (200 if ok else 400)
+
+
+@bp.post('/api/admin/profiles/delete')
+def profiles_delete():
+    err, data = _guard()
+    if err:
+        return err
+    from core.utils.config import CONFIG, delete_custom_profile, net_dir
+    name = str(data.get('name') or '')
+    # 护栏：该配置名下还有 checkpoint 时，删名字会让模型"失踪"——要求先带走数据目录或显式确认
+    game = str(data.get('game') or CONFIG['game_name'])
+    try:
+        d = net_dir(game, name)
+        n_pt = len([f for f in os.listdir(d) if f.endswith('.pt')]) if os.path.isdir(d) else 0
+    except OSError:
+        n_pt = 0
+    if n_pt and str(data.get('confirm') or '') != 'delete-profile-with-models':
+        return jsonify({'ok': False,
+                        'error': f'{name} 名下还有 {n_pt} 个模型文件；确认删除配置名请输入 confirm='
+                                 f'"delete-profile-with-models"（模型文件保留在磁盘）'}), 409
+    ok, msg = delete_custom_profile(name)
+    return jsonify({'ok': ok, 'message': msg} if ok else {'ok': False, 'error': msg}), (200 if ok else 400)
+
+
 # ---------------------------------------------------------------- 制品
 @bp.get('/api/admin/artifacts')
 def artifacts_list():

@@ -180,6 +180,45 @@ def test_profile_paths_isolated():
         shutil.rmtree(d, ignore_errors=True)
 
 
+def test_named_custom_profile():
+    """自定义命名配置：保存→出现在档位全集→set_profile 生效→删除；含校验矩阵与内置保护。"""
+    import json
+    import os as _os
+    from core.utils.config import (available_profiles, delete_custom_profile, net_config_for,
+                                   profiles_file, save_custom_profile, set_profile, CONFIG as C)
+    old_profile = C['game_name'] and __import__('core.utils.config', fromlist=['PROFILE']).PROFILE
+    d = _tmp_data_dir()
+    try:
+        # —— 校验矩阵：坏名字/坏键/坏范围/空配置/撞内置，全部拒 ——
+        assert not save_custom_profile('Bad Name', {'n_filters': 64})[0]
+        assert not save_custom_profile('ok1', {'n_actions': 999})[0]          # 棋规层禁入
+        assert not save_custom_profile('ok1', {'feature_version': 3})[0]      # 表示层禁入
+        assert not save_custom_profile('ok1', {'n_filters': 99999})[0]        # 超上限
+        assert not save_custom_profile('ok1', {})[0]                          # 空
+        assert not save_custom_profile('s', {'n_filters': 32})[0]             # 撞内置
+        assert not _os.path.exists(profiles_file()), '失败不应留下文件'
+
+        # —— 正常路径 ——
+        ok, msg = save_custom_profile('mini64', {'n_filters': 64, 'n_res_blocks': 3,
+                                                 'n_value_hidden_channels': 32, 'use_se': False})
+        assert ok, msg
+        assert json.load(open(profiles_file()))['mini64']['n_filters'] == 64
+        aps = available_profiles('ChineseChess')
+        assert 'mini64' in aps and 's' in aps and 'm' in aps
+        cfg = net_config_for('mini64', 'ChineseChess')
+        assert cfg['n_filters'] == 64 and cfg['n_res_blocks'] == 3
+        assert cfg['n_actions'] == 2086 and cfg['in_channels'] == 26          # 未覆写的层照旧
+        assert set_profile('mini64') == 'mini64'
+        assert __import__('core.utils.config', fromlist=['settings']).settings['default_net']['n_filters'] == 64
+
+        ok, msg = delete_custom_profile('mini64')
+        assert ok and 'mini64' not in available_profiles('ChineseChess')
+        assert not delete_custom_profile('m')[0], '内置档位不可删'
+    finally:
+        set_profile(old_profile or 'm')
+        C['data_dir'] = _os.path.join(_os.path.dirname(__file__), '..', 'data')
+
+
 def main():
     fns = [(k, v) for k, v in sorted(globals().items()) if k.startswith('test_') and callable(v)]
     for name, f in fns:

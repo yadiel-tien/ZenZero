@@ -37,8 +37,17 @@ _KNOB_ENV = {
 _INT_KNOBS = ('workers', 'games_per_round', 'batch_leaves', 'max_batch')
 _CHOICES = {
     'game': ('ChineseChess', 'Gomoku'),
-    'profile': ('s', 'm', 'l'),
 }
+
+
+def _known_profile(v: str) -> bool:
+    """档位合法性 = 内置 s/m/l ∪ data/profiles.json 里的命名配置。
+    读不了配置就不拦（子进程 set_profile 自会报错，错误会进 console 日志）。"""
+    try:
+        from core.utils.config import available_profiles
+        return v in available_profiles()
+    except Exception:                                # noqa: BLE001
+        return True
 
 
 class TrainingRunner:
@@ -253,6 +262,8 @@ def _validate(opts: dict) -> tuple[dict, str | None]:
             continue
         if key in _CHOICES and str(value) not in _CHOICES[key]:
             return {}, f'{key} 只能是 {_CHOICES[key]}'
+        if key == 'profile' and not _known_profile(str(value)):
+            return {}, f'未知档位 {value}（内置 s/m/l 或 data/profiles.json 命名配置）'
         if key in _INT_KNOBS:
             try:
                 iv = int(value)

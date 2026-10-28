@@ -349,14 +349,53 @@ def test_routes_and_token():
         tearDown()
 
 
+def test_profiles_routes():
+    """命名配置 HTTP 面：列表含内置；保存校验通过→出现在列表与 models；非法 400；删除。"""
+    setUp()
+    try:
+        import services.admin.routes as routes
+        from flask import Flask
+        app = Flask(__name__)
+        app.register_blueprint(routes.bp)
+        c = app.test_client()
+        lst = c.get('/api/admin/profiles?game=ChineseChess')
+        assert lst.status_code == 200, lst.status_code
+        names = {p['name'] for p in lst.get_json()['profiles']}
+        assert {'s', 'm', 'l'} <= names, names
+        bad = c.post('/api/admin/profiles/save', json={'name': 'X 空格', 'net': {'n_filters': 64}})
+        assert bad.status_code == 400, bad.status_code
+        bad2 = c.post('/api/admin/profiles/save', json={'name': 'ok', 'net': {'n_actions': 1}})
+        assert bad2.status_code == 400, '表示/棋规键必须被拒'
+        go = c.post('/api/admin/profiles/save',
+                    json={'name': 'tiny32', 'net': {'n_filters': 32, 'n_res_blocks': 2}})
+        assert go.status_code == 200 and go.get_json()['ok'], go.get_json()
+        names2 = {p['name']: p for p in c.get('/api/admin/profiles?game=ChineseChess').get_json()['profiles']}
+        assert 'tiny32' in names2 and names2['tiny32']['builtin'] is False
+        assert names2['tiny32']['net']['n_filters'] == 32
+        # 对弈枚举也应带上自定义档（无模型文件则不出现——先造一个假 ckpt 目录）
+        d = os.path.join(CONFIG['data_dir'], 'ChineseChess', 'tiny32')
+        os.makedirs(d, exist_ok=True)
+        open(os.path.join(d, 'checkpoint_1.pt'), 'wb').write(b'x')
+        # 删名字：有模型需 confirm
+        noconfirm = c.post('/api/admin/profiles/delete', json={'name': 'tiny32'})
+        assert noconfirm.status_code == 409, noconfirm.get_json()
+        rm = c.post('/api/admin/profiles/delete',
+                    json={'name': 'tiny32', 'confirm': 'delete-profile-with-models'})
+        assert rm.status_code == 200 and rm.get_json()['ok'], rm.get_json()
+        assert c.post('/api/admin/profiles/delete', json={'name': 'm'}).status_code == 400, '内置不可删'
+        print('   ok   profiles：列表/校验400/保存/带模型删除护栏/内置保护')
+    finally:
+        tearDown()
+
+
 def main() -> None:
     for fn in (test_artifacts_listing, test_buffer_stats_sidecar, test_delete_guards, test_set_best,
                test_runner_lifecycle, test_stop_modes, test_kill_mode_is_sigkill,
                test_drain_keeps_grace, test_stop_mode_route_validation,
-               test_routes_and_token):
+               test_routes_and_token, test_profiles_routes):
         print(f'== {fn.__name__}')
         fn()
-    print('\nALL 10 ADMIN-CONSOLE TESTS PASSED')
+    print('\nALL 11 ADMIN-CONSOLE TESTS PASSED')
 
 
 if __name__ == '__main__':

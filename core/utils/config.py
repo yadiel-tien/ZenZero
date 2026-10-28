@@ -1,4 +1,6 @@
+import json
 import os
+import re
 from pathlib import Path
 from typing import Literal, TypedDict
 
@@ -407,13 +409,128 @@ _PRESET_FORBIDDEN = {'in_channels', 'n_actions', 'n_cells', 'feature_version'}
 _NET_BASES: dict[str, dict] = {g: dict(CONFIG[g]['default_net']) for g in ('ChineseChess', 'Gomoku')}
 
 
+# ---------- 命名模型配置（用户自定义档位）----------
+# 内置 presets(s/m/l) 之外，用户可在 data/profiles.json 里给"规模键覆写"起名字：
+#     {"mini64": {"n_filters": 64, "n_res_blocks": 4}, "wide": {"n_filters": 384, ...}}
+# 名字即目录名（data/<Game>/<name>/），档位从"三个固定枚举"变成"命名配置模板"：
+# 训练按它起网络，对弈/制品/引擎三身份自动跟着走。护栏不变：只许规模键，表示/棋规键禁入。
+_PROFILE_SLUG = re.compile(r'^[a-z][a-z0-9_]{0,23}$')
+
+# 自定义配置允许出现的键与取值范围（防手滑：128 通道打成 128000 会起个天文数字网络）
+_PROFILE_LIMITS = {
+    'arch': None,                       # None = 不校验值（注册表会拒未知架构）
+    'n_filters': (16, 1024),
+    'n_res_blocks': (1, 64),
+    'n_policy_filters': (4, 256),
+    'n_value_filters': (4, 256),
+    'n_value_hidden_channels': (8, 2048),
+    'use_se': None,                     # bool
+}
+
+
+def profiles_file() -> str:
+    return os.path.join(CONFIG['data_dir'], 'profiles.json')
+
+
+def _read_custom_profiles() -> dict:
+    """读 data/profiles.json；文件缺失/损坏返回空（训练与对战绝不被配置文件带崩）。"""
+    try:
+        with open(profiles_file(), encoding='utf-8') as fp:
+            data = json.load(fp)
+    except (OSError, ValueError):
+        return {}
+    out = {}
+    for name, net in (data or {}).items():
+        name = str(name).strip().lower()
+        if not _PROFILE_SLUG.match(name) or not isinstance(net, dict):
+            continue
+        if set(net) & _PRESET_FORBIDDEN:        # 带禁键的条目整体忽略（写入侧同样拒）
+            continue
+        out[name] = dict(net)
+    return out
+
+
+def validate_profile_net(net: dict) -> tuple[dict | None, str]:
+    """校验规模键与取值范围，返回 (清洗后的配置, 错误信息)。"""
+    clean: dict = {}
+    for k, v in (net or {}).items():
+        if k in _PRESET_FORBIDDEN:
+            return None, f'{k} 属表示/棋规层，不能出现在模型配置里'
+        if k not in _PROFILE_LIMITS:
+            return None, f'未知规模键 {k}（可用：{sorted(_PROFILE_LIMITS)}）'
+        lim = _PROFILE_LIMITS[k]
+        if k == 'arch':
+            if not isinstance(v, str) or not v:
+                return None, 'arch 需为非空字符串'
+        elif k == 'use_se':
+            v = bool(v)
+        elif lim is not None:
+            if not isinstance(v, int) or isinstance(v, bool) or not (lim[0] <= v <= lim[1]):
+                return None, f'{k} 需为 {lim[0]}~{lim[1]} 的整数，收到 {v!r}'
+        clean[k] = v
+    if not clean:
+        return None, '配置为空：至少给一个规模键（n_filters / n_res_blocks …）'
+    return clean, ''
+
+
+def save_custom_profile(name: str, net: dict) -> tuple[bool, str]:
+    name = str(name or '').strip().lower()
+    if not _PROFILE_SLUG.match(name):
+        return False, '名字需匹配 [a-z][a-z0-9_]{0,23}（小写字母开头）'
+    builtin = set().union(*(set((CONFIG[g].get('presets') or {})) for g in _NET_BASES))
+    if name in builtin:
+        return False, f'{name} 是内置档位，不可覆写'
+    clean, err = validate_profile_net(net)
+    if err:
+        return False, err
+    cur = {}
+    try:
+        with open(profiles_file(), encoding='utf-8') as fp:
+            cur = json.load(fp) or {}
+    except (OSError, ValueError):
+        cur = {}
+    cur[name] = clean
+    os.makedirs(CONFIG['data_dir'], exist_ok=True)
+    tmp = profiles_file() + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as fp:
+        json.dump(cur, fp, ensure_ascii=False, indent=2, sort_keys=True)
+    os.replace(tmp, profiles_file())
+    return True, f'已保存配置 {name}'
+
+
+def delete_custom_profile(name: str) -> tuple[bool, str]:
+    name = str(name or '').strip().lower()
+    try:
+        with open(profiles_file(), encoding='utf-8') as fp:
+            cur = json.load(fp) or {}
+    except (OSError, ValueError):
+        return False, '没有自定义配置文件'
+    if name not in cur:
+        return False, f'{name} 不在自定义配置里（内置档位不可删）'
+    cur.pop(name)
+    tmp = profiles_file() + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as fp:
+        json.dump(cur, fp, ensure_ascii=False, indent=2, sort_keys=True)
+    os.replace(tmp, profiles_file())
+    return True, f'已删除配置 {name}（其数据目录保留，删名字不删模型）'
+
+
+def available_profiles(game: str | None = None) -> dict:
+    """内置 presets ∪ data/profiles.json 自定义。同名以自定义为准（可覆写内置的规模，
+    但不能改名字含义之外的东西——目录与模型仍按该名字走）。"""
+    g = game or game_name
+    out = dict(CONFIG[g].get('presets') or {})
+    out.update(_read_custom_profiles())
+    return out
+
+
 def set_profile(profile: str) -> str:
-    """切换档位：把 preset 就地合并进两个游戏的 default_net（保持 dict 引用不变，
-    已按引用取默认参数的调用方同步生效）。返回生效档位。"""
+    """切换档位：把 preset（内置 ∪ 自定义）就地合并进两个游戏的 default_net
+    （保持 dict 引用不变，已按引用取默认参数的调用方同步生效）。返回生效档位。"""
     global PROFILE
     p = (profile or 'm').strip().lower()
     for g, base in _NET_BASES.items():
-        presets = CONFIG[g].get('presets') or {}
+        presets = available_profiles(g)
         if p not in presets:
             raise ValueError(f"Unknown profile '{p}' for {g}. Available: {sorted(presets)}")
         over = dict(presets[p])
@@ -432,12 +549,12 @@ def get_profile() -> str:
 
 
 def net_config_for(profile: str | None = None, game: str | None = None) -> dict:
-    """给定档位的 default_net 规模（不改全局状态）。
+    """给定档位的 default_net 规模（不改全局状态；内置 ∪ 自定义）。
     监控面板靠它显示"实际在跑的档位"——面板进程是按默认档 m 启动的，
     直接读 settings['default_net'] 会把 128x6 的 s 档训练显示成 256x15 的 m 档。"""
     g = game or CONFIG['game_name']
     p = (profile or PROFILE).strip().lower()
-    presets = CONFIG[g].get('presets') or {}
+    presets = available_profiles(g)
     if p not in presets:
         raise ValueError(f"Unknown profile '{p}' for {g}; available {sorted(presets)}")
     return {**_NET_BASES.get(g, CONFIG[g]['default_net']), **presets[p]}

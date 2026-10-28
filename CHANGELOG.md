@@ -4,6 +4,14 @@
 表示版本 feature_version / 档位 profile / 模型代数 iteration）见 `docs/architecture.html`
 §5 篇「版本管理」与 `core/utils/version.py` 模块文档。
 
+## 2.1.0 — 2026-10-28
+
+- **命名模型配置**：档位从固定枚举 s/m/l 扩展为用户自定义命名模板（`data/profiles.json`），
+  控制台「训练 → 模型配置」在线增删；仅允许覆写规模键（通道/残差块/value 隐层/SE），
+  表示层与棋规层键由白名单拒收；名字即数据目录，棋种下拉、制品页、引擎三身份自动跟随。
+- 对弈页主界面（logo 下）显示应用版本与 git 构建号；设置侧栏启动命令改指 `python main.py`。
+- profiles 管理 API：`GET/POST /api/admin/profiles*`（删除带模型护栏）。
+
 ## 2.0.0 — 2026-10-28
 
 **里程碑版本**：表示 epoch 2 + 全 Web 化 + 吞吐提升约两个数量级。

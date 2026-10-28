@@ -152,7 +152,11 @@ class PlayApiServer:
         def _profile_models(env_name: str) -> dict:
             """每个档位各自的模型列表 + 最新文件时间（用来判断"哪一档有刚训出来的新模型"）。"""
             out = {}
-            presets = (app_config.CONFIG[env_name].get('presets') or {'m': {}})
+            presets = dict(app_config.CONFIG[env_name].get('presets') or {'m': {}})
+            try:                                   # 内置 ∪ 自定义命名配置（data/profiles.json）
+                presets.update(app_config.available_profiles(env_name))
+            except Exception:                      # noqa: BLE001 配置读取失败不拦对弈
+                pass
             for prof in presets:
                 d = net_dir(env_name, prof)
                 if not os.path.isdir(d):
