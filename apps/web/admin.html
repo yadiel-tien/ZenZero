@@ -669,19 +669,13 @@ function catOrder(){
 }
 function renderFileSel(keep){
   const fs = filesOf($('l_cat').value), sel = $('l_name');
-  const shown = fs.slice(0, 10);
-  let html = shown.map(logOpt).join('');
-  if(fs.length > shown.length) html += `<option disabled>── 另有 ${fs.length-shown.length} 份更早 ──</option>`;
-  sel.innerHTML = html || '<option value="">（暂无）</option>';
+  sel.innerHTML = fs.map(logOpt).join('') || '<option value="">（暂无）</option>';
   const vals = [...sel.options].map(o=>o.value).filter(Boolean);
   sel.value = (keep && vals.includes(keep)) ? keep : (vals[0] || '');   // 组内 mtime 倒序，默认最新
 }
 function renderCatSel(keep){
   const cats = catOrder(), sel = $('l_cat');
-  sel.innerHTML = cats.map(c=>{
-    const n = c===LIVE ? 1 : LOGS_CACHE.filter(x=>x.cat===c).length;
-    return `<option value="${esc(c)}">${esc(c)}（${n}）</option>`;
-  }).join('');
+  sel.innerHTML = cats.map(c=>`<option value="${esc(c)}" title="${c===LIVE?'当前训练进程的实时输出':'来自 logs/'+c+'/'}">${esc(c)}</option>`).join('');
   if(keep && cats.includes(keep)) sel.value = keep;
   else if(TRAIN_RUNNING) sel.value = LIVE;
   renderFileSel();
