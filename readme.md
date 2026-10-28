@@ -60,18 +60,21 @@ data/
 ### 🏗️ 编译 Cython 模块 (可选)
 核心逻辑提供了 Cython 优化版，编译后可显著提升搜索速度（缺少 `.so` 时自动回退纯 Python 实现）。浏览器端棋规引擎独立实现，不受此项影响：
 ```bash
-cd core/env
-.venv/bin/python setup.py build_ext --inplace
-cd ../..
+.venv/bin/python scripts/build_cython.py            # 暂存编译 + 原子替换（训练在跑也安全）
+.venv/bin/python scripts/build_cython.py --check    # 只检查现有 .so
 ```
+> 不要直接 `setup.py build_ext --inplace`：进程运行中覆盖 .so 会被内核挡下甚至半新半旧。
 
 ---
 
 ## 📖 使用指南 (Usage)
 
 ### 1. 训练新模型
-1. **指定游戏**: 在 `core/utils/config.py` 中修改 `game_name`。
-2. **启动训练** (后端环境 `.venv`，单进程，一条命令):
+1. **指定游戏/档位**: 在 `core/utils/config.py` 中修改 `game_name`，或启动时用环境变量覆盖。
+2. **推荐方式：一体化入口 + 控制台**（训练、任务、监控全部在 Web 上启停，见下文「图形化对战」的控制台说明）:
+    * `python main.py`（默认绑定 127.0.0.1:5000；`--host 0.0.0.0` 开放局域网，`--port` 换端口）
+    * 打开 `http://<主机>:5000/admin` → 「训练」页启动/停止；「任务」页管理 priskvork / 天梯 / 批扫描 / Cython 构建。
+3. **裸命令启动训练** (后端环境 `.venv`，单进程):
     * `python -X gil=0 -m scripts.train_server`
     * 推理引擎、selfplay、模型训练运行在同一进程中：MCTS 通过队列直接请求推理，
       训练命令为直接方法调用，无 socket 开销。
@@ -86,7 +89,7 @@ cd ../..
 * **跨设备**：桌面浏览器、手机（底部抽屉式棋谱/胜率）、Mac / Windows 均可访问
 * **实现**：`apps/web/` 纯 HTML/CSS/JS 零构建；浏览器内 JS 棋规引擎与 `core/env` 的动作编码**逐位对齐**（随机对局快照级对拍测试保障）
 
-1. **启动后端** (后端环境): `python -m scripts.play_server`
+1. **启动后端** (后端环境): `python main.py`（旧入口 `python -m scripts.play_server` 仍可用）
 2. **打开浏览器** 访问 `http://<服务器IP>:5000/` 即可对战（本机用 `http://127.0.0.1:5000/`）。
    * 前后端同源部署，无需任何跨域配置；若网页另行托管，可在侧栏「推理服务 → 设置」填写后端地址（API 已开启 CORS）。
    * 双人同屏模式纯本地运行，即使不启动 AI 服务也可娱乐。
@@ -115,9 +118,28 @@ ZenZero/
 ├── core/               # 核心逻辑 (env, mcts, network, player, utils)
 ├── services/           # 后端服务 (inference, train)
 ├── apps/               # 应用层 (web 网页前端, assets 图片/音效资源)
+├── docs/               # 项目文档（静态 HTML，浏览器直接打开）
 ├── scripts/            # 启动脚本
 └── data/               # 模型、棋谱、ELO 数据及配置名单
 ```
+
+## 📖 项目文档 (docs/)
+
+浏览器直接打开，无需服务。整套文档按"一个AlphaZero闭环"组织：
+
+| 篇目 | 内容 |
+| :--- | :--- |
+| [§1 象棋环境](docs/xiangqi-env.html) | state 数组与历史窗口、视角归一、2086 动作 ABI、合法着法制规则引擎（送将过滤/将死困毙/三次重复/长将/时钟）、26 面棋盘表示、feature epoch 多版本共存 |
+| [§2 MCTS 与虚拟损失](docs/mcts.html) | PUCT 打分、串行→批量的吞吐演进、虚拟损失账本、流水线跑法（收一条补一条）、根噪声、π 与温度、树复用；run_pipelined API 与实测 5.8k→60k req/s |
+| [§3 推理引擎](docs/inference-engine.html) | 四段线程流水、自适应凑批窗口、请求侧镜像增强、设备一致性三件套、ServerHub 多模型共享、issue/harvest/lane API |
+| [§4 训练管线](docs/training.html) | 填仓→自博弈→fit→守擂→晋升大闭环、400 局滚动摊薄、sims 绝对代数爬坡、在线增强与互斥留出集、指标方法论（CE=KL+熵）、三种停止、一夜成绩单 |
+| [§5 架构、部署与 API](docs/architecture.html) | 进程拓扑与收养、目录导读、网络注册表、s/m/l 档位制、环境变量全表、对战/控制台 HTTP API 参考、运维剧本 |
+| [§6 如何使用](docs/usage.html) | 三步上手、安装与构建、对战、管理台启停训练、监控速览、命令/协议/天梯/强度测量、排障、测试验收 |
+
+> **feature epoch 2 (2026-10)**：象棋升级为官方规则口径（送将非法、将死/困毙判负、三次重复判和、长将判负、
+> 120 步时钟）并重排 26 面棋盘表示。旧模型（checkpoint_498 等）按出生时的 epoch 继续可对战可参赛；
+> 训练启动闸门检测到epoch 切换会自动从新网络开训，旧 best 留任评估赛守擂者。
+> 验证：`.venv/bin/python tests/test_chess_rules.py`（17 项回归）。
 
 ---
 

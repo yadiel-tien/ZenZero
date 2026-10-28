@@ -1,0 +1,21 @@
+.git
+.ipynb_checkpoints
+__pycache__/
+tests/
+data/
+logs/
+*.so
+build/
+.venv*
+.uv-cache/
+chess_cython.c
+chess_cython.html
+core/env/dpxq-99813games.pgns
+notes.md
+runs
+论文
+.idea
+
+# Cython 安全构建的暂存目录（scripts/build_cython.py）
+core/env/.build_stage_*/
+._*

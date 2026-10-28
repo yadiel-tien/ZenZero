@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZenZero 文档 · §5 架构、部署与接口</title>
+<style>
+:root{
+  --ink:#1c1c1c; --paper:#faf7f0; --panel:#f2ede2; --line:#d8d0be;
+  --accent:#8b0000; --accent2:#2f4f4f; --muted:#6b6557; --code-bg:#efe9db;
+  --ok:#3d6b35; --warn:#b8860b;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Source Han Serif SC","Noto Serif CJK SC","Songti SC",Georgia,serif;
+  background:var(--paper);color:var(--ink);line-height:1.78;font-size:15.5px}
+header{background:linear-gradient(135deg,#1a2f2f 0%,#2f4f4f 60%,#3d5a5a 100%);color:#f0ead8;
+  padding:42px 24px 34px;text-align:center}
+header h1{margin:0 0 6px;font-size:29px;letter-spacing:4px}
+header .sub{opacity:.85;font-size:14px;letter-spacing:1px}
+header .crumbs{margin-top:14px;font-size:13px;opacity:.7}
+header .crumbs a{color:#e8dfc8}
+nav{position:sticky;top:0;z-index:9;background:#1a2f2f;padding:9px 18px;display:flex;flex-wrap:wrap;gap:4px 16px;
+  font-size:13.5px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+nav a{color:#d8d0be;text-decoration:none;padding:2px 6px;border-radius:4px}
+nav a:hover{background:rgba(255,255,255,.12);color:#fff}
+main{max-width:1080px;margin:0 auto;padding:26px 22px 80px;counter-reset:fig tbl}
+h2{font-size:21px;margin:44px 0 12px;padding-left:12px;border-left:5px solid var(--accent);letter-spacing:.5px}
+h3{font-size:16.5px;margin:26px 0 8px;color:var(--accent2)}
+p{margin:9px 0;text-align:justify}
+code{font-family:"Sarasa Mono SC","JetBrains Mono",Consolas,monospace;background:var(--code-bg);
+  padding:1.5px 6px;border-radius:4px;font-size:.88em;color:#4d3a1a}
+pre{background:#22261f;color:#e6e0cc;padding:14px 16px;border-radius:8px;overflow-x:auto;
+  font-family:"Sarasa Mono SC","JetBrains Mono",Consolas,monospace;font-size:12.8px;line-height:1.6}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.4px;background:#fffdf7}
+th{background:#2f4f4f;color:#f0ead8;padding:7px 10px;text-align:left;font-weight:600}
+td{border:1px solid var(--line);padding:6px 9px;vertical-align:top}
+tr:nth-child(even) td{background:#f7f2e6}
+td code{font-size:.85em}
+.callout{border-left:4px solid var(--warn);background:#fbf5e4;padding:10px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+.callout.good{border-color:var(--ok);background:#eef5ea}
+ul,ol{padding-left:22px}
+a{color:var(--accent2)}
+hr{border:none;border-top:1px dashed var(--line);margin:34px 0}
+footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 50px;border-top:1px solid var(--line)}
+.abstract{border:1px solid var(--line);background:#fffdf7;border-radius:10px;padding:16px 22px;margin:20px 0}
+.abstract b.t{color:var(--accent2);letter-spacing:4px;font-size:14px}
+.abstract p{font-size:14.3px;color:#333}
+figure{margin:20px 0;text-align:center;counter-increment:fig}
+figure svg{max-width:100%;height:auto;background:#fffdf7;border:1px solid var(--line);border-radius:10px}
+figcaption{font-size:12.8px;color:var(--muted);margin-top:7px;text-align:left;max-width:880px;display:inline-block}
+figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-weight:700}
+.tbl-cap{font-size:12.8px;color:var(--muted);margin:14px 0 2px;counter-increment:tbl}
+.tbl-cap b::before{content:"表 " counter(tbl) "　";color:var(--accent);font-weight:700}
+.get{color:#2f6b35;font-weight:700;font-family:monospace;font-size:12px}
+.post{color:#8b4513;font-weight:700;font-family:monospace;font-size:12px}
+.note{font-size:13.2px;color:var(--muted)}
+
+  /* —— 体例统一：锚点偏置 / 窄屏表格 / 公式横滚 / 打印 —— */
+  html{scroll-padding-top:58px}
+  .eq{overflow-x:auto}
+  @media(max-width:900px){
+    main{padding-left:12px;padding-right:12px}
+    table{display:block;overflow-x:auto}
+    header h1{letter-spacing:3px}
+  }
+  @media print{
+    nav{display:none}
+    header{padding:24px}
+    body{background:#fff;font-size:12.5px}
+    figure,.eq,table,.callout{break-inside:avoid}
+    a{color:inherit;text-decoration:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>架构、部署与接口</h1>
+  <div class="sub">两个进程装满整个 AlphaZero —— 系统视图、模型档位、配置面与 HTTP 接口契约</div>
+  <div class="crumbs">ZenZero 文档集 · 第 5 篇｜<a href="index.html">目录</a> ·
+    <a href="xiangqi-env.html">§1 环境</a> · <a href="mcts.html">§2 MCTS</a> ·
+    <a href="inference-engine.html">§3 推理引擎</a> · <a href="training.html">§4 训练管线</a> · <a href="usage.html">§6 如何使用</a></div>
+</header>
+
+<nav>
+  <a href="#ab">摘要</a><a href="#s1">1 术语</a><a href="#s2">2 进程拓扑</a><a href="#s3">3 目录</a>
+  <a href="#s4">4 模型与档位</a><a href="#s5">5 配置面</a><a href="#s6">6 对战 API</a>
+  <a href="#s7">7 控制台 API</a><a href="#s8">8 前端与入口</a><a href="#s9">9 运维手册</a>
+
+  <a href="usage.html">如何使用</a>
+  <a href="/" style="margin-left:auto;color:#f0d9a8!important;opacity:.85" title="返回对弈首页">← 对弈</a>
+  <a href="/admin" style="opacity:.85" title="训练控制台">⚙ 控制台</a>
+</nav>
+
+<main>
+
+<div class="abstract" id="ab">
+  <b class="t">摘　要</b>
+  <p>本篇是系统层参考：先立术语（1 节），再给进程拓扑与其间的契约（2 节）、目录导读（3 节）、
+  "架构注册表 + 档位制"的模型管理（4 节）、环境变量配置面（5 节），最后是两套 HTTP 接口的
+  完整契约表（6、7 节）与日常运维手册（9 节）。工程原则只有一句：<b>一切重状态都在磁盘上有唯一真源，
+  一切控制路径都能经 HTTP 完成</b>——训练启停、回滚与模型选择均可经接口完成，无需终端操作。</p>
+</div>
+
+<h2 id="s1">1　术语表</h2>
+<div class="tbl-cap"><b>全文档集通用术语</b>。括注英文是社区原名，中文取直译不改变含义。</div>
+<table>
+<tr><th>术语</th><th>一句话定义</th><th>详见</th></tr>
+<tr><td>代 / 轮（iteration / round）</td><td>代 = 模型版本号（每完成一轮 +1）；轮 = 一次"自博弈→fit→守擂"循环</td><td>§4 篇 1、3 节</td></tr>
+<tr><td>档位（profile）</td><td>同一棋种下的网络规模档位：s / m / l；数据目录与引擎命名都带档</td><td>本篇 4 节</td></tr>
+<tr><td>表示版本（feature_version，文中亦称 epoch）</td><td>棋盘张量的布局版本号；不同版本互不兼容，引擎与转换必须对齐</td><td>§1 篇 §6</td></tr>
+<tr><td>引擎（InferenceEngine）</td><td>绑定一份权重 + 档位 + 表示版本的常驻推理单元</td><td>§3 篇 1 节</td></tr>
+<tr><td>登记簿（ServerHub）</td><td>进程内的引擎目录与引用计数；不是网络组件</td><td>§3 篇 8 节</td></tr>
+<tr><td>守擂 / 晋升（gatekeeper / promotion）</td><td>现任最强模型与新模型的裁决赛，得分率 &gt; 52% 换王</td><td>§4 篇 8 节</td></tr>
+<tr><td>心跳（heartbeat）</td><td>训练进程每 2s 原子写的状态快照 <code>logs/runtime.json</code>，面板的实时真源</td><td>§4 篇 9 节</td></tr>
+<tr><td>对拍（golden/parity test）</td><td>两份实现（Python/Cython、服务端/浏览器端）对同输入逐位比对</td><td>§1 篇 4.4、9 节</td></tr>
+</table>
+
+<h2 id="s2">2　进程拓扑与契约</h2>
+<figure>
+<svg viewBox="0 0 780 330" font-family="serif" font-size="12">
+  <defs><marker id="pa" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#2f4f4f"/></marker></defs>
+  <!-- browser -->
+  <rect x="20" y="18" width="150" height="60" rx="10" fill="#fffdf7" stroke="#2f4f4f" stroke-width="1.6"/>
+  <text x="95" y="40" text-anchor="middle" font-weight="bold">浏览器</text>
+  <text x="95" y="57" font-size="10.6" text-anchor="middle">对弈页 · 控制台 · 文档</text>
+  <text x="95" y="70" font-size="10" text-anchor="middle" fill="#8b0000">JS 棋规引擎（与 §1 篇对拍）</text>
+  <!-- service -->
+  <rect x="20" y="112" width="360" height="196" rx="12" fill="none" stroke="#8b0000" stroke-width="1.8"/>
+  <text x="40" y="133" font-weight="bold" fill="#8b0000">服务进程　scripts/play_server.py　:5000</text>
+  <rect x="40" y="144" width="150" height="52" rx="8" fill="#fffdf7" stroke="#2f4f4f"/>
+  <text x="115" y="164" text-anchor="middle">Flask 路由</text><text x="115" y="180" font-size="10.4" text-anchor="middle">静态资源 · 对战 API</text>
+  <rect x="210" y="144" width="150" height="52" rx="8" fill="#fffdf7" stroke="#2f4f4f"/>
+  <text x="285" y="164" text-anchor="middle">ServerHub</text><text x="285" y="180" font-size="10.4" text-anchor="middle">引擎登记簿 · 引用计数</text>
+  <rect x="40" y="210" width="150" height="52" rx="8" fill="#fffdf7" stroke="#2f4f4f"/>
+  <text x="115" y="230" text-anchor="middle">InferenceEngine ×n</text><text x="115" y="246" font-size="10.4" text-anchor="middle">按 (棋种,档,序号)</text>
+  <rect x="210" y="210" width="150" height="52" rx="8" fill="#fffdf7" stroke="#2f4f4f"/>
+  <text x="285" y="230" text-anchor="middle">TrainingRunner</text><text x="285" y="246" font-size="10.4" text-anchor="middle">子进程 · 收养 · 三档停止</text>
+  <line x1="95" y1="78" x2="95" y2="110" stroke="#2f4f4f" stroke-width="1.4" marker-end="url(#pa)"/>
+  <line x1="192" y1="170" x2="208" y2="170" stroke="#2f4f4f" stroke-width="1.4" marker-end="url(#pa)"/>
+  <line x1="285" y1="198" x2="120" y2="216" stroke="#2f4f4f" stroke-width="1.4" marker-end="url(#pa)"/>
+  <line x1="285" y1="264" x2="285" y2="288" stroke="#8b0000" stroke-width="1.6" stroke-dasharray="5 3" marker-end="url(#pa)"/>
+  <!-- train -->
+  <rect x="420" y="266" width="340" height="52" rx="12" fill="none" stroke="#8b0000" stroke-width="1.8"/>
+  <text x="440" y="286" font-weight="bold" fill="#8b0000">训练进程　scripts/train_server.py（子进程，start_new_session）</text>
+  <text x="440" y="304" font-size="10.8">TrainServer(=引擎) + SelfPlayManager；状态落 logs/console/trainer.json</text>
+  <path d="M400 60 Q 560 40 640 90 Q 700 130 700 264" fill="none" stroke="#3d6b35" stroke-width="1.5" marker-end="url(#pa)"/>
+  <text x="656" y="86" font-size="11" fill="#3d6b35">只读旁路：心跳/统计/日志/TensorBoard</text>
+  <text x="40" y="330" font-size="11.3" fill="#6b6557">契约面只有四个：① HTTP 请求/响应；② 磁盘文件（ckpt/buffer/心跳/trainer.json）；③ 信号（INT/USR1/KILL）；④ /proc 收养。两进程不共享内存，任一方的异常退出均不损毁另一方的数据。</text>
+</svg>
+<figcaption><b>进程拓扑。</b>服务进程常驻（前端 + 对战 + 控制台）；训练进程由 runner 拉起或收养
+（凭 pid + /proc cmdline 特征识别）。管理台读训练状态全走磁盘旁路——面板与训练互不阻塞，
+这也是"服务重启训练照跑"的根据（runner.json 记下 pid，重启后收养）。</figcaption>
+</figure>
+<div class="callout"><b>一个进程族的由来：</b>训练进程的 TrainServer <i>继承</i>推理引擎（§3 篇 10.2），
+自博弈与 fit 同进程共享权重与仓；服务进程则按会话动态养引擎。所以"训练在跑时打不开对战"不会发生——
+两套引擎实例互不相干，共享的只有磁盘上的 checkpoint。代价是两进程各占显存，GPU 档位多时要错峰（本篇 9 节"GPU 被占满时的对战"行）。</div>
+
+<h2 id="s3">3　目录导读</h2>
+<div class="tbl-cap"><b>仓库地图</b>（只列主干；tests/ 下 12 套件见各篇附录）。</div>
+<table>
+<tr><th>路径</th><th>装什么</th><th>文档</th></tr>
+<tr><td><code>core/env/</code></td><td>规则引擎与棋盘表示：BaseEnv 契约、象棋（含 Cython 热路径、RuleContext）、五子棋</td><td>§1 篇</td></tr>
+<tr><td><code>core/mcts/</code></td><td><code>deepMcts.py</code>：NeuronNode / NeuronMCTS / 虚拟损失 / 流水线</td><td>§2 篇</td></tr>
+<tr><td><code>core/network/</code></td><td>积木与整网（Net/BiGameNet）＋ 注册表 <code>registry.py</code> ＋ <code>archs/</code>（扩展位）</td><td>本篇 4 节</td></tr>
+<tr><td><code>core/player/</code></td><td>Player 抽象：Human / AIServer（树复用）/ Random</td><td>§2 篇 8 节</td></tr>
+<tr><td><code>core/utils/</code></td><td>config（单一事实源）、replay（仓）、arena（ELO）、logger、mirror…</td><td>§4 篇 5 节</td></tr>
+<tr><td><code>services/inference/</code></td><td>engine / client / request / hub / train_server / play_api</td><td>§3 篇</td></tr>
+<tr><td><code>services/train/</code></td><td>selfplay（管线编排）、heartbeat（心跳）</td><td>§4 篇</td></tr>
+<tr><td><code>services/admin/ · services/monitor/</code></td><td>runner（生命周期）、artifacts（制品）、routes；monitor（快照采集）</td><td>本篇 7 节</td></tr>
+<tr><td><code>apps/web/</code></td><td>零构建前端：index（对弈）、admin（控制台）、js/（浏览器端棋规引擎）</td><td>本篇 8 节</td></tr>
+<tr><td><code>docs/ · data/ · logs/ · runs/</code></td><td>本文档集；模型与仓；运行日志与心跳；TensorBoard</td><td>—</td></tr>
+</table>
+
+<h2 id="s4">4　模型管理：注册表 + 档位制</h2>
+<h3>4.1　架构注册表</h3>
+<pre><code>core/network/network.py   BaseNet：设备适配、加载先落 CPU（checkpoint 跨设备通用）
+                          Net（"resnet_v1"）    标准 AlphaZero 双头：Conv stem → N×ResBlock(±SE) → 双头
+                          BiGameNet（"bigame_v1"）双游戏：各自 stem + 共享 ResNet 躯干 + 各自头，
+                                                  forward 按输入 (通道数, 格数) 自动分路
+core/network/registry.py  build(arch, config) / known() / infer_arch(ckpt_config)
+新架构：在 archs/ 放一个文件、@register('my_arch_v1')，自动导入生效——引擎与训练侧零改动</code></pre>
+<p>checkpoint 文件里存 <code>config</code>（含 arch 名与全部规模键）、权重、optimizer/scheduler 状态与
+训练步数。<b>加载按 ckpt 内 config 重建网络</b>，与当前进程档位无关——这是跨档对局（§4 篇 10.2 drill）
+和"对弈页选任意代"能成立的根基。</p>
+<h3>4.2　档位</h3>
+<div class="tbl-cap"><b>档位表</b>（参数量实测；m 为历史默认档 = 根目录零迁移）。</div>
+<table>
+<tr><th>档位</th><th>规模（s 档棋类实测）</th><th>参数量</th><th>数据目录</th><th>定位</th></tr>
+<tr><td><code>s</code></td><td>128 通道 × 6 残差块</td><td>8.06M</td><td><code>data/&lt;Game&gt;/s/</code></td><td>快迭代主力（一夜 50 代，§4 篇 10.3）</td></tr>
+<tr><td><code>m</code></td><td>256 × 15</td><td>24.67M</td><td><code>data/&lt;Game&gt;/</code></td><td>默认档；老 498 在此</td></tr>
+<tr><td><code>l</code></td><td>256 × 19</td><td>29.89M</td><td><code>data/&lt;Game&gt;/l/</code></td><td>天花板实验</td></tr>
+</table>
+<ul>
+<li>档位 preset <b>只许覆写规模键</b>（通道数/块数/头宽）；in_channels、n_actions、n_cells、
+feature_version 属棋规与表示层——preset 若试图覆写直接报错。<b>档位、棋种、表示版本三件事不许互相越权</b>。</li>
+<li>同棋种不同档位数据完全隔离（各目录一套 ckpt/buffer/best_index/验证集），但<b>仓跨档通用</b>：
+表示一致时可把 s 档 buffer 拷给 m 档热身（实测可直接载入；注意仓质量上限，§4 篇 5 节）。</li>
+<li>引擎与目录名：m 档保持历史格式（<code>ChineseChess_498</code>），其余带档前缀
+（<code>ChineseChess_s_34</code>，§3 篇 8 节）。</li>
+</ul>
+
+<h2 id="s5">5　配置面：仓库 config + 环境变量</h2>
+<p>静态默认值全在 <code>core/utils/config.py</code>（唯一事实源）；运行期覆盖一律走环境变量，
+不改仓库文件——这也是管理台"启动参数"表单的实现方式（第 7 节 start 接口）：</p>
+<div class="tbl-cap"><b>环境变量全表</b>（读点唯一；面板表单与之一一对应）。</div>
+<table>
+<tr><th>变量</th><th>覆盖项</th><th>默认</th><th>备注</th></tr>
+<tr><td><code>ZZ_GAME</code></td><td>棋种</td><td>配置 <code>game_name</code></td><td>ChineseChess / Gomoku</td></tr>
+<tr><td><code>ZZ_PROFILE</code></td><td>档位</td><td>m</td><td>s/m/l；m=历史行为</td></tr>
+<tr><td><code>ZZ_DEVICE</code></td><td>推理设备</td><td>auto</td><td>显式指定不可用会<b>报错拒绝启动</b>，防静默降速（§3 篇 7 节）</td></tr>
+<tr><td><code>ZZ_WORKERS</code></td><td>自博弈线程数 G</td><td>32</td><td>实测拐点 24–32（§2 篇 9.1）</td></tr>
+<tr><td><code>ZZ_GAMES_PER_ROUND</code></td><td>每轮局数</td><td>400</td><td>轮尾摊薄（§4 篇 3 节）</td></tr>
+<tr><td><code>ZZ_BATCH_LEAVES</code></td><td>虚拟损失 K</td><td>12</td><td>供给旋钮（§2 篇 6 节）</td></tr>
+<tr><td><code>ZZ_MAX_BATCH</code></td><td>引擎批上限 B_max</td><td>GPU 256 / CPU 50</td><td>耐心之外，512 是下一个杠杆（§3 篇 5 节）</td></tr>
+<tr><td><code>ZZ_INFER_WORKERS</code></td><td>CPU 前向 worker 数</td><td>核数/4 封顶 8</td><td>仅 CPU 设备生效；GPU 恒为 1（切分会摊薄批，见 §3 篇 4 节）</td></tr>
+<tr><td><code>ZZ_ADMIN_TOKEN</code></td><td>控制台写口令</td><td>空=不鉴权</td><td>设置后写接口须带请求头 <code>X-ZZ-Token</code></td></tr>
+</table>
+
+<h2 id="s6">6　对战 HTTP 接口（端口 5000）</h2>
+<p>约定：全部 JSON。state 数组为 §1 篇定义的 <code>(7,10,9)</code> int32；会话令牌 <code>pid</code>
+由 setup 发放，60s 无心跳自动回收并释放引擎引用；CORS 全开，前端可另托管。</p>
+<div class="tbl-cap"><b>对战 API 契约</b>（实现 <code>services/inference/play_api.py</code>）。</div>
+<table>
+<tr><th>接口</th><th>请求体</th><th>成功响应</th><th>说明</th></tr>
+<tr><td><span class="get">GET</span> <code>/info</code></td><td>—</td><td><code>{device, device_note, vram{free,total}}</code></td><td>device_note 提示当前是否处于降级（如 GPU 被占满后的 CPU 兜底）</td></tr>
+<tr><td><span class="get">GET</span> <code>/devices</code></td><td>—</td><td><code>{current, devices:[{…status}]}</code></td><td>可用设备清单（探测，不含占用状态）</td></tr>
+<tr><td><span class="post">POST</span> <code>/device</code></td><td><code>{device}</code></td><td><code>{device}</code></td><td>在线搬迁全部已加载引擎；失败 400（不可用）/409（搬迁失败已回滚）</td></tr>
+<tr><td><span class="post">POST</span> <code>/models</code></td><td><code>{env_name}</code></td><td><code>{indices, best_index, profile, profiles:{s:…,m:…}}</code></td><td>跨档位枚举；<code>profile</code>=最近有产出的档（默认档，按 .pt mtime）</td></tr>
+<tr><td><span class="post">POST</span> <code>/setup</code></td><td><code>{model_id, env_class, profile?}</code></td><td><code>{pid, model_id, profile, device, device_note}</code></td><td>开局。model_id=0 → 该档最新；CPU 自动降模拟数保可玩</td></tr>
+<tr><td><span class="post">POST</span> <code>/update</code></td><td><code>{pid, array, action, player_to_move}</code></td><td><code>{win_rate}</code></td><td>同步盘面：AI 做树复用（§2 篇 8.1），返回其视角胜率</td></tr>
+<tr><td><span class="post">POST</span> <code>/get_action</code></td><td><code>{pid}</code></td><td><code>{action, win_rate, model_id}</code></td><td>AI 落一子（阻塞至搜索完成）</td></tr>
+<tr><td><span class="post">POST</span> <code>/reset</code></td><td><code>{pid}</code></td><td><code>{win_rate}</code></td><td>重开：AI 树与状态清空</td></tr>
+<tr><td><span class="post">POST</span> <code>/heartbeat</code></td><td><code>{pid}</code></td><td><code>{win_rate}</code></td><td>续会话</td></tr>
+<tr><td><span class="get">GET</span> <code>/ · /docs/ · /admin</code></td><td>—</td><td>HTML</td><td>对弈页 / 本文档集 / 管理台；静态资源 <code>/css /js /assets/*</code></td></tr>
+</table>
+<p class="note">错误约定：参数不合法 400；会话不存在 404；引擎异常 500 带 <code>{error}</code>（含堆栈）。
+浏览器端对 4xx/5xx 统一以 toast 提示，对慢响应有每步超时保护（细节以 <code>apps/web/js/api.js</code> 实现为准）。</p>
+
+<h2 id="s7">7　控制台 HTTP 接口（<code>/api/admin/</code>）</h2>
+<p>读接口免鉴权（内网工具定位），写接口在 <code>ZZ_ADMIN_TOKEN</code> 非空时校验 <code>X-ZZ-Token</code>，
+不符 401。页面 <span class="get">GET</span> <code>/admin</code>（亮/暗双主题，自适应系统 + 手动锁定）。</p>
+<div class="tbl-cap"><b>控制台 API 契约</b>（实现 <code>services/admin/routes.py</code>；心跳契约见 §4 篇 9 节，统计口径见 §3 篇 9 节）。</div>
+<table>
+<tr><th>接口</th><th>要点</th></tr>
+<tr><td><span class="get">GET</span> <code>/snapshot</code></td><td>一屏全量：meta（实际在跑的档位与网络规模）、live（心跳权威态：阶段/进度/实时 buffer/瞬时吞吐/gpm…）、hardware（1s 环）、rounds（上一轮 perf 行）、heartbeat 原文、trainer 状态、crashes。<b>判"数据是活的还是缓存"</b>看 <code>live.source</code> 与各 <code>age</code> 字段（10/28 开发日志：面板审计全记录）</td></tr>
+<tr><td><span class="get">GET</span> <code>/series</code></td><td>曲线：rounds（按<b>累计轮数</b>的 13 条衍生序列）＋ tb（TensorBoard 标量，<b>跨重启按 step 合并</b>＋抽稀）＋ hw 时间序列</td></tr>
+<tr><td><span class="get">GET</span> <code>/env</code></td><td>当前参数 + 建议目标（最新 ckpt 所在 棋种×档位）+ 白名单 knobs</td></tr>
+<tr><td><span class="get">GET</span> <code>/train/status</code></td><td>pid / running / 是否收养 / exit_code / stop_after_round / 日志尾</td></tr>
+<tr><td><span class="post">POST</span> <code>/train/start</code></td><td><code>{game, profile, workers, games_per_round, batch_leaves, max_batch?, device?}</code> → 按第 5 节环境变量拉起；1.2s 内启动即崩会把 stderr 原样带回；重复启动拒绝</td></tr>
+<tr><td><span class="post">POST</span> <code>/train/stop</code></td><td><code>{mode: kill | interrupt | finish_round, grace?}</code>——语义即 §4 篇 9 节三档表；interrupt 带<b>动态宽限</b>（收尾心跳新鲜则延至 10 分钟，绝不升级杀数据）；对不支持 finish_round 的旧进程，先查心跳 <code>caps</code> 再发信号（防 SIGUSR1 默认动作误杀）</td></tr>
+<tr><td><span class="get">GET</span> <code>/artifacts</code></td><td>checkpoint / 日志 / 运行目录 / 仓清单（大小、时间、已用/容量、是否最佳）</td></tr>
+<tr><td><span class="post">POST</span> <code>/artifacts/delete</code></td><td><code>{kind, path, confirm}</code>：白名单 kind∈{checkpoint,log,run,buffer}；拒删当前 best（先回滚再删）；删仓需 <code>confirm:"delete-buffer"</code></td></tr>
+<tr><td><span class="post">POST</span> <code>/best</code></td><td><code>{iteration}</code>：一键改换守擂者（制品页"设为最强"），回滚坏模型的主路径</td></tr>
+<tr><td><span class="get">GET</span> <code>/logs?path=&amp;tail=</code> · <code>/logs/list</code> · <code>/health</code></td><td>任意日志尾读（路径穿越封堵，越界 403）；清单；体检</td></tr>
+<tr><td><span class="get">GET</span> <code>/tasks</code> · <span class="post">POST</span> <code>/tasks/start</code> · <code>/tasks/stop</code> · <span class="get">GET</span> <code>/tasks/log</code></td>
+<td>「任务」页后端：注册表驱动（priskvork 常驻；arena / bench / build_cython 一次性），参数按 schema 白名单校验，once 任务退出码即时回传（exit 0 即成功），输出落 <code>logs/console/task_&lt;名&gt;_&lt;时间&gt;.log</code>，服务重启按 pid + /proc cmdline 收养</td></tr>
+</table>
+
+<h2 id="s8">8　前端与其它入口</h2>
+<h3>8.1　Web 前端（apps/web，零构建）</h3>
+<ul>
+<li><b>对弈页 <code>/</code></b>：SVG 棋盘、中文记谱、双胜率条、每步计时、悔棋、音效、移动端自适应。
+核心工程是浏览器端棋规引擎（<code>js/env-chess.js</code>）：与服务端 <code>core/env</code> 的
+<b>动作编码逐位对齐</b>，随机对局做快照级对拍——否则前后端对合法着法的判定将出现分歧。
+人机模式下，前端即时验证着法合法性，后端专注搜索计算，两侧互不等待。</li>
+<li><b>控制台 <code>/admin</code></b>：监控/训练/制品/日志四页；Canvas 手绘图表（缩放平移、图例、
+横轴标注），亮暗双主题；无外部依赖、无 CDN。</li>
+</ul>
+<h3>8.2　其它入口</h3>
+<table>
+<tr><th>命令</th><th>用途</th></tr>
+<tr><td><code>python main.py</code></td><td><b>主入口</b>：对战 + 控制台 + 文档；默认绑定 127.0.0.1:5000，<code>--host/--port</code> 可调（非回环绑定时提示设置 ZZ_ADMIN_TOKEN）</td></tr>
+<tr><td><code>python -m scripts.play_server --port 5000</code></td><td>旧入口（绑定 0.0.0.0，保留兼容）</td></tr>
+<tr><td><code>python -X gil=0 -m scripts.train_server</code></td><td>裸启动训练（参数全走 5 节环境变量）</td></tr>
+<tr><td><code>python -m scripts.cli_play</code></td><td>终端对战：进程内自含引擎，零服务依赖</td></tr>
+<tr><td><code>python -m scripts.priskvork_server</code></td><td>Gomocup 协议对外（Piskvork 客户端可连）</td></tr>
+<tr><td><code>python -m scripts.arena</code></td><td>ELO 天梯：批量对局维护等级分（<code>data/&lt;Game&gt;/rates/</code>）</td></tr>
+</table>
+
+<h2 id="s9">9　运维手册</h2>
+<table>
+<tr><th>要做</th><th>路径</th></tr>
+<tr><td>开一夜训练</td><td><code>/admin</code> → 训练 → 核对棋种/档位/参数 → 启动。监控页看：局/分、均批、KL。关浏览器不影响</td></tr>
+<tr><td>收工</td><td>「等本轮结束」（成果完整）；急用机器「优雅停止」；「立即结束」= kill（会丢当轮，确认框写明丢几局）</td></tr>
+<tr><td>终止时机</td><td>§4 篇第 7 节判据：KL 连续 10 代不降 + Val/value 平台 + 晋升胜率均值 &lt; 54% + 跨代对局 &lt; 60%，四项同时满足方可终止</td></tr>
+<tr><td>回滚坏模型</td><td>制品页「设为最强」，或 <code>POST /api/admin/best {iteration}</code></td></tr>
+<tr><td>GPU 被占满时的对战</td><td>ZenZero 设计为<b>显式失败不静默</b>：auto 探测失败会降级并在 <code>/info.device_note</code> 与前端标注；如需 GPU 推理请先释放 GPU（本机经换班调度台 baton 协调），或手动 <code>POST /device</code></td></tr>
+<tr><td>新旧模型同台</td><td>对弈页模型下拉先选种类（档位）再选序号，跨档直接对局</td></tr>
+</table>
+
+<footer>ZenZero 文档集 · §5 架构、部署与接口 · 2026-10 · 代码为准：scripts/ · services/{admin,monitor,inference}/ · apps/web/</footer>
+</main>
+<script>
+/* 离线模式（file:// 直开）：指向服务的入口（← 对弈 / ⚙ 控制台 / 首页）不可用，
+   就地改跳本篇文档集的使用指南《如何使用》（含起服务的步骤），悬停给一句短提示。
+   经 play_server 在线访问时此脚本零作用（首行即返回）。 */
+(function () {
+  if (location.protocol !== 'file:') return;
+  document.querySelectorAll('a[href^="/"]').forEach(function (a) {
+    a.setAttribute('data-offline-href', a.getAttribute('href'));
+    a.setAttribute('href', 'usage.html');
+    a.style.opacity = '.62';
+    a.style.borderBottom = '1px dashed currentColor';
+    a.title = '离线版不可用 · 点击查看《如何使用》（含启动服务的步骤）';
+  });
+})();
+</script>
+</body>
+</html>
