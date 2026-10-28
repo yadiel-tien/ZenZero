@@ -276,7 +276,7 @@ NVIDIA 上训好的权重可直接在 Mac/CPU 上对战）。</p>
 deque/Counter 一律持锁、快照后再遍历——曾因打印统计时未加锁遍历，导致投递线程异常终止
 （回归测试 <code>test_engine_device_consistency</code> 第 7 项钉住）。</li>
 <li><b>退役顺序</b>：shutdown = 置停 → join 全部线程（每条超时 5s，卡驱动时告警放弃）→
-<b>最后</b>释放权重。顺序反了会炸正在前向的线程（'NoneType' has no attribute 'parameters'，见 10/28 开发日志实录）。</li>
+<b>最后</b>释放权重。顺序反了会炸正在前向的线程（'NoneType' has no attribute 'parameters'（故障与修复均已回归覆盖）。</li>
 </ul>
 
 <h2 id="sA">10　接口速查</h2>

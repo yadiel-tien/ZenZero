@@ -197,12 +197,12 @@ ZZ_GAMES_PER_ROUND / ZZ_BATCH_LEAVES / ZZ_MAX_BATCH / ZZ_INFER_WORKERS / ZZ_ADMI
 <pre><code># 全量回归（tests/ 目录，13 套件、无外部框架，CPU 即可，约 20 分钟）：
 for t in tests/test_*.py; do echo "== $t"; ZZ_DEVICE=cpu .venv/bin/python "$t" || break; done
 # 单项：如规则 21 项 —— .venv/bin/python tests/test_chess_rules.py</code></pre>
-<p class="note">注：tests/ 目录当前不随仓库分发（内部工程资料）；若在你的克隆中不存在，本节仅作为本项目质量流程的说明。</p>
+<p class="note">tests/ 随仓库分发：drills/ 为度量工具（model_match 跨代对打等），test_*.py 为无框架自跑回归。</p>
 <p>文档各篇的附录各自列出"哪条测试覆盖哪个结论"；改 <code>core/env</code>、<code>deepMcts</code>、
 凑批窗口/退役顺序之前，至少跑对应篇附录点名的套件。改完记得 <code>python scripts/build_cython.py --check</code>。</p>
 
 <div class="callout good"><b>读文档的路线：</b>掌握用法后深入原理 → §1 环境 → §2 MCTS → §3 推理引擎 → §4 训练管线；
-要接系统/写脚本 → §5 架构与接口；设计取舍与故障的逐日原始记录见内部工程日志（不随仓库分发），文中以"notes 1027"式标记溯源。</div>
+要接系统/写脚本 → §5 架构与接口。</div>
 
 <footer>ZenZero 文档集 · §6 如何使用 · 2026-10 · 命令与 README、代码注释冲突时，以后两者为准</footer>
 </main>

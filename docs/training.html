@@ -178,7 +178,7 @@ buffer 与 TrainServer 共享同一内存实例（旧版各持一份，象棋配
 <div class="callout good"><b>开局多样性不是噪声，是数据策略。</b>象棋每局 30% 从开局库（约 10 手盘面）、
 40% 从中残局库（约 50 手盘面）、30% 标准开局起步——把搜索算力投向"棋真正分歧的地方"，
 同时天然缓解和棋（开局定式循环是长和的主因之一）。库内若混入已终局局面会触发根节点异常（曾发生一次，损失整轮数据），
-现在取库后先行校验（<code>terminated</code> 且无合法着法即退回新局，10/28 开发日志）。</div>
+现在取库后先行校验（<code>terminated</code> 且无合法着法即退回新局，test_graceful_stop / test_admin_tasks 回归）。</div>
 
 <h2 id="s4">4　搜索预算：教材质量的标尺</h2>
 <p>每手模拟次数按<b>绝对代数</b>爬坡（不是本次启动内轮次——旧实现如此，等于每次重启退回起点、爬坡从未生效）：</p>
@@ -306,7 +306,7 @@ CE 的表面进步里有多少是地板下移，一目了然）。</div>
 <li><b>信号处理器先于重活注册。</b>启动装载仓要一分多钟，期间 SIGINT 若走默认动作，主线程吃一个
 KeyboardInterrupt、进程以 -2 退出（此时并无可保存数据，但面板呈现异常退出码，易造成误判）。</li>
 <li><b>收尾限时。</b>引擎线程 join 每条 ≤5s；总收尾 ≤20s，到点 <code>os._exit</code>——
-"数据已存、进程不肯退"曾被外部升级成 SIGKILL，状态从此误导（10/28 开发日志）。</li>
+"数据已存、进程不肯退"曾被外部升级成 SIGKILL，状态从此误导（test_graceful_stop / test_admin_tasks 回归）。</li>
 <li><b>宽限期动态延长。</b>优雅停止进入收局期后心跳带 <code>stopping</code> 标记，
 runner 看到新鲜心跳就不把 SIGINT 升级成 SIGKILL（固定 150s 宽限在慢收尾时误杀过一次，
 演练 D 复现并修复：<code>test_drain_keeps_grace</code>）。</li>

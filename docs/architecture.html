@@ -158,7 +158,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 两套引擎实例互不相干，共享的只有磁盘上的 checkpoint。代价是两进程各占显存，GPU 档位多时要错峰（本篇 9 节"GPU 被占满时的对战"行）。</div>
 
 <h2 id="s3">3　目录导读</h2>
-<div class="tbl-cap"><b>仓库地图</b>（只列主干；tests/ 下 12 套件见各篇附录）。</div>
+<div class="tbl-cap"><b>仓库地图</b>（tests/ 下 13 套回归与度量工具见各篇附录；tests/ 随仓库分发）。</div>
 <table>
 <tr><th>路径</th><th>装什么</th><th>文档</th></tr>
 <tr><td><code>core/env/</code></td><td>规则引擎与棋盘表示：BaseEnv 契约、象棋（含 Cython 热路径、RuleContext）、五子棋</td><td>§1 篇</td></tr>
@@ -244,7 +244,7 @@ feature_version 属棋规与表示层——preset 若试图覆写直接报错。
 <div class="tbl-cap"><b>控制台 API 契约</b>（实现 <code>services/admin/routes.py</code>；心跳契约见 §4 篇 9 节，统计口径见 §3 篇 9 节）。</div>
 <table>
 <tr><th>接口</th><th>要点</th></tr>
-<tr><td><span class="get">GET</span> <code>/snapshot</code></td><td>一屏全量：meta（实际在跑的档位与网络规模）、live（心跳权威态：阶段/进度/实时 buffer/瞬时吞吐/gpm…）、hardware（1s 环）、rounds（上一轮 perf 行）、heartbeat 原文、trainer 状态、crashes。<b>判"数据是活的还是缓存"</b>看 <code>live.source</code> 与各 <code>age</code> 字段（10/28 开发日志：面板审计全记录）</td></tr>
+<tr><td><span class="get">GET</span> <code>/snapshot</code></td><td>一屏全量：meta（实际在跑的档位与网络规模）、live（心跳权威态：阶段/进度/实时 buffer/瞬时吞吐/gpm…）、hardware（1s 环）、rounds（上一轮 perf 行）、heartbeat 原文、trainer 状态、crashes。<b>判"数据是活的还是缓存"</b>看 <code>live.source</code> 与各 <code>age</code> 字段</td></tr>
 <tr><td><span class="get">GET</span> <code>/series</code></td><td>曲线：rounds（按<b>累计轮数</b>的 13 条衍生序列）＋ tb（TensorBoard 标量，<b>跨重启按 step 合并</b>＋抽稀）＋ hw 时间序列</td></tr>
 <tr><td><span class="get">GET</span> <code>/env</code></td><td>当前参数 + 建议目标（最新 ckpt 所在 棋种×档位）+ 白名单 knobs</td></tr>
 <tr><td><span class="get">GET</span> <code>/train/status</code></td><td>pid / running / 是否收养 / exit_code / stop_after_round / 日志尾</td></tr>
