@@ -170,7 +170,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 <tr><td><code>services/train/</code></td><td>selfplay（管线编排）、heartbeat（心跳）</td><td>§4 篇</td></tr>
 <tr><td><code>services/admin/ · services/monitor/</code></td><td>runner（生命周期）、artifacts（制品）、routes；monitor（快照采集）</td><td>本篇 7 节</td></tr>
 <tr><td><code>apps/web/</code></td><td>零构建前端：index（对弈）、admin（控制台）、js/（浏览器端棋规引擎）</td><td>本篇 8 节</td></tr>
-<tr><td><code>docs/ · data/ · logs/ · runs/</code></td><td>本文档集；模型与仓；运行日志与心跳（统一格式 <code>&lt;模块&gt;/latest.log*</code> 与 <code>&lt;模块&gt;/console.log*</code>，<code>_state/</code> 进程状态、<code>_archive/</code> 历史归档不进台账）；TensorBoard</td><td>—</td></tr>
+<tr><td><code>docs/ · data/ · logs/ · runs/</code></td><td>本文档集；模型与仓；运行日志与心跳（统一格式 <code>&lt;模块&gt;/latest.log*</code> 与 <code>&lt;模块&gt;/console.log*</code>；<code>board/</code> 为棋盘快照专用档；0 字节空壳不进台账，<code>_state/</code> 进程状态、<code>_archive/</code> 历史归档不进台账）；TensorBoard</td><td>—</td></tr>
 </table>
 
 <h2 id="s4">4　模型管理：注册表 + 档位制</h2>

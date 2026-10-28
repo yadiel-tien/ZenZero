@@ -580,7 +580,11 @@ class ChineseChess(BaseEnv):
         return board_str
 
     def render(self) -> None:
-        print(self.get_board_str(self.state, self.player_to_move))
+        # 棋盘走专用通道 logs/board/（独立成档不混进模块日志；落档不带 ANSI，读取端干净）
+        from core.utils.logger import get_logger
+        get_logger('board').info('象棋盘面 · 行棋方=%s%s',
+                                 '红' if self.player_to_move == 0 else '黑',
+                                 self.get_board_str(self.state, self.player_to_move, colorize=False))
 
     @classmethod
     def handle_human_input(cls, state: NDArray, last_action: int, player_to_move: int) -> int:

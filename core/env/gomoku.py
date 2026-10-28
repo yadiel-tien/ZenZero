@@ -130,7 +130,11 @@ class Gomoku(BaseEnv):
         return []
 
     def render(self) -> None:
-        print(self.get_board_str(self.state, self.player_to_move))
+        # 棋盘走专用通道 logs/board/（同象棋：独立成档、无 ANSI）
+        from core.utils.logger import get_logger
+        get_logger('board').info('五子棋盘面 · 行棋方=%s%s',
+                                 '黑' if self.player_to_move == 0 else '白',
+                                 self.get_board_str(self.state, self.player_to_move))
 
     @classmethod
     def get_board_str(cls, state: NDArray, player_to_move: int, colorize=True) -> str:

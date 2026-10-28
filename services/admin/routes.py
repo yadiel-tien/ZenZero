@@ -330,6 +330,8 @@ def logs_list():
                 if not (f.name.startswith('latest.log') or f.name.startswith('console.log')):
                     continue
                 st = f.stat()
+                if st.st_size == 0:
+                    continue          # 空壳（logger 初始化或崩溃位未触发）不占台账——用户："没有的 log 清理"
                 out.append({'name': f.name, 'path': f'{entry.name}/{f.name}',
                             'cat': entry.name, 'size': st.st_size, 'mtime': st.st_mtime})
     out.sort(key=lambda x: x['mtime'], reverse=True)
