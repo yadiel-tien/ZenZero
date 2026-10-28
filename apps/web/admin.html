@@ -654,7 +654,8 @@ async function stopTraining(mode){
 /* ---------- 日志 ---------- */
 const LIVE = '● 实时';
 let LOGS_CACHE = [];
-function logOpt(x){ return `<option value="${esc(x.path)}">${esc(x.name)} (${gb(x.size||0)})</option>`; }
+function logOpt(x){ const label = x.path==='current' ? x.name : String(x.path||x.name).split('/').pop();
+  return `<option value="${esc(x.path)}" title="${esc(x.path)}">${esc(label)} (${gb(x.size||0)})</option>`; }
 function filesOf(cat){
   if(cat === LIVE) return [{path:'current', name:'当前训练进程（自动跟随最新 console 日志）', size:0}];
   return LOGS_CACHE.filter(x=>x.cat===cat);
