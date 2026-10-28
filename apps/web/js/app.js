@@ -449,9 +449,9 @@
     i.draggable = false;
     return i;
   }
-  function render() {
+function render() {
     const under = $('l-under'), pieces = $('l-pieces'), over = $('l-over');
-    under.innerHTML = ''; pieces.innerHTML = ''; over.innerHTML = '';
+    under.innerHTML = ''; over.innerHTML = '';
     if (!G) return;
     const dir = G.name === 'ChineseChess' ? 'assets/graphics/chess/' : 'assets/graphics/gomoku/';
 
@@ -463,32 +463,48 @@
         let p = grid2px(r, c); under.appendChild(mkImg(dir + 'blue_dot.png', 'mark', p.x, p.y));
         p = grid2px(tr, tc); under.appendChild(mkImg(dir + 'blue_circle.png', 'mark', p.x, p.y));
       }
+      // —— 棋子层按 piece id 键控协调：节点持久，left/top 变化由 CSS 过渡滑行，
+      //    被吃子淡出，进场弹入——整盘不重建，动画才有连续性 ——
+      const layer = ChessEnv.boardLayer(G.state);
+      const want = new Map();
       for (let r = 0; r < 10; r++) for (let c = 0; c < 9; c++) {
-        const piece = ChessEnv.boardLayer(G.state)[r * 9 + c];
-        if (piece === -1 || (G.selected && G.selected[0] === r && G.selected[1] === c)) continue;
-        const p = grid2px(r, c);
-        pieces.appendChild(mkImg(dir + 'low_shadow.png', 'mark', p.x, p.y));
-        const isNew = G.lastPlaced && G.lastPlaced[0] === r && G.lastPlaced[1] === c;
-        pieces.appendChild(mkImg(dir + `piece${piece}.png`, 'piece-chess' + (isNew ? ' new' : ''), p.x, p.y));
+        const piece = layer[r * 9 + c];
+        if (piece !== -1) { const p = grid2px(r, c); want.set(piece, { r, c, x: p.x, y: p.y }); }
       }
-      // 选中棋子放大 + 光圈
+      for (const el of [...pieces.children]) {
+        const id = +el.dataset.id;
+        if (!want.has(id) && !el.dataset.dying) {
+          el.dataset.dying = '1'; el.classList.add('gone');
+          setTimeout(() => el.remove(), 320);
+        }
+      }
+      for (const [id, w] of want) {
+        let el = pieces.querySelector(`img[data-id="${id}"]`);
+        if (el && el.dataset.dying) { el.remove(); el = null; }   // 悔棋/重开让被吃子复活：弃掉将死躯壳重造
+        if (!el) {
+          el = mkImg(dir + `piece${id}.png`, 'piece-chess enter', w.x, w.y);
+          el.dataset.id = id;
+          pieces.appendChild(el);
+        } else {
+          el.style.left = w.x + 'px'; el.style.top = w.y + 'px';
+        }
+        const selHere = !!G.selected && G.selected[0] === w.r && G.selected[1] === w.c;
+        el.classList.toggle('selected', selHere);
+      }
+      // 合法落点提示（选中时在棋子层上方，呼吸动画）
       if (G.selected) {
-        const [r, c] = G.selected;
-        const piece = ChessEnv.boardLayer(G.state)[r * 9 + c];
-        const p = grid2px(r, c);
-        over.appendChild(mkImg(dir + 'high_shadow.png', 'mark shadow-big', p.x + 65 / 2 - 52, p.y + 65 / 2 - 52));
-        over.appendChild(mkImg(dir + `piece${piece}.png`, 'piece-chess selected', p.x, p.y));
         for (const [a, safe] of G.safeCache) {
           const [, , tr, tc] = ChessEnv.action2move(a);
           const q = grid2px(tr, tc);
           const el = document.createElement('div');
           el.className = 'move-dot ' + (safe ? 'safe' : 'danger');
-          el.style.left = (q.x + 32.5) + 'px'; el.style.top = (q.y + 32.5) + 'px'; // 交叉点中心（margin 已偏移半径）
+          el.style.left = (q.x + 32.5) + 'px'; el.style.top = (q.y + 32.5) + 'px'; // 交叉点中心（margin 已置中）
           over.appendChild(el);
         }
       }
     } else {
-      // 五子棋
+      // 五子棋：整层重建（无棋子身份可言，落点即最终态）
+      pieces.innerHTML = '';
       for (let i = 0; i < 225; i++) {
         const v = G.board[i];
         if (!v) continue;

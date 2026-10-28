@@ -68,9 +68,24 @@ body {
   pointer-events: none; image-rendering: auto;
   filter: drop-shadow(0 2px 2px rgba(30, 20, 10, .35));
 }
+.piece-chess {
+  transition: left .26s cubic-bezier(.22,.75,.3,1.02), top .26s cubic-bezier(.22,.75,.3,1.02),
+              transform .16s ease, filter .18s ease;
+}
+.piece-chess.enter { animation: piece-in .22s ease-out; }
 .piece-chess.new { animation: piece-in .18s ease-out; }
 @keyframes piece-in { from { transform: scale(1.25); opacity: .4; } to { transform: scale(1); opacity: 1; } }
-.piece-chess.selected { transform: scale(1.2); z-index: 5; }
+.piece-chess.selected { transform: scale(1.12); z-index: 6;
+  filter: drop-shadow(0 8px 10px rgba(30, 20, 10, .4)) brightness(1.07); }
+.piece-chess.gone { animation: piece-out .32s ease-in forwards; pointer-events: none; }
+@keyframes piece-out {
+  35% { opacity: .9; transform: scale(1.08) rotate(-4deg); }
+  to  { opacity: 0; transform: scale(.45) rotate(9deg) translateY(6px); }
+}
+/* 棋子抬起投喂感：选中时脚下投影加重（drop-shadow 已随 selected 变） */
+.piece-chess:hover { filter: drop-shadow(0 2px 2px rgba(30, 20, 10, .35)) brightness(1.05); }
+/* 棋盘外框质感 */
+#board-wrap { border-radius: 14px; box-shadow: 0 12px 36px rgba(0,0,0,.30); overflow: hidden; }
 
 .stone { position: absolute; width: 33px; height: 33px; pointer-events: none;
   filter: drop-shadow(0 2px 2px rgba(0,0,0,.35)); }
@@ -83,11 +98,17 @@ body {
   position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px;
   border-radius: 50%; pointer-events: none;
   box-shadow: 0 0 3px rgba(0, 0, 0, .3), inset 0 0 2px rgba(255, 255, 255, .5);
-  animation: dot-in .16s ease-out;
+  animation: dot-breathe 1.4s ease-in-out infinite;
 }
 .move-dot.safe { background: rgba(58, 190, 70, .9); }
 .move-dot.danger { background: rgba(224, 58, 63, .9); }
-@keyframes dot-in { from { transform: scale(.4); } to { transform: scale(1); } }
+@keyframes dot-breathe {
+  0%   { transform: scale(.45); opacity: .35; }
+  14%  { transform: scale(1.08); opacity: .95; }
+  55%  { transform: scale(1); opacity: .9; }
+  78%  { transform: scale(1.32); opacity: .45; }
+  100% { transform: scale(1); opacity: .9; }
+}
 .shadow-big { width: 104px; height: 104px; }
 .step-no {
   position: absolute; width: 33px; height: 33px;
