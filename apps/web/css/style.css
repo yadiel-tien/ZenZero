@@ -260,6 +260,9 @@ body {
 }
 .dd-list li { padding: 9px 12px; border-radius: 7px; cursor: pointer; font-size: 15px; }
 .dd-list li:hover { background: #f0e6cf; }
+.dd-list li.dd-group { cursor: default; padding: 6px 12px; font-size: 12px; opacity: .55;
+  background: transparent; border-top: 1px solid rgba(0,0,0,.08); }
+.dd-list li.dd-group:hover { background: transparent; }
 .dd-list li.sel { background: var(--blue); color: #fff; }
 #l-step-model { gap: 14px; }
 #dd2-box { display: flex; flex-direction: column; gap: 6px; }

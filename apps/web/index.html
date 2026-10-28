@@ -154,7 +154,7 @@
   <div class="dlg settings">
     <p class="dlg-title">推理服务地址</p>
     <input id="in-url" type="text" placeholder="留空 = 与网页同源（推荐：由 play_server 直接托管）">
-    <p class="hint">跨机器对战时填写后端地址，例如 <code>http://192.168.0.126:5000/</code>。<br>
+    <p class="hint">跨机器对战时填写后端地址，例如 <code>http://192.168.1.20:5000/</code>。<br>
       后端启动命令：<code>python -m scripts.play_server</code></p>
     <div class="dlg-row">
       <button id="btn-save-url" class="zz-btn big green">保存</button>
@@ -162,6 +162,25 @@
     </div>
   </div>
 </div>
+
+<!-- 训练控制台入口：固定右下角，不参与 600x800 舞台布局 -->
+<a id="admin-entry" href="/admin" title="训练控制台：监控 / 启动停止 / 制品管理"
+   style="position:fixed;right:14px;bottom:12px;z-index:60;padding:5px 11px;border-radius:99px;
+          font:12px/1.4 -apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;
+          letter-spacing:1px;color:#e9e2cf;background:rgba(20,16,10,.55);
+          border:1px solid rgba(199,161,74,.45);text-decoration:none;backdrop-filter:blur(2px);
+          opacity:.75;transition:opacity .15s,background .15s"
+   onmouseover="this.style.opacity='1';this.style.background='rgba(30,24,14,.85)'"
+   onmouseout="this.style.opacity='.75';this.style.background='rgba(20,16,10,.55)'">⚙ 训练控制台</a>
+
+<a id="docs-entry" href="/docs/" title="项目文档集：环境 / MCTS / 推理引擎 / 训练管线 / 架构与接口"
+   style="position:fixed;right:14px;bottom:44px;z-index:60;padding:5px 11px;border-radius:99px;
+          font:12px/1.4 -apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;
+          letter-spacing:1px;color:#e9e2cf;background:rgba(20,16,10,.55);
+          border:1px solid rgba(199,161,74,.45);text-decoration:none;backdrop-filter:blur(2px);
+          opacity:.75;transition:opacity .15s,background .15s"
+   onmouseover="this.style.opacity='1';this.style.background='rgba(30,24,14,.85)'"
+   onmouseout="this.style.opacity='.75';this.style.background='rgba(20,16,10,.55)'">📖 文档</a>
 
 <div id="toast" class="hidden"></div>
 

@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<script>
+/* 首屏前定主题，避免闪白：auto=跟随系统，light/dark=手动锁定（localStorage 记忆） */
+(function () {
+  try {
+    var mode = localStorage.getItem('zz-theme') || 'auto';
+    var dark = mode === 'dark' || (mode === 'auto'
+      && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+})();
+</script><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZenZero 训练控制台</title>
+<link rel="icon" type="image/png" href="assets/graphics/chess/piece4.png">
+<style>
+  /* 双主题：默认暗色（老观感），<html data-theme="light"> 切明亮；切换/跟随系统由脚头小脚本处理 */
+  :root, :root[data-theme="dark"]{
+        color-scheme: dark;
+        --bg:#0f1216;--card:#171c23;--line:#2a323d;--fg:#d7dee8;--dim:#8b97a8;
+        --blue:#4aa8ff;--green:#3ddc84;--orange:#ffb454;--red:#ff6b6b;--purple:#b48cff;--yellow:#ffd166;
+        --btn:#1e2530;--btn-hover:#26303d;--input:#0d1117;--pre:#0b0e12;--bar-bg:#0b0e12;
+        --grid:#232a34;--axis:#7b8698;--thead:#202833;
+        --danger-bg:#3a1d1d;--danger-fg:#ffb0b0;--danger-line:#5a2b2b;
+        --ok-bg:#10201a;--ok-fg:#9fe7c3;--ok-line:#2b5a43;
+        --shadow:none;
+  }
+  :root[data-theme="light"]{
+        color-scheme: light;
+        --bg:#f5f7fa;--card:#ffffff;--line:#e3e8ef;--fg:#1b2330;--dim:#68737f;
+        --blue:#1f6feb;--green:#12994f;--orange:#b26a00;--red:#d34444;--purple:#7048c9;--yellow:#a9720a;
+        --btn:#eff2f6;--btn-hover:#e4e9f0;--input:#ffffff;--pre:#f3f5f9;--bar-bg:#eef1f6;
+        --grid:#e8ecf2;--axis:#8b95a5;--thead:#eef1f6;
+        --danger-bg:#fdeceb;--danger-fg:#ab2f2f;--danger-line:#f2c9c6;
+        --ok-bg:#e9f7ef;--ok-fg:#196f42;--ok-line:#c3e8d2;
+        --shadow:0 1px 2px rgba(16,24,40,.05), 0 6px 18px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box}
+  html{transition:background-color .18s ease}
+  body{margin:0;background:var(--bg);color:var(--fg);transition:background-color .18s ease,color .18s ease;
+       font:13px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif}
+  header{padding:12px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+         position:sticky;top:0;background:color-mix(in srgb, var(--bg) 88%, transparent);backdrop-filter:blur(8px);z-index:5}
+  h1{font-size:15px;margin:0;font-weight:600}
+  .pill{font-size:11px;border:1px solid var(--line);border-radius:99px;padding:2px 9px;color:var(--dim)}
+  .pill.run{color:var(--card);background:var(--green);border-color:var(--green);font-weight:600}
+  .pill.stop{color:var(--dim)}
+  .pill.stalled{color:var(--card);background:var(--red);border-color:var(--red);font-weight:600}
+  button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--btn);color:var(--fg);
+         padding:6px 12px;transition:background-color .12s, border-color .12s, color .12s}
+  button:hover{background:var(--btn-hover)}
+  button.primary{background:var(--green);color:var(--card);border-color:var(--green);font-weight:600}
+  button.danger{background:var(--danger-bg);color:var(--danger-fg);border-color:var(--danger-line)}
+  button.mini{padding:2px 8px;font-size:11px;border-radius:6px}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  nav{display:flex;gap:6px;padding:10px 20px 0}
+  nav a{color:var(--dim);text-decoration:none;padding:6px 12px;border-radius:8px 8px 0 0;border:1px solid transparent}
+  nav a.on{color:var(--fg);background:var(--card);border-color:var(--line);border-bottom-color:var(--card)}
+  main{padding:14px 20px 40px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;margin-bottom:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 11px;box-shadow:var(--shadow);transition:transform .12s, box-shadow .12s, background-color .18s ease, border-color .18s ease}
+  .card:hover{transform:translateY(-1px)}
+  .card .k{font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card .v{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+  .card .s{font-size:11px;color:var(--dim)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:12px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);transition:background-color .18s ease, border-color .18s ease}
+  .panel h2{font-size:12px;margin:0 0 8px;font-weight:600;display:flex;gap:8px;align-items:center}
+  .panel h2 .lg{font-weight:400;font-size:11px;color:var(--dim)}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--dim);margin:-2px 0 5px}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .legend i{width:11px;height:3px;border-radius:2px;display:inline-block}
+  .legend b{color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums}
+  canvas{width:100%;height:160px;display:block}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--thead);white-space:nowrap}
+  th{color:var(--dim);font-weight:500;font-size:11px}
+  td.num{font-variant-numeric:tabular-nums}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:4px;min-width:120px}
+  .field label{font-size:11px;color:var(--dim)}
+  input,select{font:inherit;background:var(--input);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:5px 8px}
+  pre{background:var(--pre);border:1px solid var(--line);border-radius:8px;padding:10px;overflow:auto;
+      max-height:420px;font-size:11.5px;line-height:1.45;white-space:pre-wrap;margin:0}
+  .toast{position:fixed;right:18px;bottom:18px;max-width:520px;background:var(--danger-bg);border:1px solid var(--danger-line);color:var(--danger-fg);
+         padding:10px 14px;border-radius:10px;display:none;white-space:pre-wrap;font-size:12px;z-index:20}
+  .toast.ok{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok-fg)}
+  .barwrap{height:6px;background:var(--bar-bg);border-radius:99px;overflow:hidden;margin-top:5px}
+  .barwrap i{display:block;height:100%;background:var(--blue);width:0}
+  .hint{color:var(--dim);font-size:11px}
+  .tab{display:none} .tab.on{display:block}
+  .crashes{border:1px solid var(--danger-line);background:var(--danger-bg);border-radius:10px;padding:10px 12px;margin-top:12px;display:none}
+</style></head><body>
+<header>
+  <h1>ZenZero 训练控制台</h1>
+  <span class="pill" id="trainer">—</span>
+  <button id="btn-theme" class="mini" title="外观：自动（跟随系统） → 明亮 → 暗色">🌗 自动</button>
+  <span class="pill" id="phase">—</span>
+  <span class="pill" id="meta">—</span>
+  <span style="flex:1"></span>
+  <span class="pill" id="pending-stop" style="display:none">将在本轮结束后退出</span>
+  <button class="primary" id="btn-start">启动训练</button>
+  <button id="btn-stop-round" title="= 发送 SIGINT：取消还没开跑的局，把手上正在下的几十局收完并入池，存盘后退出">等本轮结束</button>
+  <button class="danger" id="btn-stop" title="= kill -9：直接杀进程，本轮已下完的局不会存盘">立即结束</button>
+  <a href="/" class="pill" style="text-decoration:none">← 对弈</a>
+  <a class="pill" href="/docs/" title="项目文档集：环境 / MCTS / 推理引擎 / 训练管线 / 架构与 API" style="text-decoration:none">📖 文档</a>
+</header>
+<nav>
+  <a href="#monitor" class="on" data-tab="monitor">监控</a>
+  <a href="#train" data-tab="train">训练</a>
+  <a href="#artifacts" data-tab="artifacts">制品</a>
+  <a href="#logs" data-tab="logs">日志</a>
+  <a href="#tasks" data-tab="tasks">任务</a>
+</nav>
+<main>
+  <!-- ============ 监控 ============ -->
+  <section class="tab on" id="tab-monitor">
+    <div class="hint" style="margin-bottom:8px">曲线：<b>滚轮缩放</b>（以光标为中心）· <b>拖动平移</b> · <b>双击复位</b>
+      ｜ 按轮的图（自博弈吞吐 / batch / 模拟耗时 / 评估胜率）<b>横轴 = 累计轮数</b>，跨重启累计；
+      按 step 的图（Loss / KL）横轴 = 训练步数</div>
+    <div class="cards" id="cards"></div>
+    <div class="grid">
+      <div class="panel"><h2>自博弈吞吐 <span class="lg">局/分钟</span></h2><canvas id="c_gpm"></canvas></div>
+      <div class="panel"><h2>batch 大小 <span class="lg">每轮整轮均值</span></h2><canvas id="c_batch"></canvas></div>
+      <div class="panel"><h2>模拟耗时 <span class="lg">选叶子 / 等推理 (ms)</span></h2><canvas id="c_mcts"></canvas></div>
+      <div class="panel"><h2>Loss · policy <span class="lg">train / val</span></h2><canvas id="c_loss_p"></canvas></div>
+      <div class="panel"><h2>Loss · value <span class="lg">train / val</span></h2><canvas id="c_loss_v"></canvas></div>
+      <div class="panel"><h2>策略 KL / 目标熵 <span class="lg">KL = 可学部分 · 熵 = 下限（CE = KL + 熵）</span></h2><canvas id="c_kl"></canvas></div>
+      <div class="panel"><h2>评估胜率 <span class="lg">阈值 52%</span></h2><canvas id="c_win"></canvas></div>
+      <div class="panel"><h2>硬件 <span class="lg">CPU / GPU / 内存 (%)</span></h2><canvas id="c_hw"></canvas></div>
+    </div>
+    <div class="crashes" id="crashes"><b>线程崩溃记录（logs/crash）</b><pre id="crash_txt"></pre></div>
+  </section>
+
+  <!-- ============ 训练 ============ -->
+  <section class="tab" id="tab-train">
+    <div class="panel" style="margin-bottom:12px">
+      <h2>启动参数 <span class="lg">以环境变量传给训练进程，不改仓库里的 config</span></h2>
+      <div class="row" style="margin-bottom:10px">
+        <button id="btn-stop-round2">等本轮结束</button>
+        <button class="danger" id="btn-stop2">立即结束</button>
+        <span class="hint"><b>立即结束</b> = kill -9，硬杀，不存盘（本轮已下完的局全丢）；
+          <b>等本轮结束</b> = 发 SIGINT，取消没开跑的局、把手上正在下的几十局收完入池、存盘后退出。
+          （还想"连 fit+评估都做完再退"的话：API 用 <code>mode=finish_round</code>）</span>
+      </div>
+      <div class="row">
+        <div class="field"><label>棋种</label><select id="f_game"><option>ChineseChess</option><option>Gomoku</option></select></div>
+        <div class="field"><label>档位 (profile)</label><select id="f_profile"><option value="s">s</option><option value="m">m</option><option value="l">l</option></select></div>
+        <div class="field"><label>自博弈线程数</label><input id="f_workers" type="number" min="1" value="32"></div>
+        <div class="field"><label>每轮局数</label><input id="f_games" type="number" min="1" value="400"></div>
+        <div class="field"><label>并行 leaf 数 K</label><input id="f_leaves" type="number" min="1" value="12"></div>
+        <div class="field"><label>batch 上限</label><input id="f_maxbatch" type="number" min="1" placeholder="默认256"></div>
+        <div class="field"><label>设备</label><input id="f_device" placeholder="auto / cuda:0 / cpu"></div>
+        <div class="field"><label>&nbsp;</label><button class="primary" id="btn-start2">启动</button></div>
+      </div>
+      <div class="hint" id="launch_hint" style="margin-top:8px"></div>
+    </div>
+    <div class="panel">
+      <h2>训练进程 <span class="lg" id="trainer_detail">—</span></h2>
+      <div class="hint" style="margin-bottom:8px">启动即独立进程（新会话），本服务重启不影响它；停止走 SIGINT → 优雅退出 → SIGTERM → SIGKILL。</div>
+      <pre id="trainer_log" style="max-height:340px">（尚无进程日志）</pre>
+    </div>
+  </section>
+
+  <!-- ============ 制品 ============ -->
+  <section class="tab" id="tab-artifacts">
+    <div class="panel" style="margin-bottom:12px">
+      <h2>制品概览</h2>
+      <div class="row">
+        <div class="field"><label>棋种</label><select id="a_game"><option>ChineseChess</option><option>Gomoku</option></select></div>
+        <div class="field"><label>档位</label><select id="a_profile"><option value="s">s</option><option value="m">m</option><option value="l">l</option></select></div>
+        <div class="field"><label>&nbsp;</label><button id="btn-refresh-art">刷新</button></div>
+        <div class="field"><label>&nbsp;</label><button id="btn-promote">把指定代设为 best</button></div>
+        <div class="field"><label>&nbsp;</label><input id="a_promote" type="number" placeholder="代" style="width:90px"></div>
+      </div>
+      <div class="hint" id="art_summary" style="margin-top:8px">—</div>
+    </div>
+    <div class="grid">
+      <div class="panel"><h2>Checkpoint <span class="lg">按代</span></h2><div style="overflow:auto;max-height:360px"><table id="t_ckpt"></table></div></div>
+      <div class="panel"><h2>缓冲池 <span class="lg">buffer / val_buffer</span></h2><table id="t_buf"></table>
+        <div class="hint" style="margin-top:8px">清空后需重新积累，几十分钟自博弈；界面要求二次确认。</div></div>
+      <div class="panel"><h2>TensorBoard runs</h2><div style="overflow:auto;max-height:300px"><table id="t_runs"></table></div></div>
+      <div class="panel"><h2>日志</h2><div style="overflow:auto;max-height:300px"><table id="t_logs"></table></div></div>
+    </div>
+  </section>
+
+  <!-- ============ 日志 ============ -->
+  <section class="tab" id="tab-logs">
+    <div class="panel">
+      <h2>日志查看</h2>
+      <div class="row">
+        <div class="field"><label>日志</label><select id="l_name"></select></div>
+        <div class="field"><label>行数</label><input id="l_lines" type="number" value="200" min="10" max="2000"></div>
+        <div class="field"><label>过滤（子串）</label><input id="l_grep" placeholder="如 [perf] / Game end"></div>
+        <div class="field"><label>&nbsp;</label><button id="btn-load-log">刷新</button></div>
+        <div class="field"><label>&nbsp;</label><label class="hint"><input type="checkbox" id="l_follow" checked> 跟随</label></div>
+      </div>
+      <pre id="log_view" style="margin-top:10px">—</pre>
+    </div>
+  </section>
+  <section class="tab" id="tab-tasks">
+    <div class="hint" style="margin-bottom:10px">scripts/ 其余功能入口的启停（训练在「训练」页）。
+      常驻任务停止走 SIGINT→SIGTERM→SIGKILL 逐级；一次性任务显示上次退出码。输出统一落
+      <code>logs/console/task_&lt;名&gt;_&lt;时间&gt;.log</code>。</div>
+    <div id="task-list"><div class="hint">加载中…</div></div>
+    <div class="panel" style="margin-top:12px"><h2>任务日志 <span class="lg" id="task-log-name">—</span></h2>
+      <pre id="task-log" style="max-height:340px">点击任务上的「查看日志」在此显示</pre></div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = (v,d=1) => (v===null||v===undefined||isNaN(v)) ? '—' : (+v).toFixed(d);
+const gb = b => b>=2**30 ? (b/2**30).toFixed(2)+' GB' : b>=2**20 ? (b/2**20).toFixed(1)+' MB' : (b/1024).toFixed(0)+' KB';
+const secs = s => s===null||s===undefined ? '—' : s<90 ? `${s.toFixed(0)}s` : s<5400 ? `${(s/60).toFixed(1)}min` : `${(s/3600).toFixed(1)}h`;
+const esc = s => String(s??'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+function toast(msg, ok=false){
+  const t = $('toast'); t.textContent = msg; t.className = 'toast' + (ok?' ok':'');
+  t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(()=>t.style.display='none', ok?3500:9000);
+}
+async function api(path, opt={}){
+  const headers = {'Content-Type':'application/json'};
+  const tk = localStorage.getItem('zz_admin_token'); if(tk) headers['X-ZZ-Token'] = tk;
+  const r = await fetch(path, {headers, cache:'no-store', ...opt});
+  const txt = await r.text();
+  let data; try{ data = JSON.parse(txt); }catch(_){ data = {error:txt.slice(0,300)}; }
+  if(!r.ok) throw new Error((data && data.error) || ('HTTP '+r.status));
+  return data;
+}
+
+/* ---------- 主题：自动/明亮/暗色 ---------- */
+let PAL = {};
+function refreshPalette() {
+  const cs = getComputedStyle(document.documentElement);
+  const v = (n, f) => (cs.getPropertyValue(n) || '').trim() || f;
+  PAL = { blue: v('--blue', '#4aa8ff'), green: v('--green', '#3ddc84'),
+          orange: v('--orange', '#ffb454'), red: v('--red', '#ff6b6b'),
+          purple: v('--purple', '#b48cff'), yellow: v('--yellow', '#ffd166'),
+          grid: v('--grid', '#232a34'), axis: v('--axis', '#7b8698'),
+          dim: v('--dim', '#8b97a8'), line: v('--line', '#2a323d') };
+  return PAL;
+}
+refreshPalette();
+
+const THEME_MODES = ['auto', 'light', 'dark'];
+const THEME_LABEL = { auto: '🌗 自动', light: '☀️ 明亮', dark: '🌙 暗色' };
+let LAST_CHARTS = null;
+
+function themeMode() {
+  try { return localStorage.getItem('zz-theme') || 'auto'; } catch (e) { return 'auto'; }
+}
+function applyTheme(mode, persist) {
+  if (persist !== false) { try { localStorage.setItem('zz-theme', mode); } catch (e) {} }
+  const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const dark = mode === 'dark' || (mode === 'auto' && sysDark);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  const btn = $('btn-theme');
+  if (btn) { btn.textContent = THEME_LABEL[mode]; btn.title = `外观：自动（跟随系统） → 明亮 → 暗色　（当前 ${THEME_LABEL[mode]}）`; }
+  refreshPalette();
+  if (LAST_CHARTS) renderCharts(LAST_CHARTS);      // 立刻按新配色重画
+}
+function cycleTheme() {
+  const i = THEME_MODES.indexOf(themeMode());
+  applyTheme(THEME_MODES[(i + 1) % THEME_MODES.length]);
+}
+if (window.matchMedia) {                            // 系统主题变化时，自动模式下实时跟随
+  try {
+    window.matchMedia('(prefers-color-scheme: dark)')
+      .addEventListener('change', () => { if (themeMode() === 'auto') applyTheme('auto', false); });
+  } catch (e) {}
+}
+
+/* ---------- 极简 Canvas 折线（带缩放/平移） ---------- */
+const VIEW = {};        // id → {x0,x1}  手动视图；空=自动适应
+const LASTCFG = {};     // id → cfg      重绘用
+
+function dataRange(cfg){
+  let xs = [];
+  (cfg.series||[]).forEach(s => (s.pts||[]).forEach(p => xs.push(+p[0])));
+  return xs.length ? {x0: Math.min(...xs), x1: Math.max(...xs)} : {x0: 0, x1: 1};
+}
+
+function attachChart(id){
+  const cv = $(id);
+  if(!cv || cv._zoomed) return;
+  cv._zoomed = true; cv.style.cursor = 'crosshair';
+  cv.addEventListener('wheel', e => {
+    const cfg = LASTCFG[id]; if(!cfg) return;
+    e.preventDefault();
+    const R = dataRange(cfg), cur = VIEW[id] || {x0: R.x0, x1: R.x1};
+    const span = Math.max(cur.x1 - cur.x0, 1e-9);
+    const rect = cv.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (e.clientX - rect.left - 46) / Math.max(1, rect.width - 56)));
+    const anchor = cur.x0 + frac * span;
+    const f = e.deltaY < 0 ? 0.8 : 1.25;                  // 上滚放大
+    const nspan = Math.min(R.x1 - R.x0, Math.max(span * f, (R.x1 - R.x0) * 1e-3));
+    let nx0 = anchor - frac * nspan, nx1 = nx0 + nspan;
+    if(nx0 < R.x0){ nx0 = R.x0; nx1 = Math.min(R.x1, nx0 + nspan); }
+    if(nx1 > R.x1){ nx1 = R.x1; nx0 = Math.max(R.x0, nx1 - nspan); }
+    VIEW[id] = {x0: nx0, x1: nx1}; draw(id, cfg);
+  }, {passive: false});
+  let drag = null;
+  cv.addEventListener('mousedown', e => { drag = {x: e.clientX, cfg: LASTCFG[id], view: VIEW[id] || null}; cv.style.cursor = 'grabbing'; });
+  window.addEventListener('mouseup', () => { if(drag){ drag = null; cv.style.cursor = 'crosshair'; } });
+  cv.addEventListener('mousemove', e => {
+    if(!drag || !drag.cfg) return;
+    const R = dataRange(drag.cfg), cur = drag.view || {x0: R.x0, x1: R.x1};
+    const span = Math.max(cur.x1 - cur.x0, 1e-9);
+    const rect = cv.getBoundingClientRect();
+    const dx = (e.clientX - drag.x) / Math.max(1, rect.width - 56) * span;
+    let nx0 = cur.x0 - dx, nx1 = cur.x1 - dx;
+    if(nx0 < R.x0){ nx0 = R.x0; nx1 = R.x0 + span; }
+    if(nx1 > R.x1){ nx1 = R.x1; nx0 = R.x1 - span; }
+    VIEW[id] = {x0: nx0, x1: nx1}; draw(id, drag.cfg);
+  });
+  cv.addEventListener('dblclick', () => { delete VIEW[id]; draw(id, LASTCFG[id]); });
+}
+
+function renderLegend(id, cfg){
+  const cv = $(id); if(!cv) return;
+  const series = (cfg.series || []).filter((s) => (s.pts || []).length);
+  let lg = document.getElementById(id + '-legend');
+  if (series.length < 2) { if (lg) lg.style.display = 'none'; return; }
+  if (!lg) {
+    lg = document.createElement('div');
+    lg.id = id + '-legend'; lg.className = 'legend';
+    cv.parentNode.insertBefore(lg, cv);          // 放在标题和图之间
+  }
+  lg.style.display = 'flex';
+  lg.innerHTML = series.map((s) => {
+    const last = s.pts[s.pts.length - 1];
+    const val = s.fmtLast ? s.fmtLast(last[1]) : fmt(last[1], 2);
+    return `<span><i style="background:${s.color}"></i>${s.name || ''}<b>${val}</b></span>`;
+  }).join('');
+}
+
+function draw(id, cfg){
+  LASTCFG[id] = cfg;
+  const cv = $(id); if(!cv || !cv.clientWidth) return;
+  renderLegend(id, cfg);
+  const dpr = window.devicePixelRatio||1, w = cv.clientWidth, h = cv.clientHeight;
+  cv.width = w*dpr; cv.height = h*dpr;
+  const g = cv.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,w,h);
+  const P = {l:46,r:10,t:10,b:26};
+  const ss = (cfg.series||[]).filter(s=>s.pts && s.pts.length);
+  if(!ss.length){ g.fillStyle=PAL.axis; g.font='12px sans-serif'; g.fillText('暂无数据', P.l, h/2); return; }
+  const R = dataRange(cfg);
+  const view = VIEW[id];
+  let x0 = view ? view.x0 : R.x0, x1 = view ? view.x1 : R.x1;
+  let ys=[]; ss.forEach(s=>s.pts.forEach(p=>{ if(+p[0]>=x0 && +p[0]<=x1) ys.push(+p[1]); }));
+  if(!ys.length) ys = [0, 1];
+  let y0=cfg.ymin!==undefined?cfg.ymin:Math.min(...ys), y1=cfg.ymax!==undefined?cfg.ymax:Math.max(...ys);
+  if(x1===x0){x0-=1;x1+=1;} if(y1===y0){y1=y0+1;}
+  const pad=(y1-y0)*0.08; y0-=pad; y1+=pad;
+  const X=v=>P.l+(v-x0)/(x1-x0)*(w-P.l-P.r), Y=v=>h-P.b-(v-y0)/(y1-y0)*(h-P.t-P.b);
+  g.strokeStyle=PAL.grid; g.fillStyle=PAL.axis; g.font='10px sans-serif';
+  for(let i=0;i<=4;i++){ const v=y0+(y1-y0)*i/4, y=Y(v);
+    g.beginPath(); g.moveTo(P.l,y); g.lineTo(w-P.r,y); g.stroke();
+    g.fillText(cfg.fmtY?cfg.fmtY(v):v.toFixed(2), 3, y+3); }
+  // 横轴：两端标刻度值，底部居中写明这条轴是什么
+  const xf = cfg.xFmt || ((v) => String(Math.round(v)));
+  g.font = '10px sans-serif'; g.fillStyle = PAL.axis;
+  g.fillText(xf(x0), P.l, h - 15);
+  const xe = xf(x1); g.fillText(xe, w - P.r - g.measureText(xe).width, h - 15);
+  if (cfg.xLabel) {
+    g.fillStyle = PAL.dim; g.font = '10px sans-serif';
+    const t = cfg.xLabel;
+    g.fillText(t, P.l + (w - P.l - P.r - g.measureText(t).width) / 2, h - 3);
+  }
+  ss.forEach(s=>{ g.strokeStyle=s.color; g.lineWidth=1.6; g.beginPath();
+    s.pts.forEach((p,i)=>{ const x=X(+p[0]), y=Y(+p[1]); i?g.lineTo(x,y):g.moveTo(x,y); }); g.stroke();
+    const last=s.pts[s.pts.length-1]; g.fillStyle=s.color; g.beginPath(); g.arc(X(+last[0]),Y(+last[1]),2.6,0,7); g.fill(); });
+  if(cfg.hline!==undefined){ g.strokeStyle=PAL.axis; g.setLineDash([4,4]); g.beginPath();
+    g.moveTo(P.l,Y(cfg.hline)); g.lineTo(w-P.r,Y(cfg.hline)); g.stroke(); g.setLineDash([]); }
+}
+
+/* ---------- 监控 ---------- */
+function card(k,v,s){ return `<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s||''}</div></div>`; }
+function renderSnapshot(s){
+  const L=s.live||{}, inf=L.infer||{}, fit=L.fit||{}, ev=L.eval||{}, hw=s.hardware||{}, tr=s.trainer||{};
+  const last=(s.rounds||[]).slice(-1)[0]||{}, sp=last.selfplay||{}, gpu=hw.gpu;
+  // Buffer：优先用心跳里的实时值（整轮会一直在涨），没有才退回上一轮 perf 记录
+  const sims = (s.heartbeat && s.heartbeat.sims_per_move) || sp.sims_per_move;
+  const buf = (L.buffer && L.buffer.size != null)
+      ? {size: L.buffer.size, capacity: L.buffer.capacity, live: true}
+      : {size: last.buffer_size, capacity: last.buffer_capacity, live: false};
+  const inferStale = (inf.age_s||0) > 15;
+  const gpmLive = (L.gpm !== undefined && L.gpm !== null) ? L.gpm : null;
+  $('cards').innerHTML = [
+    card('引擎吞吐', fmt(inf.req_s,0)+' <span style="font-size:11px">req/s</span>',
+         (inferStale? `日志 ${fmt(inf.age_s,0)}s 未更新 · ` : '') +
+         'batch 均值 '+fmt(inf.batch,0)+' · 排队 '+fmt(inf.pending,0),
+         '推理引擎每秒处理多少个局面（瞬时值，用相邻两条日志的 total 之差算）。batch 均值 = 每次前向一起算几个局面，越大越省 GPU。排队 = 已进队列、还没被凑进 batch 的请求数。'),
+    card('前向耗时', fmt(inf.fwd,2)+' ms', '凑批等待 '+fmt(inf.window,2)+' ms',
+         '一次 GPU 前向要多久；凑批等待 = 为了凑出更大的 batch 而多等的毫秒数。GPU 每次前向有固定开销，所以 batch 越大，摊到每个局面上越便宜。'),
+    card('每手模拟', sims? fmt(sims,0) : '—', '并行 leaf K=' + fmt(s.meta.batch_leaves,0),
+         'MCTS 的每一步搜索多少次（随代数从 400 爬到 800）。K = 一手棋同时挂起的并行 leaf 数（virtual loss），决定 batch 能凑多大。'),
+    card('局/分钟', gpmLive!==null? fmt(gpmLive,1) : fmt(sp.games_per_min,1),
+         (gpmLive!==null? '本轮实时' : '上轮 ') + ' · 模拟/秒 '+fmt(sp.sims_per_s,0),
+         '自博弈吞吐。轮内按"已完成局数 ÷ 已用时间"实时算；没有心跳时退回上一轮的记录。看速度要同时看 sims/秒，因为每手模拟次数在爬坡。'),
+    card('单次模拟耗时', fmt((sp.mcts||{}).select_ms_per_sim,2)+' ms',
+         '选叶子 '+fmt((sp.mcts||{}).select_ms_per_sim,2)+' · 等推理 '+fmt((sp.mcts||{}).wait_ms_per_sim,2)+'（上轮）',
+         '每模拟一次的时长，拆成"CPU 选叶子"和"等推理返回"两段。两者之比说明瓶颈在 CPU 搜索还是 GPU 推理。'),
+    card('训练步数',
+         fit.step? fmt(fit.step,0) + (fit.fit_total_steps? `<span style="font-size:12px;color:var(--dim)"> / ${fmt(fit.fit_total_steps,0)}</span>`:'') : '—',
+         fit.loss!==undefined? `loss ${fmt(fit.loss,3)} · policy ${fmt(fit.policy_loss,3)} · value ${fmt(fit.value_loss,3)}`
+             : (fit.fit_seconds? `本轮 fit 用时 ${fmt(fit.fit_seconds,1)}s` : '—'),
+         '本轮 fit 已走的优化步数 / 本轮总步数（每轮约 8 遍 × Buffer ÷ batch = 1171 步）。loss 是最近一步的总损失，后面拆成 policy / value。'),
+    card('验证集', fit.val?fmt(fit.val.policy,3):'—',
+         fit.val? `value ${fmt(fit.val.value,3)}` + (fit.val.kl!==undefined? ` · KL ${fmt(fit.val.kl,3)}`:'')
+                  + (fit.val.n_samples? ` · ${fmt(fit.val.n_samples,0)} 样本`:'')
+                  + (fit.val.stale? ' · 上一代' : ((fit.val.age_s||0) > 600? ` · ${fmt((fit.val.age_s||0)/60,0)} 分钟前` : '')) : '—',
+         '验证集（holdout，永不参与训练）上的 loss。policy 是交叉熵，其中约 85% 是目标自身熵的下限，真正能学的是 KL。'
+         + ' value 是价值头 MSE。标“上一代”表示本轮 fit 还没跑完，显示的是上一个模型的测量值。'),
+    card('评估胜率', ev.win_rate!==undefined?(ev.win_rate*100).toFixed(1)+'%':'—',
+         ev.games? `胜 ${ev.win} · 负 ${ev.lose} · 和 ${ev.draw}（共 ${ev.games} 局）· 得分 ${fmt(ev.win + ev.draw/2,1)}/${ev.games}`
+             : '—',
+         `新模型（第 ${fmt(ev.new||0,0)} 代）对守擂模型（第 ${fmt(ev.best||0,0)} 代）的战绩。`
+         + `和棋算半分，得分率超过门槛 ${(100*((s.meta||{}).win_threshold||0.52)).toFixed(0)}% 就晋升为新的守擂模型。`
+         + ' 例：胜 28 · 负 10 · 和 49 = 得分 52.5/87 = 60.3%。'),
+    card('CPU', fmt(hw.cpu,1)+'%', (hw.cores||'—')+' 核 · load '+((hw.load||[])[0]||'—'),
+         '整机 CPU 占用。selfplay 阶段 MCTS 选叶子是主要消耗。'),
+    card('GPU', gpu?fmt(gpu.util,0)+'%':'—', gpu?`${fmt(gpu.mem_used_mb/1024,1)}/${fmt(gpu.mem_total_mb/1024,0)} GB · ${fmt(gpu.temp_c,0)}°C · ${fmt(gpu.power_w,0)}W`:'不可用',
+         'GPU 利用率/显存/温度/功耗。自博弈时推理是间歇的，利用率天然有波动；fit 阶段会拉满。'),
+    card('内存', fmt((hw.mem||{}).pct,1)+'%', `${fmt((hw.mem||{}).used_gb,1)}/${fmt((hw.mem||{}).total_gb,1)} GB`,
+         '物理内存占用（Buffer 常驻内存占大头）。'),
+    card('Buffer', buf.size==null? '—' : (buf.capacity? `${(buf.size/1000).toFixed(1)}k<span style="font-size:12px;color:var(--dim)"> / ${(buf.capacity/1000).toFixed(0)}k</span>` : fmt(buf.size,0)),
+         (buf.capacity? `样本 ${(100*buf.size/buf.capacity).toFixed(0)}% 满 · ` : '样本 · ') + (buf.live? '实时' : '上轮记录'),
+         '训练池样本数 / 容量。满了会淘汰最旧的样本。数值来自训练进程心跳，轮内实时增长。'),
+    card('已完成轮数', fmt((s.rounds||[]).length,0)+' 轮', '第 '+fmt(L.iteration||last.iteration,0)+' 代 · 每轮 '+fmt(s.meta.games_per_round,0)+' 局',
+         '完成的自博弈 + 训练轮数（跨重启累计）。“代”是模型版本号，每完成一轮加 1。'),
+  ].join('');
+  $('meta').textContent = `${s.meta.game} · ${s.meta.profile} · ${s.meta.device} · ${s.meta.net.n_filters}x${s.meta.net.n_res_blocks}`
+      + ` · K=${s.meta.batch_leaves}` + (sims? ` · ${fmt(sims,0)} sims/手` : '')
+      + (s.meta.profile_source==='default'? '（档位取面板默认值，训练未在跑）' : '');
+  window.__lastProgress = L.progress || {};
+  const ph = L.phase || 'idle', p = L.progress, running = tr.running;
+  let chip = 'pill ' + (ph==='stalled'?'stalled':''), txt;
+  if(!running){
+    txt = '未运行' + (tr.exit_code!=null? ` · 上次退出码 ${tr.exit_code}` : '');
+  } else {
+    txt = ph + (p && p.done!=null? ` ${p.done}/${p.total||'?'}` : '');
+    if(L.source === 'heartbeat') txt += ` · 心跳 ${fmt(L.age_s,1)}s 前`;
+    else if((L.age_s||0) > 30){ chip += ' stalled'; txt += ` · 日志 ${fmt(L.age_s,0)}s 未更新`; }
+  }
+  $('phase').className = chip; $('phase').textContent = txt;
+  document.body.classList.toggle('stalled', !running);
+  // 训练进程
+  $('trainer').textContent = running? `训练中 pid ${tr.pid} · ${secs(tr.uptime_s)}` : '训练未运行';
+  $('trainer').className = 'pill ' + (running?'run':'stop');
+  $('btn-start').disabled = running; $('btn-stop').disabled = !running;
+  $('btn-start2').disabled = running;
+  const pending = !!tr.stop_after_round;
+  ['btn-stop-round','btn-stop-round2'].forEach(id => { $(id).disabled = !running || pending; });
+  ['btn-stop','btn-stop2'].forEach(id => { $(id).disabled = !running; });
+  $('pending-stop').style.display = pending? 'inline-block' : 'none';
+  if(pending) $('phase').textContent = '待退出 · ' + $('phase').textContent;
+  $('trainer_detail').textContent = running? `${tr.cmdline||''}  ·  日志 ${tr.log_path||''}` : (tr.exit_code!==null&&tr.exit_code!==undefined? `上次退出码 ${tr.exit_code}`:'');
+  if(tr.tail && tr.tail.length) $('trainer_log').textContent = tr.tail.join('\n');
+  const cr=s.crashes||[]; $('crashes').style.display = cr.length?'block':'none'; $('crash_txt').textContent = cr.join('\n');
+}
+function hwClock(v){
+  const d = new Date((typeof v === 'number' ? v : 0) * 1000);
+  if (isNaN(d.getTime())) return '';
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function renderCharts(d){
+  LAST_CHARTS = d;
+  refreshPalette();
+  const R=d.rounds||{}, tb=d.tb||{}, hw=d.hw||[];
+  draw('c_gpm',{series:[{name:'局/分钟',pts:R.games_per_min,color:PAL.blue}],fmtY:v=>v.toFixed(0),fmtLast:v=>v.toFixed(1),xLabel:'累计轮数'});
+  draw('c_batch',{series:[{name:'batch 均值',pts:R.batch_mean,color:PAL.green}],ymin:0,fmtY:v=>v.toFixed(0),xLabel:'累计轮数'});
+  draw('c_mcts',{series:[{name:'选叶子',pts:R.select_ms,color:PAL.orange},{name:'等推理返回',pts:R.wait_ms,color:PAL.purple}],
+       ymin:0,fmtY:v=>v.toFixed(1),fmtLast:v=>v.toFixed(2),xLabel:'累计轮数'});
+  const lp=t=>(tb[t]||[]).map(([s,v])=>[s,v]);
+  draw('c_loss_p',{series:[{name:'train',pts:lp('Loss/policy'),color:PAL.blue},{name:'val',pts:lp('Val/policy'),color:PAL.red}],fmtY:v=>v.toFixed(2),xLabel:'训练步数（step）'});
+  draw('c_loss_v',{series:[{name:'train',pts:lp('Loss/value'),color:PAL.purple},{name:'val',pts:lp('Val/value'),color:PAL.yellow}],fmtY:v=>v.toFixed(3),xLabel:'训练步数（step）'});
+  draw('c_kl',{series:[{name:'KL（可学部分）',pts:lp('Val/policy_kl'),color:PAL.green},{name:'目标熵（下限）',pts:lp('Val/policy_entropy'),color:PAL.dim}],
+       ymin:0,fmtY:v=>v.toFixed(2),xLabel:'训练步数（step）'});
+  draw('c_win',{series:[{name:'评估胜率',pts:R.eval_win_rate,color:PAL.green}],ymin:0,ymax:1,hline:0.52,fmtY:v=>(v*100).toFixed(0)+'%',fmtLast:v=>(v*100).toFixed(1)+'%',xLabel:'累计轮数'});
+  const hp=k=>hw.filter(s=>s[k]!==null&&s[k]!==undefined).map(s=>[s.t,s[k]]);
+  draw('c_hw',{series:[{name:'CPU',pts:hp('cpu'),color:PAL.blue},{name:'GPU',pts:hp('gpu'),color:PAL.green},{name:'内存',pts:hp('mem'),color:PAL.orange}],
+       ymin:0,ymax:100,fmtY:v=>v.toFixed(0),xLabel:'时间',xFmt:hwClock});
+  ['c_gpm','c_batch','c_mcts','c_loss_p','c_loss_v','c_kl','c_win','c_hw'].forEach(attachChart);
+}
+
+/* ---------- 制品 ---------- */
+async function loadArtifacts(){
+  const game=$('a_game').value, profile=$('a_profile').value;
+  try{
+    const d = await api(`/api/admin/artifacts?game=${game}&profile=${profile}`);
+    $('art_summary').innerHTML = `best_index <b>${d.best_index}</b> · 最新 <b>${d.latest_index}</b> · `
+      + `checkpoint ${d.checkpoints.length} 个 · data ${gb(d.totals.data)} · runs ${gb(d.totals.runs)} · 磁盘余 ${d.disk_free_gb} GB`;
+    $('t_ckpt').innerHTML = `<tr><th>代</th><th>大小</th><th>时间</th><th></th></tr>` + d.checkpoints.slice().reverse().map(c=>`
+      <tr><td class="num">${c.iteration}${c.iteration===d.best_index?' <span class="pill run">best</span>':''}</td>
+          <td class="num">${gb(c.size)}</td><td class="hint">${new Date(c.mtime*1000).toLocaleString()}</td>
+          <td><button class="mini" onclick="promote(${c.iteration})">设为best</button>
+              <button class="mini danger" onclick="delArtifact('checkpoint','${c.path}','delete')">删</button></td></tr>`).join('');
+    $('t_buf').innerHTML = `<tr><th>池</th><th>已用 / 总容量</th><th>占用</th><th>文件</th><th>时间</th><th></th></tr>` + d.buffers.map(b=>{
+      const pct = b.capacity ? Math.min(100, 100*b.size/b.capacity) : 0;
+      const num = (v)=> v>=1000 ? (v/1000).toFixed(1)+'k' : String(v);
+      const mark = b.estimated? ' <span class="hint" title="没有侧车元数据，按文件大小反算，存盘一次后变精确">≈</span>' : '';
+      return `<tr><td>${b.label}</td>
+          <td class="num">${mark}${num(b.size)} / ${num(b.capacity)}</td>
+          <td style="min-width:90px"><div class="barwrap" title="${pct.toFixed(1)}%"><i style="width:${pct}%"></i></div>
+              <span class="hint">${pct.toFixed(1)}%</span></td>
+          <td class="num hint">${gb(b.file_size ?? 0)}</td>
+          <td class="hint">${new Date(b.mtime*1000).toLocaleString()}</td>
+          <td><button class="mini danger" onclick="delArtifact('buffer','${b.path}','delete-buffer')">清空</button></td></tr>`;
+    }).join('');
+    $('t_runs').innerHTML = `<tr><th>run</th><th>大小</th><th></th></tr>` + d.runs.slice(0,20).map(r=>`
+      <tr><td class="hint">${esc(r.name)}</td><td class="num">${gb(r.size)}</td>
+          <td><button class="mini danger" onclick="delArtifact('run','${r.path}','delete')">删</button></td></tr>`).join('');
+    $('t_logs').innerHTML = `<tr><th>日志</th><th>大小</th><th></th></tr>` + d.logs.map(l=>`
+      <tr><td class="hint">${esc(l.name)}</td><td class="num">${gb(l.size)}</td>
+          <td><button class="mini danger" onclick="delArtifact('log','${l.path}','delete')">删</button></td></tr>`).join('');
+  }catch(e){ toast('制品读取失败: '+e.message); }
+}
+async function delArtifact(kind, path, confirm){
+  const label = kind==='buffer' ? '清空缓冲池（不可恢复，需重新积累）' : '删除';
+  if(!window.confirm(`${label}？\n${path}`)) return;
+  try{
+    const r = await api('/api/admin/artifacts/delete', {method:'POST', body: JSON.stringify({kind, path, confirm, game:$('a_game').value, profile:$('a_profile').value})});
+    r.ok ? toast('已删除: '+r.deleted, true) : toast('删除失败: '+r.error);
+    loadArtifacts();
+  }catch(e){ toast('删除失败: '+e.message); }
+}
+async function promote(it){
+  const v = (it===undefined||it===null) ? parseInt($('a_promote').value,10) : it;
+  if(!v){ toast('先填要设为 best 的代'); return; }
+  try{
+    const r = await api('/api/admin/best', {method:'POST', body: JSON.stringify({iteration:v, game:$('a_game').value, profile:$('a_profile').value})});
+    r.ok ? toast('best_index 已设为 '+r.best_index, true) : toast('失败: '+r.error);
+    loadArtifacts();
+  }catch(e){ toast('失败: '+e.message); }
+}
+
+/* ---------- 训练控制 ---------- */
+function launchOpts(){
+  const o = {game:$('f_game').value, profile:$('f_profile').value};
+  if($('f_workers').value) o.workers = +$('f_workers').value;
+  if($('f_games').value) o.games_per_round = +$('f_games').value;
+  if($('f_leaves').value) o.batch_leaves = +$('f_leaves').value;
+  if($('f_maxbatch').value) o.max_batch = +$('f_maxbatch').value;
+  if($('f_device').value.trim()) o.device = $('f_device').value.trim();
+  return o;
+}
+async function startTraining(){
+  const o = launchOpts();
+  $('launch_hint').textContent = '正在启动…';
+  try{
+    const r = await api('/api/admin/train/start', {method:'POST', body: JSON.stringify(o)});
+    if(r.ok){ toast('训练已启动 pid '+r.status.pid, true); }
+    else { toast('启动失败: '+r.error+'\n\n'+(r.status.tail||[]).slice(-12).join('\n')); }
+  }catch(e){ toast('启动失败: '+e.message); }
+  $('launch_hint').textContent = '';
+  tick();
+}
+async function stopTraining(mode){
+  const done = ((window.__lastProgress||{}).done) || 0;
+  const ask = mode === 'interrupt'
+      ? '等本轮结束？（发 SIGINT：取消还没开跑的局，把手上正在下的局收完入池、存盘后退出；fit/评估若还没开始会跳过）'
+      : '立即结束？会直接 kill -9：本轮已下完的 ' + done + ' 局不会存盘，全白跑。确定要硬杀吗？';
+  if(!window.confirm(ask)) return;
+  try{
+    const r = await api('/api/admin/train/stop', {method:'POST', body: JSON.stringify({mode})});
+    toast(r.ok? (r.message || '已停止') : ('停止失败: '+r.error), !!r.ok);
+  }catch(e){ toast('停止失败: '+e.message); }
+  tick();
+}
+
+/* ---------- 日志 ---------- */
+async function loadLogList(){
+  try{
+    const d = await api('/api/admin/logs/list');
+    const keep = $('l_name').value;
+    $('l_name').innerHTML = d.logs.map(x=>`<option value="${x.name}">${x.name} (${gb(x.size)})</option>`).join('') || '<option>selfplay</option>';
+    if(keep && d.logs.some(x=>x.name===keep)) $('l_name').value = keep;
+  }catch(e){ /* 忽略 */ }
+}
+async function loadLog(){
+  const name=$('l_name').value, lines=$('l_lines').value||200, grep=$('l_grep').value||'';
+  try{
+    const d = await api(`/api/admin/logs?name=${encodeURIComponent(name)}&lines=${lines}&grep=${encodeURIComponent(grep)}`);
+    if(!d.ok){ $('log_view').textContent = d.error||'读取失败'; return; }
+    const pre = $('log_view'); const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 40;
+    pre.textContent = d.lines.join('\n') || '（空）';
+    if(atBottom) pre.scrollTop = pre.scrollHeight;
+  }catch(e){ $('log_view').textContent = '读取失败: '+e.message; }
+}
+
+/* ---------- 任务 ---------- */
+let taskFirstLoad = true;
+async function loadTasks(rebuild){
+  let list;
+  try{ list = (await api('/api/admin/tasks')).tasks; }
+  catch(e){ if(rebuild) $('task-list').innerHTML = '<div class="hint">任务列表读取失败: '+esc(e.message)+'</div>'; return; }
+  if(rebuild){
+    const keep = {};
+    document.querySelectorAll('#task-list [data-t]').forEach(el=>{
+      keep[el.dataset.t+'.'+el.dataset.k] = (el.type==='checkbox') ? el.checked : el.value; });
+    $('task-list').innerHTML = list.map(t=>{
+      const opts = Object.entries(t.opts||{}).map(([k,spec])=>{
+        const key = t.name+'.'+k;
+        if(spec.type==='flag'){
+          const on = keep[key]===true ? ' checked':'';
+          return `<label class="hint" style="display:inline-flex;align-items:center;gap:5px"><input type="checkbox" data-t="${t.name}" data-k="${k}"${on}>${esc(k)}</label>`;
+        }
+        const ph = spec.default!==undefined ? String(spec.default) : '';
+        const type = spec.type==='int' ? 'number' : 'text';
+        const val = (typeof keep[key]==='string') ? keep[key] : '';
+        return `<span class="field" style="min-width:120px"><label>${esc(k)}</label>`
+             + `<input type="${type}" placeholder="默认 ${esc(ph)}" data-t="${t.name}" data-k="${k}" value="${esc(val)}"></span>`;
+      }).join('');
+      return `<div class="panel" style="margin-bottom:10px"><h2>${esc(t.name)} <span class="lg">${t.kind==='long'?'常驻':'一次性'}</span> <span class="pill task-st" data-st="${t.name}"></span></h2>
+        <div class="hint" style="margin:2px 0 8px">${esc(t.desc)}</div>
+        <div class="row">${opts}
+          <button onclick="taskAct('start','${t.name}')">启动</button>
+          <button class="danger" onclick="taskAct('stop','${t.name}')">停止</button>
+          <button onclick="taskShowLog('${t.name}')">查看日志</button></div></div>`;
+    }).join('');
+  }
+  list.forEach(t=>{
+    const el = document.querySelector(`.task-st[data-st="${t.name}"]`); if(!el) return;
+    el.className = 'pill task-st ' + (t.running?'run':'');
+    el.textContent = t.running ? `运行中 pid ${t.pid}`
+      : (t.exit_code!==null && t.exit_code!==undefined ? `上次退出 ${t.exit_code}` : '未运行');
+  });
+}
+async function taskAct(act, name){
+  const params = {};
+  document.querySelectorAll(`#task-list [data-t="${name}"]`).forEach(el=>{
+    if(el.type==='checkbox'){ if(el.checked) params[el.dataset.k] = '1'; }
+    else if(el.value!=='') params[el.dataset.k] = el.value;
+  });
+  try{
+    const r = await api(`/api/admin/tasks/${act}`, {method:'POST', body: JSON.stringify({name, params})});
+    if(r.ok) toast(act==='start' ? (r.message||'已启动') : (r.message||'已停止'), true);
+    else toast(`${act} 失败: ${r.error}` + ((r.log_tail||[]).length ? '\n' + r.log_tail.slice(-3).join('\n') : ''));
+    if(act==='start' && r.ok) taskShowLog(name);
+  }catch(e){ toast(`${act} 失败: ${e.message}`); }
+  loadTasks(false);
+}
+async function taskShowLog(name){
+  try{
+    const d = await api(`/api/admin/tasks/log?name=${name}&tail=300`);
+    $('task-log-name').textContent = `　${name}${d.running?'（运行中）':''}　${d.path||''}`;
+    $('task-log').textContent = (d.lines||[]).join('\n') || (d.note||'（空）');
+  }catch(e){ $('task-log').textContent = '日志读取失败: '+e.message; }
+}
+
+/* ---------- 主循环 ---------- */
+let tab = 'monitor';
+function switchTab(name){
+  tab = name;
+  document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('on', a.dataset.tab===name));
+  document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('on', s.id==='tab-'+name));
+  if(name==='monitor'){ tick(); tickSeries(); }
+  if(name==='artifacts') loadArtifacts();
+  if(name==='logs'){ loadLogList(); loadLog(); }
+  if(name==='tasks') loadTasks(true);
+}
+document.querySelectorAll('nav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault(); switchTab(a.dataset.tab);}));
+async function tick(){
+  if(tab!=='monitor' && tab!=='train') return;
+  try{
+    const s = await api('/api/admin/snapshot'); renderSnapshot(s);
+  }catch(e){ $('phase').textContent = '拉取失败: '+e.message; }
+}
+async function tickSeries(){
+  if(tab!=='monitor') return;
+  try{ renderCharts(await api('/api/admin/series')); }catch(e){ /* 静默 */ }
+}
+$('btn-theme').onclick = () => cycleTheme();
+applyTheme(themeMode(), false);      // 同步按钮文案 + 图表配色（不改 localStorage）
+$('btn-start').onclick = startTraining;
+$('btn-start2').onclick = startTraining;
+$('btn-stop').onclick = () => stopTraining('kill');
+$('btn-stop2').onclick = () => stopTraining('kill');
+$('btn-stop-round').onclick = () => stopTraining('interrupt');
+$('btn-stop-round2').onclick = () => stopTraining('interrupt');
+$('btn-refresh-art').onclick = loadArtifacts;
+$('btn-promote').onclick = ()=>promote();
+$('btn-load-log').onclick = loadLog;
+$('a_game').onchange = $('a_profile').onchange = loadArtifacts;
+$('l_name').onchange = loadLog;
+window.addEventListener('resize', ()=>{ if(tab==='monitor') tickSeries(); });
+
+(async function boot(){
+  try{
+    const env = await api('/api/admin/env');
+    const sug = env.suggested || {game: env.game, profile: env.profile};
+    $('f_game').value = sug.game; $('a_game').value = sug.game;
+    if([...$('f_profile').options].some(o=>o.value===sug.profile)){ $('f_profile').value = sug.profile; $('a_profile').value = sug.profile; }
+    if(env.workers) $('f_workers').value = env.workers;
+    if(env.games_per_round) $('f_games').value = env.games_per_round;
+    if(env.batch_leaves) $('f_leaves').value = env.batch_leaves;
+    if(env.max_batch) $('f_maxbatch').value = env.max_batch;
+    if(env.device) $('f_device').value = env.device;
+    $('launch_hint').textContent = `当前生效：${env.net.n_filters}x${env.net.n_res_blocks} · 线程 ${env.workers} · 每轮 ${env.games_per_round} 局 · K=${env.batch_leaves}`;
+  }catch(e){ /* 忽略 */ }
+  tick(); tickSeries();
+  setInterval(tick, 2000);
+  setInterval(()=>{ if(tab==='tasks') loadTasks(false); }, 5000);
+  setInterval(tickSeries, 8000);
+  setInterval(()=>{ if(tab==='logs' && $('l_follow').checked) loadLog(); }, 5000);
+  setInterval(()=>{ if(tab==='artifacts') loadArtifacts(); }, 15000);
+})();
+</script></body></html>

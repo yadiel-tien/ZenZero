@@ -3,7 +3,7 @@
   'use strict';
 
   function baseUrl() {
-    // 同源部署时为空；跨机器在设置中填入，如 http://192.168.0.126:5000/
+    // 同源部署时为空；跨机器在设置中填入，如 http://192.168.1.20:5000/
     const saved = localStorage.getItem('zz_server_url');
     if (saved && saved.trim()) return ensureSlash(saved.trim());
     if (location.protocol === 'file:') return 'http://127.0.0.1:5000/';
@@ -57,7 +57,7 @@
     setDevice: (device) => post('device', { device }, 15000),
     setBaseUrl(u) { localStorage.setItem('zz_server_url', u || ''); },
     getModels: (envName) => post('models', { env_name: envName }, 8000),
-    setup: (modelId, envClass) => post('setup', { model_id: modelId, env_class: envClass }, 180000),
+    setup: (modelId, envClass, profile) => post('setup', { model_id: modelId, env_class: envClass, profile }, 180000),
     // 单步 MCTS 在 CPU 上可能需要几分钟，超时放宽避免误报"服务异常"
     update: (pid, array, action, playerToMove) => post('update', { pid, array, action, player_to_move: playerToMove }, 900000),
     getAction: (pid) => post('get_action', { pid }, 60000),

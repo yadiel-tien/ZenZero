@@ -233,4 +233,9 @@ def run_server(host='0.0.0.0', port=12345) -> None:
 
 if __name__ == "__main__":
     """适用于Piskvork对战协议，具体协议内容见https://plastovicka.github.io/protocl2en.htm"""
-    run_server()
+    import argparse
+    ap = argparse.ArgumentParser(description="Gomocup (Piskvork) 协议服务器")
+    ap.add_argument("--host", default="0.0.0.0", help="绑定地址（默认对所有接口开放）")
+    ap.add_argument("--port", type=int, default=12345, help="端口（默认 12345）")
+    a = ap.parse_args()
+    run_server(host=a.host, port=a.port)

@@ -1,3 +1,4 @@
+import os
 import threading
 import uuid
 import time
@@ -12,12 +13,14 @@ from flask import Flask, request, jsonify, send_from_directory
 
 from core.player.ai_server import AIServer
 from core.network.functions import list_all_indices, read_best_index
+from core.utils.config import net_dir
 from core.utils.logger import get_logger
 import core.utils.config as app_config
 from services.inference.hub import ServerHub
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 WEB_DIR = ROOT_DIR / 'apps' / 'web'
+DOCS_DIR = ROOT_DIR / 'docs'   # 项目文档集（静态 HTML，/docs/ 只读托管）
 GRAPHICS_DIR = ROOT_DIR / 'apps' / 'assets' / 'graphics'
 SOUND_DIR = ROOT_DIR / 'apps' / 'assets' / 'sound'
 
@@ -32,8 +35,10 @@ class PlayApiServer:
         # 进程内推理引擎管理中心，所有AIServer共享
         self.hub = ServerHub()
         
-        # 注册路由
+        # 注册路由 + 训练控制台（/admin 页面与 /api/admin/* 接口）
         self._setup_routes()
+        from services.admin.routes import bp as admin_bp
+        self.app.register_blueprint(admin_bp)
         
         # 启动后台清理线程
         threading.Thread(target=self._cleanup_loop, daemon=True).start()
@@ -73,6 +78,15 @@ class PlayApiServer:
         @self.app.route('/')
         def web_index():
             return send_from_directory(WEB_DIR, 'index.html')
+
+        @self.app.route('/docs/')
+        def web_docs_index():
+            # 文档集目录页：五篇静态 HTML，互相用相对链接
+            return send_from_directory(DOCS_DIR, 'index.html')
+
+        @self.app.route('/docs/<path:rel>')
+        def web_docs(rel):
+            return send_from_directory(DOCS_DIR, rel)
 
         @self.app.route('/css/<path:rel>')
         def web_css(rel):
@@ -134,15 +148,50 @@ class PlayApiServer:
                 self.logger.info(f'Inference device switched (manual): {old_dev} -> {dev}')
             return jsonify({'device': dev})
 
+        def _profile_models(env_name: str) -> dict:
+            """每个档位各自的模型列表 + 最新文件时间（用来判断"哪一档有刚训出来的新模型"）。"""
+            out = {}
+            presets = (app_config.CONFIG[env_name].get('presets') or {'m': {}})
+            for prof in presets:
+                d = net_dir(env_name, prof)
+                if not os.path.isdir(d):
+                    continue
+                pts = [f for f in os.listdir(d) if f.endswith('.pt')]
+                idx = list_all_indices(env_name, prof)
+                if not idx:
+                    continue
+                try:
+                    newest = max(os.path.getmtime(os.path.join(d, f)) for f in pts) if pts else 0
+                except OSError:
+                    newest = 0
+                out[prof] = {'indices': sorted(idx), 'best_index': read_best_index(env_name, prof),
+                             'newest_ts': newest}
+            return out
+
+        def _default_profile(env_name: str) -> str:
+            """对弈默认用"最近有产出的档位"——训练在 s 档，面板就该默认开 s 档的新模型。"""
+            found = _profile_models(env_name)
+            if not found:
+                return app_config.get_profile()
+            return max(found, key=lambda p: found[p]['newest_ts'])
+
         @self.app.route('/models', methods=['POST'])
         @self._require_json
         def get_models(data):
             try:
                 env_name = data['env_name']
-                indices = list_all_indices(env_name)
-                best_index = read_best_index(env_name)
-                self.logger.info(f"Models requested for {env_name}. Found {len(indices)} versions.")
-                return jsonify({'indices': indices, 'best_index': best_index})
+                found = _profile_models(env_name)
+                prof = _default_profile(env_name)
+                cur = found.get(prof) or {}
+                indices = cur.get('indices', [])
+                self.logger.info(f"Models requested for {env_name}: profile={prof}, {len(indices)} versions."
+                                 f" (profiles: {[(k, len(v['indices'])) for k, v in found.items()]})")
+                return jsonify({'indices': indices,
+                                'best_index': cur.get('best_index', -1),
+                                'profile': prof,
+                                'profiles': {p: {'indices': v['indices'],
+                                                 'best_index': v['best_index']}
+                                             for p, v in found.items()}})
             except Exception as e:
                 self.logger.error(f"Error listing models: {e}", exc_info=True)
                 return jsonify({"error": f"{str(e)}\n{traceback.format_exc()}"}), 500
@@ -153,12 +202,14 @@ class PlayApiServer:
             try:
                 model_id = data['model_id']
                 env_name = data['env_class']
+                profile = (data.get('profile') or _default_profile(env_name)).strip().lower()
                 pid = str(uuid.uuid4())
                 with self.lock:
                     self.clients_live_time[pid] = time.time()
                     # CPU 推理单批 ~15s，1000 模拟要 5 分钟；降档保持可玩（GPU 保持原值）
                     n_sim = 1000 if app_config.CONFIG['device'] != 'cpu' else 60
-                    player = AIServer(env_name, model_id, n_sim, verbose=False, hub=self.hub)
+                    player = AIServer(env_name, model_id, n_sim, verbose=False, hub=self.hub,
+                                      profile=profile)
                     self.ai_players[pid] = player
                 device = app_config.CONFIG['device']
                 note = app_config.DEVICE_NOTE
@@ -167,7 +218,7 @@ class PlayApiServer:
                 else:
                     self.logger.info(f"New session created: {pid[:8]}... (Game: {env_name}, Model: {model_id}, "
                                  f"Device: {device}, Simulations: {n_sim})")
-                return jsonify({'pid': pid, 'model_id': player.model_id,
+                return jsonify({'pid': pid, 'model_id': player.model_id, 'profile': profile,
                                 'device': device, 'device_note': note})
             except Exception as e:
                 self.logger.error(f"Failed to setup AI player: {e}", exc_info=True)
@@ -258,7 +309,7 @@ class PlayApiServer:
                     player.shutdown()
                     self.logger.info(f"Session {pid[:8]} cleaned up due to inactivity.")
 
-    def run(self, host='0.0.0.0', port=5000):
+    def run(self, host='0.0.0.0', port=5000, debug: bool = False):
         try:
             d = self.app.test_request_context('/info')
             with d:
@@ -271,5 +322,6 @@ class PlayApiServer:
             self.logger.info(msg)
         except Exception as e:
             self.logger.warning(f'device probe failed: {e}')
-        self.logger.info(f"Play API Server running on {host}:{port}  (Web UI: http://<本机IP>:{port}/)")
-        self.app.run(host=host, port=port, debug=False)
+        self.logger.info(f"服务已启动  http://{host}:{port}/   "
+                         f"控制台 /admin   文档 /docs/   （Ctrl-C 停止；训练进程不受影响）")
+        self.app.run(host=host, port=port, debug=debug)

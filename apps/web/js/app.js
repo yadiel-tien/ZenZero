@@ -200,19 +200,28 @@
       setOptions(opts, defIdx) {
         list.innerHTML = '';
         value = null; btn.textContent = '请选择 AI 模型';
+        let pick = null;
         opts.forEach((o, i) => {
           const li = document.createElement('li');
           li.textContent = o.label;
+          if (o.group) {                       // 种类标题：只作分隔，不可选
+            li.className = 'dd-group';
+            list.appendChild(li);
+            return;
+          }
           li.addEventListener('click', (ev) => {
             ev.stopPropagation();
             value = o.value;
             btn.textContent = o.label;
+            list.querySelectorAll('li').forEach((n) => n.classList.remove('sel'));
+            li.classList.add('sel');
             list.classList.add('hidden');
             onChange && onChange(value);
           });
-          if (i === defIdx) { li.click(); }
+          if (i === defIdx) pick = li;
           list.appendChild(li);
         });
+        if (pick) pick.click();
         list.classList.add('hidden');
       },
       get value() { return value; }
@@ -272,6 +281,7 @@
         $('model-hint').innerHTML = `无法获取模型列表：<br>${e.message}`;
         return;
       }
+      const profiles = data.profiles || {};
       const indices = (data.indices || []).slice().sort((a, b) => b - a);
       const best = data.best_index;
       if (!indices.length) {
@@ -279,11 +289,31 @@
         $('model-hint').innerHTML = `未检测到模型文件。<br>请从 GitHub Release 下载 .pt 放入 data/${envName}/ 目录。`;
         return;
       }
-      const opts = indices.map((i) => ({
-        value: i,
-        label: i === best ? `最强 AI (v${i})` : (i === -1 ? '原生模型' : `AI v${i}`)
-      }));
-      const bestIdx = Math.max(0, opts.findIndex((o) => o.value === best));
+      // 两个层次：先列"种类"（档位 m/s/l），再列该档的序号。
+      // 之前只给默认档的序号，于是 m 档（老模型）在对弈页里彻底看不见了。
+      const order = [data.profile]
+        .concat(Object.keys(profiles).filter((p) => p !== data.profile))
+        .filter((p) => p && profiles[p] && (profiles[p].indices || []).length);
+      const opts = [];
+      let bestIdx = 0;
+      order.forEach((prof) => {
+        const info = profiles[prof];
+        const idxs = (info.indices || []).slice().sort((a, b) => b - a);
+        opts.push({ group: true, label: `— ${prof} 档${prof === data.profile ? '（最近有更新）' : ''} —` });
+        idxs.forEach((i) => {
+          const isBest = i === info.best_index;
+          opts.push({
+            value: { index: i, profile: prof },
+            label: i === -1 ? `${prof} 档 · 原生模型`
+                            : `${isBest ? '★ 最强' : 'AI'} · ${prof} 档 v${i}`
+          });
+          if (prof === data.profile && i === best) bestIdx = opts.length - 1;
+        });
+      });
+      this.profile = data.profile || null;   // 默认档（最近有产出的那档）
+      const kinds = order.map((pp) => `${pp} 档 ${profiles[pp].indices.length} 个`).join(' · ');
+      $('model-hint').classList.remove('hidden');
+      $('model-hint').textContent = `可用模型：${kinds}　（默认选中 ${data.profile} 档最新最强，可展开切换档位）`;
       this.dd1.setOptions(opts, bestIdx);
       this.dd2.setOptions(opts, bestIdx);
       $('btn-launch').disabled = false;
@@ -325,7 +355,11 @@
   };
 
   function mkHuman(desc) { return { type: 'human', desc }; }
-  function mkAI(modelId) { return { type: 'ai', desc: `AI·v${modelId}`, modelId, pid: null, winRate: -1 }; }
+  function mkAI(sel) {
+    const s = (sel && typeof sel === 'object') ? sel : { index: sel, profile: null };
+    return { type: 'ai', desc: `AI·${s.profile ? s.profile + '' : ''}v${s.index}`,
+             modelId: s.index, profile: s.profile, pid: null, winRate: -1 };
+  }
 
   /* ================= 服务器状态 ================= */
   function setServerDot(state) {
@@ -732,7 +766,7 @@
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         if (p.pid == null) {
-          const r = await API.setup(p.modelId, G.name);
+          const r = await API.setup(p.modelId, G.name, p.profile);
           p.pid = r.pid;
           if (r.model_id != null) p.modelId = r.model_id;
           if (r.device) applyDeviceInfo(r.device, r.device_note);

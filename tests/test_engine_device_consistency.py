@@ -36,7 +36,7 @@ CFG = {'in_channels': 2, 'n_filters': 8, 'n_res_blocks': 1, 'use_se': False,
 def make_engine() -> InferenceEngine:
     model = Net(CFG, eval_model=True, device='cpu')
     InferenceEngine.load_model = classmethod(
-        lambda cls, i, e, eval_mode=True: (model, 0))
+        lambda cls, i, e, eval_mode=True, profile=None: (model, 0))
     eng = InferenceEngine(0, 'Gomoku')
     eng.start()
     return eng
@@ -138,6 +138,104 @@ def test_concurrent_requests():
     eng.shutdown()
 
 
+def test_send_many_group():
+    """send_many：K 条请求先全部入队、由组内最后一个回填者统一唤醒。
+
+    这是批量 MCTS 的入口约定——若退化成"put 一个等一个"，同一条线程永远只有 1 个
+    请求在飞，批大小就又被在跑局数锁死了（尾段剩几局=批只剩几）。
+    """
+    from services.inference.client import send_many
+
+    eng = make_engine()
+    n_threads, k = 6, 4
+    got: list = [None] * n_threads
+    errors: list = []
+
+    def worker(i: int):
+        try:
+            base = np.random.default_rng(i).random((2, 3, 3)).astype(np.float32)
+            out = send_many([base.copy() for _ in range(k)], 'Gomoku', eng.request_queue,
+                            is_self_play=False)
+            got[i] = out
+        except Exception as e:  # noqa: BLE001
+            errors.append(e)
+
+    ths = [threading.Thread(target=worker, args=(i,)) for i in range(n_threads)]
+    for th in ths:
+        th.start()
+    for th in ths:
+        th.join(timeout=60)
+
+    assert not errors, errors
+    assert all(r is not None and len(r) == k for r in got), [None if r is None else len(r) for r in got]
+    for r in got:
+        for policy, value in r:
+            assert policy.shape == (CFG['n_actions'],)
+            assert np.isfinite(policy).all() and np.isclose(policy.sum(), 1.0)
+            assert np.isfinite(value)
+    stats = eng.infer_stats()
+    assert stats['batch_max'] >= k, f"引擎没成批收：{stats}"
+    print(f"PASS 6: send_many {n_threads} 线程 × {k} 发全部返回，"
+          f"引擎均批 {stats['batch_mean']}（max {stats['batch_max']}）")
+    eng.shutdown()
+
+
+def test_stats_under_load():
+    """统计与流量并发（free-threading 回归）。
+
+    线上事故：3.14t 无 GIL 下，投递线程遍历 deque 出统计行，收批线程同时在 append，
+    抛 RuntimeError('deque mutated during iteration') → 投递线程死亡 → 训练卡死。
+    Counter 边写边遍历同理（dict changed size）。这里一边灌流量一边高频取快照。
+    """
+    from services.inference.client import send_many
+
+    eng = make_engine()
+    stop = threading.Event()
+    errors: list = []
+
+    def guard(fn):
+        try:
+            fn()
+        except Exception as e:  # noqa: BLE001
+            errors.append(e)
+            stop.set()
+
+    def player(i: int):
+        rng = np.random.default_rng(i)
+        while not stop.is_set():
+            states = [rng.random((2, 3, 3)).astype(np.float32) for _ in range(3)]
+            send_many(states, 'Gomoku', eng.request_queue)
+
+    seen = {'batches': 0}
+
+    def monitor():
+        while not stop.is_set():
+            stats = eng.infer_stats()
+            line = eng._stat_line()
+            assert isinstance(stats['batch_mean'], float) and 'req/s' in line
+            seen['batches'] = max(seen['batches'], stats['batches'])
+
+    def reseter():
+        while not stop.is_set():
+            time.sleep(0.05)
+            eng.reset_statistic()
+
+    ths = [threading.Thread(target=guard, args=(lambda i=i: player(i),)) for i in range(4)]
+    ths += [threading.Thread(target=guard, args=(monitor,)),
+            threading.Thread(target=guard, args=(reseter,))]
+    for th in ths:
+        th.start()
+    time.sleep(2.0)
+    stop.set()
+    for th in ths:
+        th.join(timeout=30)
+
+    assert not errors, f'统计与流量并发炸了: {errors!r}'
+    assert seen['batches'] >= 1, '整段没观测到任何批次，测试没压到点上'
+    print('PASS 7: 统计/重置/流量并发 2s 无异常（deque/Counter 迭代竞态）')
+    eng.shutdown()
+
+
 def main() -> None:
     eng = make_engine()
     state = np.random.default_rng(0).random((2, 3, 3)).astype(np.float32)
@@ -177,6 +275,8 @@ def main() -> None:
 
     test_model_access()
     test_concurrent_requests()
+    test_send_many_group()
+    test_stats_under_load()
     print('ALL OK')
 
 
