@@ -69,6 +69,13 @@
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(400px,100%),1fr));gap:12px}
   @media (hover: none){ .chint{opacity:.6} }
   @media (pointer: coarse){ .mini{padding:6px 12px} table td .mini{margin:0 2px} }
+  .mask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:60;animation:zin .13s ease-out}
+  .dlg{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;width:min(520px,92vw);max-height:82vh;overflow:auto;box-shadow:0 14px 44px rgba(0,0,0,.4)}
+  .dlg h3{margin:0 0 8px;font-size:15px}
+  .dlg .dbody{font-size:13px;line-height:1.65;opacity:.85;white-space:pre-wrap;word-break:break-all}
+  .dlg input{width:100%;box-sizing:border-box;margin-top:12px}
+  .dlg .dfoot{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+  @keyframes zin{from{opacity:0;transform:scale(.97)}to{opacity:1}}
   .chint{position:absolute;right:12px;top:12px;font-size:10px;color:var(--dim);opacity:0;transition:opacity .25s;pointer-events:none}
   .panel:hover .chint{opacity:.6}
   .panel{position:relative;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);transition:background-color .18s ease, border-color .18s ease}
@@ -671,7 +678,9 @@ async function loadPools(game){
   }catch(e){ t.innerHTML = `<tr><td class="hint">经验池读取失败：${esc(e.message)}</td></tr>`; }
 }
 async function delPool(name){
-  if(window.prompt(`删除经验池 ${name}？池内全部对局数据不可恢复。输入池名确认：`, '') !== name) return;
+  const a = await uiAsk({title:`删除经验池 ${name}`, danger:true, needType:name, okLabel:'删除池',
+      body:'池内全部对局数据将被永久删除，无法恢复。此操作不可撤销。'});
+  if(!a.ok) return;
   try{
     const r = await api('/api/admin/buffers/delete', {method:'POST',
       body: JSON.stringify({game: $('a_game').value, name, confirm:'delete-pool'})});
@@ -685,6 +694,28 @@ async function clonePool(src){
     if(r.ok){ toast(`${src} 已克隆为 ${r.buffer.name}，原池不动`, true); loadPools($('a_game').value); }
     else toast('克隆失败: '+r.error);
   }catch(e){ toast('克隆失败: '+e.message); }
+}
+/* 统一模态确认：替代一切原生 confirm/prompt。
+   needType=必须原样输入的字符串（危险操作）；danger=红色主按钮；Enter 确认 / Esc 取消 */
+function uiAsk(o){
+  return new Promise(res=>{
+    const mask = document.createElement('div'); mask.className = 'mask';
+    mask.innerHTML = `<div class="dlg" role="dialog" aria-modal="true"><h3>${esc(o.title)}</h3>
+      <div class="dbody">${esc(o.body)}</div>
+      ${o.needType ? `<input id="_dlg_in" autocomplete="off" placeholder="输入 ${esc(o.needType)} 以确认">` : ''}
+      <div class="dfoot"><button data-a="c">取消</button>
+      <button class="${o.danger?'danger':'primary'}" data-a="k" ${o.needType?'disabled':''}>${esc(o.okLabel||'确认')}</button></div></div>`;
+    const inp = mask.querySelector('#_dlg_in'), okBtn = mask.querySelector('[data-a=k]');
+    if(inp) inp.oninput = ()=>{ okBtn.disabled = inp.value.trim() !== o.needType; };
+    const done = ok => { document.removeEventListener('keydown', key); mask.remove(); res({ok, val: inp?inp.value:''}); };
+    const key = e => { if(e.key==='Escape') done(false);
+      else if(e.key==='Enter' && (!inp || inp.value.trim()===o.needType)) done(true); };
+    document.addEventListener('keydown', key);
+    mask.addEventListener('click', e=>{ const b=e.target.closest('[data-a]');
+      if(b) done(b.dataset.a==='k'); else if(e.target===mask) done(false); });
+    document.body.appendChild(mask);
+    if(inp) inp.focus(); else okBtn.focus();
+  });
 }
 /* 勾选状态活在 DOM 之外：资产页每 15s 自动刷新、切棋种会整表重绘，
    innerHTML 重建会把 checkbox 抹掉——用 Map(路径→kind) 记账，重绘时回填 */
@@ -730,7 +761,9 @@ function tidySel(tid, rows){
 async function batchDel(tid){
   const items = [...selMap[tid]].map(([path,kind])=>({kind, path}));
   if(!items.length) return;
-  if(!window.confirm(`删除 ${items.length} 项？不可恢复：\n` + items.map(i=>i.path.split('/').pop()).join('\n').slice(0,600))) return;
+  const a = await uiAsk({title:`删除 ${items.length} 项`, danger:true, okLabel:'全部删除',
+      body: items.map(i=>i.path.split('/').pop()).join('\n').slice(0, 900)});
+  if(!a.ok) return;
   try{
     const r = await api('/api/admin/artifacts/delete_batch', {method:'POST',
       body: JSON.stringify({game:$('a_game').value, profile:$('a_profile').value, items, confirm:'delete'})});
@@ -744,7 +777,8 @@ async function batchDel(tid){
 }
 bindBatchUI();
 async function delArtifact(kind, path, confirm){
-  if(!window.confirm(`删除？\n${path}`)) return;
+  const a = await uiAsk({title:'删除', danger:true, okLabel:'删除', body: path});
+  if(!a.ok) return;
   try{
     const r = await api('/api/admin/artifacts/delete', {method:'POST', body: JSON.stringify({kind, path, confirm, game:$('a_game').value, profile:$('a_profile').value})});
     r.ok ? toast('已删除: '+r.deleted, true) : toast('删除失败: '+r.error);
@@ -794,7 +828,8 @@ $('pf_add').onclick = async ()=>{
 };
 async function pfDel(name, models){
   const extra = models ? `\n名下还有 ${models} 个模型文件（保留在磁盘，仅移除配置名）。` : '';
-  if(!window.confirm(`删除配置「${name}」？${extra}`)) return;
+  const a = await uiAsk({title:`删除神经网络配置「${name}」`, danger:true, okLabel:'删除配置', body: extra.trim() || '该配置没有任何模型，直接移除。'});
+  if(!a.ok) return;
   try{
     const body = {name};
     if(models) body.confirm = 'delete-profile-with-models';
@@ -837,9 +872,11 @@ async function startTraining(){
 async function stopTraining(mode){
   const done = ((window.__lastProgress||{}).done) || 0;
   const ask = mode === 'interrupt'
-      ? '收尾后停？正在下的局会下完并入池，还没开跑的局取消；本轮的 fit/评估若还没开始则跳过。'
-      : '立即结束？会直接 kill -9：本轮已下完的 ' + done + ' 局不会存盘，全白跑。确定要硬杀吗？';
-  if(!window.confirm(ask)) return;
+      ? '正在进行的对局会下完并存入经验池；还没开跑的局取消。若本轮已练完，fit 与守擂评估照常执行。'
+      : '本轮已下完的 ' + done + ' 局不会存盘，全部作废。进程立即终止。';
+  const a = await uiAsk({title: mode==='interrupt' ? '收尾后停' : '立即结束', danger: mode!=='interrupt',
+      okLabel: mode==='interrupt' ? '好，收尾' : '确定硬停', body: ask});
+  if(!a.ok) return;
   try{
     const r = await api('/api/admin/train/stop', {method:'POST', body: JSON.stringify({mode})});
     toast(r.ok? (r.message || '已停止') : ('停止失败: '+r.error), !!r.ok);
