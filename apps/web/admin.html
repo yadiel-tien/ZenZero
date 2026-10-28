@@ -201,11 +201,11 @@
         <rect x="252" y="52" width="300" height="112" rx="8" fill="none" stroke="var(--line)" stroke-dasharray="3 3"/>
         <text x="402" y="180" text-anchor="middle" class="op">残差块 1</text>
         <rect class="cell" x="260" y="82" width="64" height="40" rx="4"/>
-        <text x="292" y="98" text-anchor="middle" class="op">Conv3×3</text>
+        <text x="292" y="98" text-anchor="middle" class="op">Conv</text>
         <text x="292" y="112" text-anchor="middle" class="op">BN·ReLU</text>
         <line x1="324" y1="102" x2="338" y2="102" stroke="var(--dim)" marker-end="url(#na)"/>
         <rect class="cell" x="340" y="82" width="60" height="40" rx="4"/>
-        <text x="370" y="106" text-anchor="middle" class="op">Conv3×3·BN</text>
+        <text x="370" y="106" text-anchor="middle" class="op">Conv·BN</text>
         <line x1="400" y1="102" x2="414" y2="102" stroke="var(--dim)" marker-end="url(#na)"/>
         <circle cx="428" cy="102" r="11" fill="var(--card)" stroke="var(--fg)" stroke-width="1.3"/>
         <text x="428" y="106" text-anchor="middle" class="nm">+</text>
@@ -231,14 +231,14 @@
         <!-- 策略头 -->
         <rect x="716" y="34" width="132" height="50" rx="7" fill="none" stroke="var(--green)" stroke-width="1.6"/>
         <text x="782" y="54" text-anchor="middle" class="nm">策略头 Policy</text>
-        <text x="782" y="72" text-anchor="middle" class="op">1×1·BN·ReLU·fc</text>
+        <text x="782" y="72" text-anchor="middle" class="op"><title>1×1 卷积＝逐格通道混合：每个格子的 F 通道线性压到几个通道（本棋类 32），不看邻格、只降维，让后面的 fc 参数省一个数量级</title>1×1降维·BN·ReLU → fc</text>
         <line x1="848" y1="59" x2="874" y2="59" stroke="var(--dim)" marker-end="url(#na)"/>
         <text x="906" y="52" text-anchor="middle" class="gtx" font-weight="700">π 概率</text>
         <text x="906" y="70" text-anchor="middle" class="sh">B·A</text>
         <!-- 价值头 -->
         <rect x="716" y="130" width="132" height="50" rx="7" fill="none" stroke="var(--red)" stroke-width="1.6"/>
         <text x="782" y="148" text-anchor="middle" class="nm">价值头 Value</text>
-        <text x="782" y="166" text-anchor="middle" class="op">1×1 → fc<tspan class="num">③V</tspan> → tanh</text>
+        <text x="782" y="166" text-anchor="middle" class="op"><title>同策略头：1×1 先把 F 通道压窄（价值头压到 32 或 1），再展平进 fc</title>1×1降维 → fc<tspan class="num">③V</tspan> → tanh</text>
         <line x1="848" y1="155" x2="874" y2="155" stroke="var(--dim)" marker-end="url(#na)"/>
         <text x="906" y="148" text-anchor="middle" class="rtx" font-weight="700">v 价值</text>
         <text x="906" y="166" text-anchor="middle" class="sh">B·1</text>
