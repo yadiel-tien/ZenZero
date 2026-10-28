@@ -201,6 +201,25 @@ feature_version 属棋规与表示层——preset 若试图覆写直接报错。
 （<code>ChineseChess_s_34</code>，§3 篇 8 节）。</li>
 </ul>
 
+<h3>4.3　版本管理（四条轴 + 一条发布线）</h3>
+<p>项目自 <b>2.0.0</b> 起遵循语义化版本。单一事实源在 <code>core/utils/version.py</code>，
+展示位置：对弈页设置侧栏、控制台标题徽章（v2.0.0 · git 构建号）、<code>/info</code> 与
+<code>/api/admin/health</code>、启动横幅、<code>main.py --version</code>。四条版本轴职责互不重叠：</p>
+<table>
+<tr><th>轴</th><th>取值示例</th><th>含义与变更时机</th></tr>
+<tr><td>应用版本（semver）</td><td><code>2.0.0+e852721</code></td>
+<td>整个软件的发布版本，<b>引擎/前端/控制台不单独编号</b>——同仓同发布，另立版本只会制造兼容矩阵。
+主版本=表示/协议级破坏变更或里程碑；次版本=新功能；修订=修复。发布流程：改 version.py →
+CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release（附权重等制品）。</td></tr>
+<tr><td>表示版本 feature_version</td><td><code>1</code> / <code>2</code></td>
+<td>棋盘张量布局 epoch，烧进 checkpoint；决定特征转换与网络通道数，跨 epoch 不兼容（§1 篇 §6）。</td></tr>
+<tr><td>档位 profile</td><td><code>s</code> / <code>m</code> / <code>l</code></td>
+<td>网络规模；只影响体量与数据目录，不影响兼容性（4.2 节）。</td></tr>
+<tr><td>模型代数 iteration</td><td><code>34</code></td>
+<td>档位内自博弈世代（checkpoint_N.pt），守擂晋升推进（§4 篇 8 节）。</td></tr>
+</table>
+<p class="note">排查问题请附「应用版本 + 表示版本 + 档位 + 代数」四个值——控制台 meta 行与制品页已一并展示。</p>
+
 <h2 id="s5">5　配置面：仓库 config + 环境变量</h2>
 <p>静态默认值全在 <code>core/utils/config.py</code>（唯一事实源）；运行期覆盖一律走环境变量，
 不改仓库文件——这也是管理台"启动参数"表单的实现方式（第 7 节 start 接口）：</p>

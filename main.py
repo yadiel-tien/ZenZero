@@ -34,6 +34,8 @@ def main(argv=None) -> None:
                     help='绑定地址（默认本机回环；局域网开放用 0.0.0.0）')
     ap.add_argument('--port', type=int, default=5000, help='端口（默认 5000）')
     ap.add_argument('--debug', action='store_true', help='Flask debug（仅开发用）')
+    ap.add_argument('--version', action='version', version=f'%(prog)s {__import__("core.utils.version", fromlist=[""]).full()}',
+                    help='显示版本号（含 git 构建号）')
     args = ap.parse_args(argv)
 
     from services.inference.play_api import PlayApiServer      # 延后到 path/chdir 之后再 import

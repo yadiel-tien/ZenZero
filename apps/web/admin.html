@@ -94,6 +94,7 @@
 </style></head><body>
 <header>
   <h1>ZenZero 训练控制台</h1>
+  <span class="pill" id="appver" title="应用版本（git 构建号）。表示版本/档位/模型代数见 meta 行">—</span>
   <span class="pill" id="trainer">—</span>
   <button id="btn-theme" class="mini" title="外观：自动（跟随系统） → 明亮 → 暗色">🌗 自动</button>
   <span class="pill" id="phase">—</span>
@@ -433,6 +434,7 @@ function renderSnapshot(s){
     card('已完成轮数', fmt((s.rounds||[]).length,0)+' 轮', '第 '+fmt(L.iteration||last.iteration,0)+' 代 · 每轮 '+fmt(s.meta.games_per_round,0)+' 局',
          '完成的自博弈 + 训练轮数（跨重启累计）。“代”是模型版本号，每完成一轮加 1。'),
   ].join('');
+  $('appver').textContent = 'v' + (s.meta.version || '?') + (s.meta.revision ? ' · ' + s.meta.revision : '');
   $('meta').textContent = `${s.meta.game} · ${s.meta.profile} · ${s.meta.device} · ${s.meta.net.n_filters}x${s.meta.net.n_res_blocks}`
       + ` · K=${s.meta.batch_leaves}` + (sims? ` · ${fmt(sims,0)} sims/手` : '')
       + (s.meta.profile_source==='default'? '（档位取面板默认值，训练未在跑）' : '');

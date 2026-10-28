@@ -266,7 +266,9 @@ def health():
     snap = _m().snapshot()
     rounds = snap.get('rounds') or []
     last = rounds[-1] if rounds else {}
+    from core.utils.version import full as _full
     return jsonify({
+        'version': _full(),
         'trainer_running': _r().status()['running'],
         'log_age_s': (snap.get('live') or {}).get('age_s'),
         'phase': (snap.get('live') or {}).get('phase'),

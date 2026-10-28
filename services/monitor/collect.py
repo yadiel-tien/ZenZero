@@ -505,7 +505,9 @@ class Monitor:
             net = net_config_for(profile, game)
         except Exception:                                # noqa: BLE001 档位名不认识就退回默认
             net, profile = CONFIG[game_name]['default_net'], get_profile()
-        return {'game': game, 'profile': profile, 'profile_source': src,
+        from core.utils.version import __version__, revision
+        return {'version': __version__, 'revision': revision(),
+                'game': game, 'profile': profile, 'profile_source': src,
                 'device': CONFIG.get('device'), 'net': net,
                 'games_per_round': CONFIG.get('selfplay_games_per_round'),
                 'win_threshold': CONFIG.get('win_threshold'),

@@ -1023,6 +1023,12 @@
   setServerDot('mid');
   probeServer();
   API.getModels('Gomoku').then((d) => { launcher.modelsCache['Gomoku'] = d; }).catch(() => {});
+  // 设置侧栏底部：应用版本（来自 /info，失败静默——版本不该打扰对局）
+  API.info().then((d) => {
+    const el = $('p-about');
+    if (el && d.version) el.insertAdjacentHTML('beforeend',
+      `<span class="hint" style="opacity:.7">ZenZero v${d.version} · 设备 ${d.device}</span>`);
+  }).catch(() => {});
   launcher.init();
   fitStage();
 })();

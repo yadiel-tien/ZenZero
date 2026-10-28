@@ -117,7 +117,8 @@ class PlayApiServer:
 
         @self.app.route('/info', methods=['GET'])
         def server_info():
-            return jsonify(probe_device_info())
+            from core.utils.version import full as _full
+            return jsonify({**probe_device_info(), 'version': _full()})
 
         @self.app.route('/devices', methods=['GET'])
         def devices_list():
@@ -322,6 +323,7 @@ class PlayApiServer:
             self.logger.info(msg)
         except Exception as e:
             self.logger.warning(f'device probe failed: {e}')
-        self.logger.info(f"服务已启动  http://{host}:{port}/   "
+        from core.utils.version import full as _full
+        self.logger.info(f"ZenZero v{_full()}  服务已启动  http://{host}:{port}/   "
                          f"控制台 /admin   文档 /docs/   （Ctrl-C 停止；训练进程不受影响）")
         self.app.run(host=host, port=port, debug=debug)
