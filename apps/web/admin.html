@@ -937,17 +937,33 @@ $('btn-load-log').onclick = loadLog;
 $('a_game').onchange = $('a_profile').onchange = loadArtifacts;
 $('f_game').onchange = ()=>{ loadProfiles(); loadBuffers(); };
 $('f_start').onchange = ()=> $('f_startn_w').classList.toggle('hidden', $('f_start').value!=='fork');
+let lastBuf = '';
 $('f_buffer').onchange = async (e)=>{
-  if(e.target.value !== '__new__') return;
+  const v = e.target.value;
+  if(v === '__clone__'){
+    const src = lastBuf;
+    if(!src){ toast('还没有选中过经验池，无可克隆'); sel0(); return; }
+    try{
+      const r = await api('/api/admin/buffers/clone', {method:'POST',
+        body: JSON.stringify({game: $('f_game').value, from: src})});
+      if(r.ok){ toast('已克隆 ' + src + ' → ' + r.buffer.name + '，在新池上训练，原池不动', true);
+                await loadBuffers(); $('f_buffer').value = r.buffer.name; lastBuf = r.buffer.name; }
+      else toast('克隆失败: '+r.error);
+    }catch(err){ toast('克隆失败: '+err.message); }
+    sel0(); return;
+  }
+  if(v !== '__new__'){ lastBuf = v; return; }
+  lastBuf = '';
   try{
     const r = await api('/api/admin/buffers/create', {method:'POST',
       body: JSON.stringify({game: $('f_game').value})});          // 不传名字：后端按 poolN 自动编号
     if(r.ok){ toast('已新建经验池 '+(r.buffer&&r.buffer.name), true); await loadBuffers();
-              if(r.buffer) $('f_buffer').value = r.buffer.name; }
+              if(r.buffer){ $('f_buffer').value = r.buffer.name; lastBuf = r.buffer.name; } }
     else toast('新建失败: '+r.error);
   }catch(err){ toast('新建失败: '+err.message); }
-  if(!$('f_buffer').value || $('f_buffer').value==='__new__') $('f_buffer').selectedIndex = 0;
+  sel0();
 };
+function sel0(){ const x=$('f_buffer'); if(!x.value || x.value==='__new__' || x.value==='__clone__') x.selectedIndex = 0; }
 async function loadBuffers(){
   let list = [];
   try{ list = (await api('/api/admin/buffers?game='+encodeURIComponent($('f_game').value))).buffers || []; }
@@ -966,8 +982,10 @@ async function loadBuffers(){
   }).join('');
   const nxt = 'pool' + (pools.reduce((m,b)=>{ const t=/^(\d+)$/.exec((b.ref||'').replace(/^pool/,'')) ? +b.ref.slice(4) : m; return Math.max(m, t||0); }, 0) + 1);
   html += `<option value="__new__" title="自动按编号创建：${nxt}">＋ 新建经验池（${nxt}）</option>`;
+  html += '<option value="__clone__" title="把当前选中的池整体复制为一个新池：重训会覆盖写入，克隆后在新池上做，原池状态保留">⧉ 克隆所选池（保原始）</option>';
   sel.innerHTML = html;
   if(pools.some(b=>b.ref===keep)) sel.value = keep;               // 默认停在第一个池（下拉无"不选"）
+  lastBuf = sel.value || pools[0].ref;
 }
 $('l_name').onchange = loadLog;
 window.addEventListener('resize', ()=>{ if(tab==='monitor') tickSeries(); });

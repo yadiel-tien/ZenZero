@@ -150,6 +150,30 @@ def test_auto_pool_numbering():
         tearDown()
 
 
+def test_clone_pool():
+    """克隆语义：全量复制+meta 改写；无源拒绝；同名拒绝；.tmp 残留不入注册表。"""
+    setUp()
+    try:
+        from core.utils.buffers import create_named, clone_pool, list_buffers
+        create_named('ChineseChess', 'pool1')
+        root = buffers.named_root('ChineseChess')
+        (root / 'pool1' / 'buffer.pkl').write_bytes(b'X' * 1024)
+        (root / 'pool1' / 'val_buffer.pkl').write_bytes(b'Y' * 64)
+        ok, msg, m = clone_pool('ChineseChess', 'pool1')
+        assert ok and m['name'] == 'pool2', (ok, msg, m)
+        assert (root / 'pool2' / 'buffer.pkl').read_bytes() == b'X' * 1024
+        assert '克隆' in m['note'] and m['created_at']
+        assert clone_pool('ChineseChess', 'pool1', 'pool2')[0] is False   # 撞名
+        assert clone_pool('ChineseChess', 'nope')[0] is False             # 无源
+        assert clone_pool('ChineseChess', 'pool2', 'pool2')[0] is False   # 同名
+        (root / '.tmp-pool9').mkdir()
+        refs = [b['ref'] for b in list_buffers('ChineseChess') if b.get('kind') == 'named']
+        assert '.tmp-pool9' not in refs and 'pool2' in refs, refs
+        print('   ok   克隆：数据/元数据/拒绝矩阵/临时目录隐身')
+    finally:
+        tearDown()
+
+
 def test_routes_and_knobs():
     """HTTP 面 + 训练旋钮白名单校验。"""
     setUp()
@@ -188,10 +212,10 @@ def test_routes_and_knobs():
 
 def main() -> None:
     for fn in (test_resolve_start_from_matrix, test_registry_and_gates,
-               test_replay_buffer_dir_roundtrip, test_auto_pool_numbering, test_routes_and_knobs):
+               test_replay_buffer_dir_roundtrip, test_auto_pool_numbering, test_clone_pool, test_routes_and_knobs):
         print(f'== {fn.__name__}')
         fn()
-    print('\nALL 5 NAMED-BUFFER/START tests PASSED')
+    print('\nALL 6 NAMED-BUFFER/START tests PASSED')
 
 
 if __name__ == '__main__':

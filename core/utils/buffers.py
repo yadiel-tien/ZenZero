@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import re
 import time
 from pathlib import Path
@@ -122,6 +123,40 @@ def create_named(game: str, name: str = '', note: str = '') -> tuple[bool, str, 
     return True, f'已创建仓 {name}', meta
 
 
+def clone_pool(game: str, src: str, dst: str = '') -> tuple[bool, str, dict]:
+    """复制经验池（fork 保护）：重训会环形覆盖写入，先克隆一份在新池上做，原池状态不动。
+    全量复制——replay.save 为原位覆盖写，硬链接会一起被撕；先拷 .tmp-<dst> 再整体
+    rename 就位，崩溃只留可重入清除的临时目录。目标留空=自动递增编号。"""
+    d_src = named_root(game) / str(src or '')
+    if not (d_src / 'meta.json').exists() or not (d_src / 'buffer.pkl').exists():
+        return False, f'源池 {src} 不存在或无数据', {}
+    dst = (dst or '').strip().lower() or next_pool_name(game)
+    if not SLUG.match(dst):
+        return False, '目标池名需匹配 [a-z][a-z0-9_]{0,31}', {}
+    if src == dst:
+        return False, '目标与源同名', {}
+    d_dst = named_root(game) / dst
+    if d_dst.exists():
+        return False, f'池 {dst} 已存在', {}
+    tmp = named_root(game) / f'.tmp-{dst}'
+    shutil.rmtree(tmp, ignore_errors=True)
+    try:
+        tmp.mkdir(parents=True)
+        for f in d_src.iterdir():
+            if f.name != 'meta.json':
+                shutil.copy2(f, tmp / f.name)
+        meta = json.loads((d_src / 'meta.json').read_text(encoding='utf-8'))
+        meta.update({'name': dst, 'created_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+                     'note': (str(meta.get('note') or '') + f' | 由 {src} 克隆').strip(' |')})
+        tmp.joinpath('meta.json').write_text(json.dumps(meta, ensure_ascii=False, indent=2, sort_keys=True),
+                                             encoding='utf-8')
+        os.rename(tmp, d_dst)
+        return True, f'已克隆 {src} → {dst}', meta
+    except OSError as e:
+        shutil.rmtree(tmp, ignore_errors=True)
+        return False, f'克隆失败：{e}', {}
+
+
 def list_buffers(game: str) -> list[dict]:
     """注册表 = 目录现场扫描（不维护第二份索引，杜绝与实际文件漂移）。"""
     from .config import available_profiles
@@ -136,6 +171,8 @@ def list_buffers(game: str) -> list[dict]:
     root = named_root(game)
     if root.is_dir():
         for d in sorted(root.iterdir()):
+            if d.name.startswith('.'):          # .tmp-clone 半成品/隐藏件不进注册表
+                continue
             if d.is_dir() and (d / 'meta.json').exists():
                 meta = read_meta(game, 'named', d.name)
                 meta['ref'] = d.name

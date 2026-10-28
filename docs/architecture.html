@@ -204,7 +204,7 @@ feature_version 属棋规与表示层——preset 若试图覆写直接报错。
 </ul>
 
 <h3>4.3　经验池（buffer）：棋种级命名、来源元数据与闸门</h3>
-<p>官方名称<b>经验池</b>（旧称「仓/buffer」）。池<b>只跟棋种挂钩，不按网络分家</b>；池元数据里的 <code>source</code> 只记录"最新内容由哪个网络的第几代产生"这一溯源信息。两种存在形式：原位 <code>default@&lt;模型&gt;</code>（历史兼容，零迁移），或
+<p>官方名称<b>经验池</b>（旧称「仓/buffer」）。池<b>只跟棋种挂钩，不按网络分家</b>；池元数据里的 <code>source</code> 只记录"最新内容由哪个网络的第几代产生"这一溯源信息。<b>克隆保护</b>：池是环形覆盖存储，重训会逐步覆写旧样本——表单下拉提供「⧉ 克隆所选池」，整体复制为自动编号的新池（全量复制而非硬链接，因 save 是原位覆盖写；先落 <code>.tmp-</code> 再更名就位，崩溃不留半个池；训练进行中拒绝克隆），在新池上实验、原始状态保真。两种存在形式：原位 <code>default@&lt;模型&gt;</code>（历史兼容，零迁移），或
 <code>data/&lt;Game&gt;/buffers/&lt;name&gt;/</code> 命名仓——主仓与留出集成对存放，<code>meta.json</code> 记录游戏、
 表示版本、容量/已用、<code>source={模型, 代数}</code>（即"最新内容来自谁的第几代"）。
 同棋种同表示版本的仓可被任意模型<b>直接引用共享</b>（大模型用小模型的仓热身=选同一个仓名，无复制）；
@@ -287,7 +287,7 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <tr><td><span class="post">POST</span> <code>/best</code></td><td><code>{iteration}</code>：一键改换守擂者（制品页"设为最强"），回滚坏模型的主路径</td></tr>
 <tr><td><span class="get">GET</span> <code>/logs?path=&amp;tail=</code> · <code>/logs/list</code> · <code>/health</code></td><td>任意日志尾读（限 log_dir 内，越界 403）；清单=白名单形态 <code>&lt;模块&gt;/latest.log*|console.log*</code>；体检</td></tr>
 <tr><td><span class="get">GET</span> <code>/buffers</code> · <span class="post">POST</span> <code>/buffers/create</code></td>
-<td>经验池注册表（目录现场扫描：命名池 + default@&lt;模型&gt; 原位池）与新建；元数据记录棋种、表示版本、容量/已用、最新内容来自哪个网络的第几代</td></tr>
+<td>经验池注册表（目录现场扫描：命名池 + default@&lt;模型&gt; 原位池）与新建、<b>克隆</b>（<code>/buffers/clone</code>：训练写入中 409 拒绝）；元数据记录棋种、表示版本、容量/已用、最新内容来自哪个网络的第几代</td></tr>
 <tr><td><span class="get">GET</span> <code>/tasks</code> · <span class="post">POST</span> <code>/tasks/start</code> · <code>/tasks/stop</code> · <span class="get">GET</span> <code>/tasks/log</code></td>
 <td>「任务」页后端：注册表驱动（priskvork 常驻；arena / bench / build_cython 一次性），参数按 schema 白名单校验，once 任务退出码即时回传（exit 0 即成功），输出追加落 <code>logs/&lt;任务名&gt;/console.log</code>（统一格式，历次会话连贯），服务重启按 pid + /proc cmdline 收养</td></tr>
 </table>

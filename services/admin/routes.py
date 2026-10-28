@@ -168,6 +168,21 @@ def buffers_list():
     return jsonify({'game': game, 'buffers': list_buffers(game)})
 
 
+@bp.post('/api/admin/buffers/clone')
+def buffers_clone():
+    err, data = _guard()
+    if err:
+        return err
+    if _r().status().get('running'):
+        return jsonify({'ok': False, 'error': '训练进行中，池可能正被写入，稍后再克隆'}), 409
+    from core.utils.buffers import clone_pool
+    ok, msg, meta = clone_pool(str(data.get('game') or CONFIG['game_name']),
+                               str(data.get('from') or '').strip().lower(),
+                               str(data.get('name') or '').strip())
+    return jsonify({'ok': ok, 'error': '' if ok else msg,
+                    'buffer': {'name': meta.get('name'), 'from': str(data.get('from') or '')} if ok else {}}), (200 if ok else 400)
+
+
 @bp.post('/api/admin/buffers/create')
 def buffers_create():
     err, data = _guard()
