@@ -286,6 +286,10 @@ def logs():
         if not str(cand).startswith(str(base) + os.sep):
             return jsonify({'ok': False, 'error': '路径越界', 'lines': []}), 403
         path, safe = cand, str(request.args['path'])
+    elif request.args.get('name') == 'current':
+        lp = str(_r().status().get('log_path') or '')     # 当前训练进程的 console 日志（绝对路径）
+        path = Path(lp) if lp else base / 'train' / 'latest.log'
+        safe = 'current'
     else:
         safe = ''.join(ch for ch in request.args.get('name', 'selfplay') if ch.isalnum() or ch in '._-')
         path, safe = base / safe / 'latest.log', safe

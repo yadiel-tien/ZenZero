@@ -209,11 +209,7 @@
 
   <!-- ============ 日志 ============ -->
   <section class="tab" id="tab-logs">
-  <div class="panel">
-      <h2>训练进程 <span class="lg" id="trainer_detail">—</span></h2>
-      <div class="hint" style="margin-bottom:8px">启动即独立进程（新会话），本服务重启不影响它；停止走 SIGINT → 优雅退出 → SIGTERM → SIGKILL。</div>
-      <pre id="trainer_log" style="max-height:260px">（尚无进程日志）</pre>
-    </div>
+    <div class="hint" id="trainer_now" style="margin:0 0 6px"></div>
 
     <div class="panel">
       <h2>日志查看</h2>
@@ -488,8 +484,9 @@ function renderSnapshot(s){
   ['btn-stop','btn-stop2'].forEach(id => { $(id).disabled = !running; });
   $('pending-stop').style.display = pending? 'inline-block' : 'none';
   if(pending) $('phase').textContent = '待退出 · ' + $('phase').textContent;
-  $('trainer_detail').textContent = running? `${tr.cmdline||''}  ·  日志 ${tr.log_path||''}` : (tr.exit_code!==null&&tr.exit_code!==undefined? `上次退出码 ${tr.exit_code}`:'');
-  if(tr.tail && tr.tail.length) $('trainer_log').textContent = tr.tail.join('\n');
+  const tn = $('trainer_now');
+  if(tn) tn.textContent = running ? `● 训练进程运行中 pid ${tr.pid} · ${Math.round((tr.uptime_s||0)/60)} 分钟`
+    : (tr.exit_code!==null && tr.exit_code!==undefined ? `○ 训练进程上次退出码 ${tr.exit_code}` : '○ 训练进程未运行');
   const cr=s.crashes||[]; $('crashes').style.display = cr.length?'block':'none'; $('crash_txt').textContent = cr.join('\n');
 }
 function hwClock(v){
@@ -657,8 +654,10 @@ async function loadLogList(){
   try{
     const d = await api('/api/admin/logs/list');
     const keep = $('l_name').value;
-    $('l_name').innerHTML = d.logs.map(x=>`<option value="${esc(x.path||x.name)}">${esc(x.name)} (${gb(x.size)})</option>`).join('') || '<option value="selfplay">selfplay</option>';
-    if(keep && d.logs.some(x=>(x.path||x.name)===keep)) $('l_name').value = keep;
+    const cur = '<option value="current">● 当前训练进程（自动跟随最新 console 日志）</option>';
+    $('l_name').innerHTML = cur + (d.logs.map(x=>`<option value="${esc(x.path||x.name)}">${esc(x.name)} (${gb(x.size)})</option>`).join('') || '') || cur+'<option value="selfplay">selfplay</option>';
+    if(keep && [...$('l_name').options].some(o=>o.value===keep)) $('l_name').value = keep;
+    else if(!keep && $('trainer_now').textContent.includes('运行中')) $('l_name').value = 'current';
   }catch(e){ /* 忽略 */ }
 }
 async function loadLog(){

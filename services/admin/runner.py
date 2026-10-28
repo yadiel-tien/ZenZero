@@ -125,7 +125,6 @@ class TrainingRunner:
             'exit_code': self.meta.get('exit_code'),
             'stop_after_round': bool(self.meta.get('stop_after_round')) if alive else False,
             'cmdline': self.meta.get('cmdline'),
-            'tail': _tail(self.meta.get('log_path') or '', 40),
         }
 
     # ---------- 启动 ----------
@@ -312,16 +311,3 @@ def _pid_is_trainer(pid: int, marker: str = 'scripts.train_server') -> bool:
     return marker in cmdline or 'scripts/train_server.py' in cmdline
 
 
-def _tail(path: str, lines: int) -> list[str]:
-    if not path:
-        return []
-    try:
-        size = os.path.getsize(path)
-        with open(path, 'rb') as fp:
-            if size > 64_000:
-                fp.seek(-64_000, os.SEEK_END)
-                fp.readline()
-            data = fp.read().decode('utf-8', 'replace').splitlines()
-        return data[-lines:]
-    except OSError:
-        return []
