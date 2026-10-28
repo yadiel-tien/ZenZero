@@ -196,7 +196,7 @@
         <line x1="150" y1="106" x2="170" y2="106" stroke="var(--dim)" marker-end="url(#na)"/>
         <!-- 残差塔（压缩版：200..606） -->
         <rect x="200" y="30" width="406" height="152" rx="10" fill="none" stroke="var(--line)" stroke-width="1.3"/>
-        <text x="403" y="22" text-anchor="middle" class="nm">残差塔 <tspan class="num" font-size="13">②</tspan> ×N</text>
+        <text x="403" y="22" text-anchor="middle" class="nm">残差塔 ×N <tspan class="num" font-size="13">②</tspan></text>
         <rect x="208" y="52" width="300" height="112" rx="8" fill="none" stroke="var(--line)" stroke-dasharray="3 3"/>
 
         <rect class="cell" x="216" y="82" width="64" height="40" rx="4"/>
@@ -227,8 +227,8 @@
         <path d="M620,58 L640,58" stroke="var(--dim)" fill="none" marker-end="url(#na)"/>
         <path d="M620,150 L640,150" stroke="var(--dim)" fill="none" marker-end="url(#na)"/>
         <!-- 策略头：Conv 块 + fc（无展平节点） -->
-        <rect x="644" y="32" width="248" height="52" rx="7" fill="none" stroke="var(--green)" stroke-width="1.6"/>
-        <text x="768" y="26" text-anchor="middle" class="gtx" font-weight="700">策略头 Policy</text>
+        <rect x="644" y="32" width="152" height="52" rx="7" fill="none" stroke="var(--green)" stroke-width="1.6"/>
+        <text x="720" y="26" text-anchor="middle" class="gtx" font-weight="700">策略头 Policy</text>
         <rect class="cell" x="652" y="46" width="86" height="26" rx="3"/>
         <text x="695" y="63" text-anchor="middle" class="op"><title>1×1 卷积＝逐格通道混合：每个格子的 F 通道线性压到几个通道（本棋类 32），不看邻格、只降维，让后面的 fc 参数省一个数量级</title>Conv·BN·ReLU</text>
         <text x="741" y="44" text-anchor="middle" class="op" font-size="7.5">1×1</text>
