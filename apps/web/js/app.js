@@ -460,33 +460,45 @@ function render() {
         let p = grid2px(r, c); under.appendChild(mkImg(dir + 'blue_dot.png', 'mark', p.x, p.y));
         p = grid2px(tr, tc); under.appendChild(mkImg(dir + 'blue_circle.png', 'mark', p.x, p.y));
       }
-      // —— 棋子层按 piece id 键控协调：节点持久，left/top 变化由 CSS 过渡滑行，
-      //    被吃子淡出，进场弹入——整盘不重建，动画才有连续性 ——
+      // —— 棋子层协调：boardLayer 存的是「种类编码」（同种多子共享，如五个兵同为 6），
+      //    不能拿它当唯一 id。按两步贪心配对还原每颗棋子的身份：
+      //    ① 同种类同位置 → 原地不动；② 同种类剩余一对一 → 这就是本步的行棋（滑行动画）；
+      //    ③ 没配上的新图 → 新建弹入（悔棋/重开复活）；没配上的旧节点 → 淡出（被吃）——
       const layer = ChessEnv.boardLayer(G.state);
-      const want = new Map();
+      const reqs = [];
       for (let r = 0; r < 10; r++) for (let c = 0; c < 9; c++) {
-        const piece = layer[r * 9 + c];
-        if (piece !== -1) { const p = grid2px(r, c); want.set(piece, { r, c, x: p.x, y: p.y }); }
+        const kind = layer[r * 9 + c];
+        if (kind === -1) continue;
+        const q = grid2px(r, c);
+        reqs.push({ kind, r, c, x: q.x, y: q.y, el: null });
       }
-      for (const el of [...pieces.children]) {
-        const id = +el.dataset.id;
-        if (!want.has(id) && !el.dataset.dying) {
-          el.dataset.dying = '1'; el.classList.add('gone');
-          setTimeout(() => el.remove(), 320);
-        }
+      const alive = [...pieces.children].filter((el) => el.classList.contains('piece-chess') && !el.dataset.dying);
+      const used = new Set();
+      for (const rq of reqs) {
+        const el = alive.find((e) => !used.has(e) && +e.dataset.kind === rq.kind
+                                      && +e.dataset.r === rq.r && +e.dataset.c === rq.c);
+        if (el) { rq.el = el; used.add(el); }
       }
-      for (const [id, w] of want) {
-        let el = pieces.querySelector(`img[data-id="${id}"]`);
-        if (el && el.dataset.dying) { el.remove(); el = null; }   // 悔棋/重开让被吃子复活：弃掉将死躯壳重造
-        if (!el) {
-          el = mkImg(dir + `piece${id}.png`, 'piece-chess enter', w.x, w.y);
-          el.dataset.id = id;
-          pieces.appendChild(el);
+      const rest = alive.filter((e) => !used.has(e));
+      for (const rq of reqs) {
+        if (rq.el) continue;
+        const i = rest.findIndex((e) => +e.dataset.kind === rq.kind);
+        if (i >= 0) { rq.el = rest[i]; rest.splice(i, 1); }
+      }
+      for (const rq of reqs) {
+        if (!rq.el) {
+          rq.el = mkImg(dir + `piece${rq.kind}.png`, 'piece-chess enter', rq.x, rq.y);
+          rq.el.dataset.kind = rq.kind;
+          pieces.appendChild(rq.el);
         } else {
-          el.style.left = w.x + 'px'; el.style.top = w.y + 'px';
+          rq.el.style.left = rq.x + 'px'; rq.el.style.top = rq.y + 'px';
         }
-        const selHere = !!G.selected && G.selected[0] === w.r && G.selected[1] === w.c;
-        el.classList.toggle('selected', selHere);
+        rq.el.dataset.r = rq.r; rq.el.dataset.c = rq.c;
+        rq.el.classList.toggle('selected', !!G.selected && G.selected[0] === rq.r && G.selected[1] === rq.c);
+      }
+      for (const el of rest) {
+        el.dataset.dying = '1'; el.classList.add('gone');
+        setTimeout(() => el.remove(), 320);
       }
       // 合法落点提示（选中时在棋子层上方，呼吸动画）
       if (G.selected) {
