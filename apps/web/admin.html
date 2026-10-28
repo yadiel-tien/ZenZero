@@ -173,70 +173,87 @@
       <h2>神经网络配置<span class="lg" title="模板存 data/profiles.json；只允许规模键；名字即数据目录">?</span></h2>
       <table><tr><th>网络名</th><th>规模</th><th>来源</th><th>模型（权重）</th><th></th></tr></thead>
         <tbody id="pf_rows"><tr><td colspan="5" class="hint">加载中…</td></tr></tbody></table>
-      <!-- resnet_v1 结构示意：特征图画成立体块，①通道数=板厚；输入形状属棋种，不标死 -->
-      <svg viewBox="0 0 660 214" style="width:100%;max-width:660px;display:block;margin:6px auto 2px"
-           font-size="10.5" font-family="inherit" role="img" aria-label="resnet_v1 结构示意">
+      <!-- resnet_v1 结构示意（层内细节按 core/network/network.py 实码）：
+           立体块=特征图 厚=通道数；符号化形状链，棋种无关；① ② ③ ④ 对应表单字段 -->
+      <svg viewBox="0 0 700 236" style="width:100%;max-width:700px;display:block;margin:6px auto 2px"
+           font-size="10" font-family="inherit" role="img" aria-label="resnet_v1 结构示意">
         <defs><marker id="na" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
           <path d="M0,0 L7,3.5 L0,7 z" fill="var(--dim)"/></marker>
         <g id="slab3"><path d="M0,10 L10,0 L10,64 L0,74 Z" fill="var(--card)" stroke="var(--fg)" stroke-width="1.1"/>
           <path d="M0,10 L26,10 L36,0 L10,0 Z" fill="var(--card)" stroke="var(--fg)" stroke-width="1.1"/>
           <path d="M26,10 L26,74 L36,64 L36,0 Z" fill="var(--card)" stroke="var(--fg)" stroke-width="1.1"/>
-          <path d="M0,74 L26,74 L36,64 L10,64 Z" fill="var(--card)" stroke="var(--fg)" stroke-width="1.1"/></g></defs>
-        <!-- 输入：形状由棋种决定 -->
-        <g transform="translate(10,54) scale(0.72,0.62)"><use href="#slab3"/></g>
-        <text x="34" y="42" text-anchor="middle" fill="var(--fg)">输入</text>
-        <text x="34" y="132" text-anchor="middle" fill="var(--dim)">C₀·H·W</text>
-        <text x="34" y="144" text-anchor="middle" fill="var(--dim)" font-size="9">形状随棋种</text>
-        <text x="34" y="155" text-anchor="middle" fill="var(--dim)" font-size="8.5">象棋26·9·10</text>
-        <text x="34" y="165" text-anchor="middle" fill="var(--dim)" font-size="8.5">五子2·15·15</text>
-        <line x1="48" y1="92" x2="66" y2="92" stroke="var(--dim)" marker-end="url(#na)"/>
-        <!-- stem：厚度变化处 -->
-        <g transform="translate(68,52) scale(0.8,0.78)"><use href="#slab3"/></g>
-        <text x="84" y="40" text-anchor="middle" fill="var(--fg)">stem conv3×3</text>
-        <!-- ① 通道数 = 板厚（深度棱） -->
-        <line x1="99" y1="54" x2="122" y2="34" stroke="var(--blue)"/>
-        <text x="126" y="31" fill="var(--blue)" font-weight="700">① 通道数 n_filters ＝ 板厚</text>
-        <line x1="108" y1="93" x2="124" y2="93" stroke="var(--dim)" marker-end="url(#na)"/>
-        <!-- 残差干 -->
-        <rect x="126" y="52" width="266" height="92" rx="9" fill="none" stroke="var(--fg)" stroke-width="1.3" stroke-dasharray="4 3"/>
-        <text x="259" y="45" text-anchor="middle" fill="var(--fg)">主干 ResBlock ×N　<tspan font-weight="700">② N＝残差块数</tspan></text>
-        <g transform="translate(138,60) scale(0.86,0.92)"><use href="#slab3"/></g>
-        <rect x="141" y="76" width="24" height="9" rx="3" fill="none" stroke="var(--purple)" stroke-width="1"/>
-        <text x="153" y="83.5" text-anchor="middle" font-size="7" fill="var(--purple)">SE④</text>
-        <circle cx="192" cy="98" r="8" fill="var(--card)" stroke="var(--fg)" stroke-width="1.1"/>
-        <text x="192" y="101.5" text-anchor="middle" fill="var(--fg)">+</text>
-        <path d="M141,138 Q141,146 152,146 L186,146 Q192,146 192,138" fill="none" stroke="var(--fg)" stroke-width="1"/>
-        <text x="166" y="156" text-anchor="middle" font-size="8.5" fill="var(--dim)">捷径：原样+新学</text>
-        <text x="215" y="102" fill="var(--dim)">…</text>
-        <g transform="translate(298,60) scale(0.86,0.92)"><use href="#slab3"/></g>
-        <text x="330" y="80" font-size="9" fill="var(--dim)">每块：</text>
-        <text x="330" y="92" font-size="9" fill="var(--dim)">conv→(SE④)→conv</text>
-        <text x="330" y="104" font-size="9" fill="var(--dim)">再叠回输入 +</text>
+          <path d="M0,74 L26,74 L36,64 L10,64 Z" fill="var(--card)" stroke="var(--fg)" stroke-width="1.1"/></g>
+        <style>.cell{fill:var(--card);stroke:var(--line)}.lbl{fill:var(--fg)}.dim{fill:var(--dim);font-size:8.5}.sh{fill:var(--dim);font-size:8;font-family:ui-monospace,Consolas,monospace}.num{fill:var(--blue);font-weight:700}</style></defs>
+        <!-- 输入（形状属棋种） -->
+        <g transform="translate(8,72) scale(0.7,0.62)"><use href="#slab3"/></g>
+        <text x="27" y="60" text-anchor="middle" class="lbl">输入特征</text>
+        <text x="27" y="126" text-anchor="middle" class="sh">N·C₀·H·W</text>
+        <text x="22" y="138" text-anchor="middle" class="dim">形状随棋种</text>
+        <text x="27" y="176" text-anchor="middle" class="dim">象棋 26·9·10</text>
+        <text x="27" y="187" text-anchor="middle" class="dim">五子 2·15·15</text>
+        <line x1="42" y1="92" x2="58" y2="92" stroke="var(--dim)" marker-end="url(#na)"/>
+        <!-- stem -->
+        <g transform="translate(60,66) scale(0.72,0.74)"><use href="#slab3"/></g>
+        <text x="80" y="48" text-anchor="middle" class="lbl">初始卷积</text>
+        <text x="90" y="140" text-anchor="middle" class="dim">conv·BN·ReLU</text>
+        <text x="90" y="152" text-anchor="middle" class="sh">N·F·H·W</text>
+        <line x1="88" y1="66" x2="100" y2="16" stroke="var(--blue)"/>
+        <text x="104" y="13" class="num">① 通道数 n_filters ＝ 板厚 F</text>
+        <line x1="92" y1="92" x2="110" y2="92" stroke="var(--dim)" marker-end="url(#na)"/>
+        <!-- 残差塔 -->
+        <rect x="112" y="34" width="286" height="146" rx="9" fill="none" stroke="var(--fg)" stroke-width="1.3" stroke-dasharray="4 3"/>
+        <text x="255" y="28" text-anchor="middle" class="lbl">残差塔（堆叠 ×N）　<tspan class="num">② N＝残差块数</tspan></text>
+        <!-- ResBlock 内部（顺序=实码） -->
+        <rect x="120" y="44" width="270" height="112" rx="6" fill="none" stroke="var(--line)"/>
+        <text x="130" y="56" class="dim">ResBlock 1</text>
+        <rect class="cell" x="126" y="62" width="40" height="16" rx="3"/><text x="146" y="73.5" text-anchor="middle" font-size="8.5" class="lbl">conv3×3</text>
+        <rect class="cell" x="170" y="62" width="22" height="16" rx="3"/><text x="181" y="73.5" text-anchor="middle" font-size="8.5" class="lbl">BN</text>
+        <rect class="cell" x="196" y="62" width="28" height="16" rx="3"/><text x="210" y="73.5" text-anchor="middle" font-size="8.5" class="lbl">ReLU</text>
+        <path d="M224,70 L236,70 L236,94 L242,94" fill="none" stroke="var(--dim)" marker-end="url(#na)"/>
+        <rect class="cell" x="244" y="86" width="40" height="16" rx="3"/><text x="264" y="97.5" text-anchor="middle" font-size="8.5" class="lbl">conv3×3</text>
+        <rect class="cell" x="288" y="86" width="22" height="16" rx="3"/><text x="299" y="97.5" text-anchor="middle" font-size="8.5" class="lbl">BN</text>
+        <path d="M310,94 L318,94" stroke="var(--dim)" marker-end="url(#na)"/>
+        <circle cx="328" cy="94" r="8" fill="var(--card)" stroke="var(--fg)" stroke-width="1.1"/><text x="328" y="97.5" text-anchor="middle" class="lbl">+</text>
+        <line x1="336" y1="94" x2="344" y2="94" stroke="var(--dim)" marker-end="url(#na)"/>
+        <rect x="346" y="85" width="34" height="18" rx="4" fill="none" stroke="var(--purple)" stroke-width="1.2"/>
+        <text x="363" y="97.5" text-anchor="middle" font-size="8.5" fill="var(--purple)">SE ④</text>
+        <path d="M363,103 L363,108" stroke="var(--dim)" fill="none" marker-end="url(#na)"/>
+        <rect class="cell" x="345" y="110" width="36" height="16" rx="3"/><text x="363" y="121.5" text-anchor="middle" font-size="8.5" class="lbl">ReLU</text>
+        <text x="334" y="121.5" text-anchor="end" font-size="8" fill="var(--purple)">④开/关</text>
+        <!-- 捷径 -->
+        <path d="M132,80 Q126,120 160,132 L318,132 Q328,132 328,104" fill="none" stroke="var(--fg)" stroke-width="1"/>
+        <text x="150" y="158" font-size="8" class="dim">捷径：输入原样送到 +</text>
+        <line x1="334" y1="94" x2="352" y2="94" stroke="none"/>
+        <!-- 塔内输出与堆叠 -->
+        <g transform="translate(368,86) scale(0.42,0.42)"><use href="#slab3"/></g>
+        <text x="390" y="110" class="dim">⋯×N</text>
+        <text x="258" y="170" text-anchor="middle" class="dim">出块＝入块 同形 N·F·H·W，可无限叠</text>
         <!-- 分叉 -->
-        <line x1="392" y1="98" x2="412" y2="98" stroke="var(--dim)"/>
-        <line x1="412" y1="58" x2="412" y2="142" stroke="var(--dim)"/>
-        <line x1="412" y1="58" x2="430" y2="58" stroke="var(--dim)" marker-end="url(#na)"/>
-        <line x1="412" y1="142" x2="430" y2="142" stroke="var(--dim)" marker-end="url(#na)"/>
+        <path d="M381,118 L398,118 L428,118 M428,62 L428,150" stroke="var(--dim)" fill="none"/>
+        <line x1="428" y1="60" x2="444" y2="60" stroke="var(--dim)" marker-end="url(#na)"/>
+        <line x1="428" y1="150" x2="444" y2="150" stroke="var(--dim)" marker-end="url(#na)"/>
         <!-- 策略头 -->
-        <rect x="432" y="36" width="98" height="44" rx="6" fill="none" stroke="var(--fg)" stroke-width="1.2"/>
-        <text x="481" y="54" text-anchor="middle" fill="var(--fg)">策略头 π（走哪）</text>
-        <text x="481" y="70" text-anchor="middle" fill="var(--dim)" font-size="9">1×1 conv → fc → 动作分布</text>
-        <line x1="530" y1="58" x2="556" y2="58" stroke="var(--dim)" marker-end="url(#na)"/>
-        <text x="566" y="62" fill="var(--fg)" font-weight="700">π</text>
+        <rect x="446" y="36" width="150" height="52" rx="6" fill="none" stroke="var(--fg)" stroke-width="1.2"/>
+        <text x="521" y="50" text-anchor="middle" class="lbl">策略头 π（学「走哪」）</text>
+        <text x="521" y="64" text-anchor="middle" class="dim">conv1×1·BN·ReLU → 展平 → fc</text>
+        <text x="521" y="80" text-anchor="middle" class="sh">N·A（动作 logits）</text>
+        <line x1="596" y1="62" x2="616" y2="62" stroke="var(--dim)" marker-end="url(#na)"/>
+        <text x="640" y="58" text-anchor="middle" class="lbl" font-weight="700">π</text>
+        <text x="640" y="72" text-anchor="middle" class="dim">MCTS 先验</text>
         <!-- 价值头 -->
-        <rect x="432" y="120" width="98" height="44" rx="6" fill="none" stroke="var(--fg)" stroke-width="1.2"/>
-        <text x="481" y="137" text-anchor="middle" fill="var(--fg)">价值头 v（胜率）</text>
-        <text x="481" y="153" text-anchor="middle" fill="var(--dim)" font-size="9">1×1 conv → fc③ → tanh</text>
-        <line x1="530" y1="142" x2="556" y2="142" stroke="var(--dim)" marker-end="url(#na)"/>
-        <text x="566" y="146" fill="var(--fg)" font-weight="700">v ∈ (−1,1)</text>
-        <line x1="481" y1="164" x2="481" y2="176" stroke="var(--blue)"/>
-        <text x="481" y="187" text-anchor="middle" fill="var(--blue)" font-weight="700">③ value 隐层 ＝ 中间 fc 的宽度</text>
-        <!-- 图例 -->
-        <text x="612" y="106" fill="var(--dim)" font-size="9">✎ 只许改</text>
-        <text x="612" y="117" fill="var(--dim)" font-size="9">规模①②③④；</text>
-        <text x="612" y="128" fill="var(--dim)" font-size="9">棋盘与动作空间</text>
-        <text x="612" y="139" fill="var(--dim)" font-size="9">C₀·H·W 由棋种</text>
-        <text x="612" y="150" fill="var(--dim)" font-size="9">表示版本决定</text>
+        <rect x="446" y="124" width="150" height="60" rx="6" fill="none" stroke="var(--fg)" stroke-width="1.2"/>
+        <text x="521" y="138" text-anchor="middle" class="lbl">价值头 v（学「谁优」）</text>
+        <text x="521" y="152" text-anchor="middle" class="dim">conv1×1·LeakyReLU → 展平</text>
+        <text x="521" y="165" text-anchor="middle" class="dim">→ fc <tspan class="num">③宽＝V</tspan> → LeakyReLU → 1 → tanh</text>
+        <text x="521" y="178" text-anchor="middle" class="sh">N·1</text>
+        <line x1="596" y1="152" x2="616" y2="152" stroke="var(--dim)" marker-end="url(#na)"/>
+        <text x="640" y="148" text-anchor="middle" class="lbl" font-weight="700">v</text>
+        <text x="640" y="162" text-anchor="middle" class="dim">胜率 (−1,1)</text>
+        <text x="521" y="204" text-anchor="middle" class="num">③ value 隐层 ＝ 中间 fc 的宽度 V</text>
+        <!-- 底注 -->
+        <text x="14" y="200" class="dim">形状链：N·C₀·H·W →（全干不变）N·F·H·W×N → π N·A / v N·1　<tspan class="num">✎ 可配置的只有 ①F ②N ③V ④SE</tspan></text>
+        <text x="14" y="214" class="dim">C₀·H·W（棋盘与特征面）和 A（动作空间）由棋种及其表示版本决定，不属网络参数</text>
+        <text x="14" y="228" class="dim">块内顺序（与实码一致）：conv·BN·ReLU → conv·BN → ⊕捷径 → SE④（可选） → ReLU</text>
       </svg>
       <div class="row" style="margin-top:8px">
         <div class="field"><label>新网络名</label><input id="pf_name" placeholder="如 mini64" title="小写字母开头，a-z0-9_，将成为目录名" style="max-width:130px"></div>
