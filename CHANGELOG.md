@@ -26,6 +26,9 @@
 - **棋盘专用通道**：`env.render()` 不再 print 混流，盘面经 `get_logger('board')` 落
   `logs/board/latest.log*`（独立成档，随时回看对局盘面；**保留 ANSI 红黑子**，日志查看器已能着色渲染）。
 - **台账空壳过滤**：0 字节日志文件不列（logger 初始化或崩溃位未触发留下的空文件不算日志）。
+- **颜色只在 tty**：logger 的控制台 handler 依 `stdout.isatty()` 决定是否套 ColorFormatter——
+  训练子进程 stdout 被重定向进 `console.log`（非 tty）时不再把整行蓝色装饰烙进文件，
+  与 `latest.log` 观感一致；终端里手跑训练仍彩色。棋盘红黑属业务语义色，照常入库。
 
 ## 2.1.0 — 2026-10-28
 

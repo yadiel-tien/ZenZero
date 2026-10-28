@@ -44,9 +44,12 @@ def get_logger(name: str, level=logging.INFO, log_to_file=True) -> logging.Logge
 
     logger.setLevel(level)
     
-    # 1. 控制台 Handler (带颜色)
+    # 1. 控制台 Handler（带颜色）——仅当 stdout 真连着终端。
+    # 颜色是给"人眼+tty"的装饰层：训练子进程 stdout 被 runner 重定向进 console.log 时
+    # 不是 tty，若照吐转义码，装饰色会烙进记录文件（train 整行蓝、与 latest.log 两样）。
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(ColorFormatter())
+    console_handler.setFormatter(ColorFormatter() if sys.stdout.isatty() else logging.Formatter(
+        '%(asctime)s [%(levelname)s] [%(name)s] [%(threadName)s] %(message)s'))
     logger.addHandler(console_handler)
 
     # 2. 文件 Handler (按天滚动)
