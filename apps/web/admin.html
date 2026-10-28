@@ -185,18 +185,18 @@
           .cell{fill:var(--card);stroke:var(--dim);stroke-width:1}.gtx{fill:var(--ndg)}.rtx{fill:var(--ndr)}
           .pur{fill:var(--ndp)}</style>
         <!-- 输入 -->
-        <rect x="12" y="62" width="54" height="88" rx="6" fill="var(--card)" stroke="var(--fg)" stroke-width="1.4"/>
-        <text x="39" y="48" text-anchor="middle" class="nm">输入特征</text>
-        <text x="39" y="170" text-anchor="middle" class="sh">B·C₀·H·W</text>
-        <line x1="66" y1="106" x2="84" y2="106" stroke="var(--dim)" marker-end="url(#na)"/>
+        <rect x="32" y="62" width="54" height="88" rx="6" fill="var(--card)" stroke="var(--fg)" stroke-width="1.4"/>
+        <text x="59" y="48" text-anchor="middle" class="nm">输入特征</text>
+        <text x="59" y="170" text-anchor="middle" class="sh">B·C₀·H·W</text>
+        <line x1="90" y1="106" x2="102" y2="106" stroke="var(--dim)" marker-end="url(#na)"/>
         <!-- 初始卷积 -->
-        <rect x="86" y="78" width="64" height="56" rx="6" fill="var(--card)" stroke="var(--fg)" stroke-width="1.4"/>
-        <text x="118" y="104" text-anchor="middle" class="op">Conv</text>
-        <text x="146" y="88" text-anchor="end" class="op" font-size="8.5">3×3</text>
-        <text x="118" y="120" text-anchor="middle" class="op">BN·ReLU</text>
-        <text x="118" y="170" text-anchor="middle" class="sh">B·<tspan class="num">F</tspan>·H·W</text>
-        <text x="118" y="186" text-anchor="middle" class="num" font-size="13">①</text>
-        <line x1="150" y1="106" x2="170" y2="106" stroke="var(--dim)" marker-end="url(#na)"/>
+        <rect x="106" y="78" width="64" height="56" rx="6" fill="var(--card)" stroke="var(--fg)" stroke-width="1.4"/>
+        <text x="138" y="104" text-anchor="middle" class="op">Conv</text>
+        <text x="166" y="88" text-anchor="end" class="op" font-size="8.5">3×3</text>
+        <text x="138" y="120" text-anchor="middle" class="op">BN·ReLU</text>
+        <text x="138" y="170" text-anchor="middle" class="sh">B·<tspan class="num">F</tspan>·H·W</text>
+        <text x="138" y="186" text-anchor="middle" class="num" font-size="13">①</text>
+        <line x1="174" y1="106" x2="190" y2="106" stroke="var(--dim)" marker-end="url(#na)"/>
         <!-- 残差塔（压缩版：200..606） -->
         <rect x="200" y="30" width="406" height="152" rx="10" fill="none" stroke="var(--dim)" stroke-width="1.3"/>
         <text x="403" y="22" text-anchor="middle" class="nm">残差块 ×N <tspan class="num" font-size="13">②</tspan></text>
