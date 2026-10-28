@@ -173,82 +173,77 @@
       <h2>神经网络配置<span class="lg" title="模板存 data/profiles.json；只允许规模键；名字即数据目录">?</span></h2>
       <table><tr><th>网络名</th><th>规模</th><th>来源</th><th>模型（权重）</th><th></th></tr></thead>
         <tbody id="pf_rows"><tr><td colspan="5" class="hint">加载中…</td></tr></tbody></table>
-      <!-- resnet_v1 示意（v4，参考 draw.io 版留白）：只留块名+张量形状+①②③④角标 -->
-      <svg viewBox="0 0 960 232" style="width:100%;display:block;margin:8px auto 4px"
+      <!-- resnet_v1 示意 v5：方框+形状标注（符号与代码 docstring 一致：B 批, F=n_filters,
+           N=n_res_blocks, A=n_actions, V=value 隐层；①②③④ 钉在对应符号上） -->
+      <svg viewBox="0 0 960 208" style="width:100%;display:block;margin:8px auto 4px"
            font-size="12" font-family="inherit" role="img" aria-label="resnet_v1 结构">
         <defs><marker id="na" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-          <path d="M0,0 L8,4 L0,8 z" fill="var(--dim)"/></marker>
-        <g id="slab3"><path d="M0,14 L14,0 L14,84 L0,98 Z" fill="var(--card)" stroke="var(--fg)" stroke-width="1.4"/>
-          <path d="M0,14 L36,14 L50,0 L14,0 Z" fill="var(--card)" stroke="var(--fg)" stroke-width="1.4"/>
-          <path d="M36,14 L36,98 L50,84 L50,0 Z" fill="var(--card)" stroke="var(--fg)" stroke-width="1.4"/>
-          <path d="M0,98 L36,98 L50,84 L14,84 Z" fill="var(--card)" stroke="var(--fg)" stroke-width="1.4"/></g>
+          <path d="M0,0 L8,4 L0,8 z" fill="var(--dim)"/></marker></defs>
         <style>.nm{fill:var(--fg)}.sh{fill:var(--dim);font-size:11;font-family:ui-monospace,Consolas,monospace}
           .op{fill:var(--dim);font-size:10}.num{fill:var(--blue);font-weight:700;font-size:11}
-          .cell{fill:var(--card);stroke:var(--line)}.grn{stroke:var(--green)}.red{stroke:var(--red)}
-          .gtx{fill:var(--green)}.rtx{fill:var(--red)}.pur{fill:var(--purple)}</style></defs>
+          .cell{fill:var(--card);stroke:var(--line)}.gtx{fill:var(--green)}.rtx{fill:var(--red)}
+          .pur{fill:var(--purple)}</style>
         <!-- 输入 -->
-        <g transform="translate(30,80) scale(0.9,0.95)"><use href="#slab3"/></g>
-        <text x="52" y="66" text-anchor="middle" class="nm">输入特征</text>
-        <text x="52" y="196" text-anchor="middle" class="sh">N·C₀·H·W</text>
-        <line x1="90" y1="128" x2="124" y2="128" stroke="var(--dim)" marker-end="url(#na)"/>
-        <!-- 初始卷积（立体块：厚度=①） -->
-        <g transform="translate(128,84)"><use href="#slab3"/></g>
-        <text x="152" y="66" text-anchor="middle" class="nm">初始卷积</text>
-        <text x="152" y="196" text-anchor="middle" class="op">Conv·BN·ReLU</text>
-        <line x1="155" y1="86" x2="176" y2="38" stroke="var(--blue)"/>
-        <text x="180" y="34" class="num">① 通道数＝板厚 F</text>
-        <line x1="190" y1="128" x2="222" y2="128" stroke="var(--dim)" marker-end="url(#na)"/>
+        <rect x="18" y="62" width="66" height="88" rx="6" fill="var(--card)" stroke="var(--fg)" stroke-width="1.4"/>
+        <text x="51" y="48" text-anchor="middle" class="nm">输入特征</text>
+        <text x="51" y="172" text-anchor="middle" class="sh">B·C₀·H·W</text>
+        <line x1="84" y1="106" x2="116" y2="106" stroke="var(--dim)" marker-end="url(#na)"/>
+        <!-- 初始卷积 -->
+        <rect x="118" y="76" width="90" height="60" rx="6" fill="var(--card)" stroke="var(--fg)" stroke-width="1.4"/>
+        <text x="163" y="98" text-anchor="middle" class="nm">初始卷积</text>
+        <text x="163" y="116" text-anchor="middle" class="op">Conv·BN·ReLU</text>
+        <text x="163" y="172" text-anchor="middle" class="sh">B·<tspan class="num">F</tspan>·H·W</text>
+        <text x="163" y="186" text-anchor="middle" class="num">① F＝通道数</text>
+        <line x1="208" y1="106" x2="240" y2="106" stroke="var(--dim)" marker-end="url(#na)"/>
         <!-- 残差塔 -->
-        <rect x="224" y="46" width="392" height="164" rx="12" fill="none" stroke="var(--line)" stroke-width="1.3"/>
-        <text x="420" y="38" text-anchor="middle" class="nm">残差塔　<tspan class="num">② ×N＝残差块数</tspan></text>
-        <!-- ResBlock 1 -->
-        <rect x="238" y="78" width="228" height="100" rx="9" fill="none" stroke="var(--line)" stroke-dasharray="3 3"/>
-        <rect class="cell" x="252" y="104" width="62" height="46" rx="4"/>
-        <text x="283" y="121" text-anchor="middle" class="op">Conv</text>
-        <text x="283" y="134" text-anchor="middle" class="op">BN·ReLU</text>
-        <line x1="314" y1="127" x2="330" y2="127" stroke="var(--dim)" marker-end="url(#na)"/>
-        <rect class="cell" x="332" y="104" width="54" height="46" rx="4"/>
-        <text x="359" y="130" text-anchor="middle" class="op">Conv·BN</text>
-        <line x1="386" y1="127" x2="400" y2="127" stroke="var(--dim)" marker-end="url(#na)"/>
-        <circle cx="414" cy="127" r="11" fill="var(--card)" stroke="var(--fg)" stroke-width="1.3"/>
-        <text x="414" y="131.5" text-anchor="middle" class="nm">+</text>
-        <line x1="425" y1="127" x2="437" y2="127" stroke="var(--dim)" marker-end="url(#na)"/>
-        <rect x="439" y="112" width="20" height="30" rx="4" fill="none" stroke="var(--purple)"/>
-        <text x="449" y="131" text-anchor="middle" class="op pur" font-size="9">SE</text>
-        <text x="449" y="103" text-anchor="middle" class="num pur" font-size="10">④</text>
-        <line x1="459" y1="127" x2="471" y2="127" stroke="var(--dim)" marker-end="url(#na)"/>
-        <rect class="cell" x="473" y="112" width="46" height="30" rx="4"/>
-        <text x="496" y="131" text-anchor="middle" class="op">ReLU</text>
-        <path d="M283,104 Q283,86 300,86 L400,86 Q414,86 414,114" fill="none" stroke="var(--blue)" stroke-width="1.3"/>
-        <text x="342" y="80" text-anchor="middle" class="op" fill="var(--blue)">残差捷径</text>
-        <text x="352" y="196" text-anchor="middle" class="op">残差块 1</text>
-        <!-- 堆叠 -->
-        <text x="534" y="136" class="sh" font-size="16">⋯</text>
-        <text x="540" y="158" text-anchor="middle" class="sh">N·F·H·W</text>
-        <rect x="560" y="96" width="44" height="62" rx="6" fill="none" stroke="var(--line)"/>
-        <text x="582" y="122" text-anchor="middle" class="op">残差</text>
-        <text x="582" y="136" text-anchor="middle" class="op">块 N</text>
-        <text x="582" y="172" text-anchor="middle" class="num">×②</text>
-        <!-- 分叉 -->
-        <circle cx="650" cy="128" r="4" fill="var(--fg)"/>
-        <path d="M604,127 L650,128" stroke="var(--dim)" fill="none"/>
-        <path d="M650,128 Q690,60 720,60" fill="none" stroke="var(--dim)" marker-end="url(#na)"/>
-        <path d="M650,128 Q690,190 720,190" fill="none" stroke="var(--dim)" marker-end="url(#na)"/>
+        <rect x="242" y="30" width="428" height="152" rx="10" fill="none" stroke="var(--line)" stroke-width="1.3"/>
+        <text x="456" y="22" text-anchor="middle" class="nm">残差塔（堆叠）　<tspan class="num">② N＝残差块数</tspan></text>
+        <rect x="252" y="52" width="300" height="112" rx="8" fill="none" stroke="var(--line)" stroke-dasharray="3 3"/>
+        <text x="402" y="180" text-anchor="middle" class="op">残差块 1</text>
+        <rect class="cell" x="260" y="82" width="64" height="40" rx="4"/>
+        <text x="292" y="98" text-anchor="middle" class="op">Conv3×3</text>
+        <text x="292" y="112" text-anchor="middle" class="op">BN·ReLU</text>
+        <line x1="324" y1="102" x2="338" y2="102" stroke="var(--dim)" marker-end="url(#na)"/>
+        <rect class="cell" x="340" y="82" width="60" height="40" rx="4"/>
+        <text x="370" y="106" text-anchor="middle" class="op">Conv3×3·BN</text>
+        <line x1="400" y1="102" x2="414" y2="102" stroke="var(--dim)" marker-end="url(#na)"/>
+        <circle cx="428" cy="102" r="11" fill="var(--card)" stroke="var(--fg)" stroke-width="1.3"/>
+        <text x="428" y="106" text-anchor="middle" class="nm">+</text>
+        <line x1="439" y1="102" x2="449" y2="102" stroke="var(--dim)" marker-end="url(#na)"/>
+        <rect x="451" y="86" width="30" height="32" rx="5" fill="none" stroke="var(--purple)" stroke-width="1.2"/>
+        <text x="466" y="106" text-anchor="middle" class="op pur">SE</text>
+        <text x="466" y="78" text-anchor="middle" class="num pur">④</text>
+        <line x1="481" y1="102" x2="491" y2="102" stroke="var(--dim)" marker-end="url(#na)"/>
+        <rect class="cell" x="493" y="86" width="52" height="32" rx="4"/>
+        <text x="519" y="106" text-anchor="middle" class="op">ReLU</text>
+        <path d="M278,82 Q278,62 296,62 L420,62 Q428,62 428,88" fill="none" stroke="var(--blue)" stroke-width="1.3"/>
+        <text x="352" y="46" text-anchor="middle" class="op" fill="var(--blue)">残差捷径</text>
+        <text x="558" y="112" class="sh" font-size="15">⋯</text>
+        <rect x="576" y="60" width="56" height="52" rx="6" fill="var(--card)" stroke="var(--fg)" stroke-width="1.2"/>
+        <text x="604" y="82" text-anchor="middle" class="op">残差块</text>
+        <text x="604" y="98" text-anchor="middle" class="nm" font-weight="700">N</text>
+        <text x="604" y="134" text-anchor="middle" class="sh">B·F·H·W</text>
+        <!-- 分叉与两头 -->
+        <path d="M632,86 L656,86 M656,59 L656,155" stroke="var(--dim)" fill="none"/>
+        <circle cx="656" cy="86" r="4" fill="var(--fg)"/>
+        <path d="M656,59 L712,59" stroke="var(--dim)" fill="none" marker-end="url(#na)"/>
+        <path d="M656,155 L712,155" stroke="var(--dim)" fill="none" marker-end="url(#na)"/>
         <!-- 策略头 -->
-        <rect class="grn" x="722" y="36" width="118" height="50" rx="7" fill="none" stroke-width="1.6"/>
-        <text x="781" y="56" text-anchor="middle" class="nm">策略头 Policy</text>
-        <text x="781" y="74" text-anchor="middle" class="op">1×1·BN·ReLU·fc</text>
-        <line x1="840" y1="61" x2="868" y2="61" stroke="var(--dim)" marker-end="url(#na)"/>
-        <text x="906" y="56" text-anchor="middle" class="gtx" font-weight="700">π 概率</text>
-        <text x="906" y="74" text-anchor="middle" class="sh">N·A</text>
+        <rect x="716" y="34" width="132" height="50" rx="7" fill="none" stroke="var(--green)" stroke-width="1.6"/>
+        <text x="782" y="54" text-anchor="middle" class="nm">策略头 Policy</text>
+        <text x="782" y="72" text-anchor="middle" class="op">1×1·BN·ReLU·fc</text>
+        <line x1="848" y1="59" x2="874" y2="59" stroke="var(--dim)" marker-end="url(#na)"/>
+        <text x="906" y="52" text-anchor="middle" class="gtx" font-weight="700">π 概率</text>
+        <text x="906" y="70" text-anchor="middle" class="sh">B·A</text>
         <!-- 价值头 -->
-        <rect class="red" x="722" y="164" width="118" height="52" rx="7" fill="none" stroke-width="1.6"/>
-        <text x="781" y="184" text-anchor="middle" class="nm">价值头 Value</text>
-        <text x="781" y="204" text-anchor="middle" class="op">1×1 → fc<tspan class="num">③V</tspan> → tanh</text>
-        <line x1="840" y1="190" x2="868" y2="190" stroke="var(--dim)" marker-end="url(#na)"/>
-        <text x="906" y="186" text-anchor="middle" class="rtx" font-weight="700">v 价值</text>
-        <text x="906" y="204" text-anchor="middle" class="sh">N·1</text>
-        <text x="781" y="150" text-anchor="middle" class="num" font-size="10">③ value 隐层＝fc 宽</text>
+        <rect x="716" y="130" width="132" height="50" rx="7" fill="none" stroke="var(--red)" stroke-width="1.6"/>
+        <text x="782" y="148" text-anchor="middle" class="nm">价值头 Value</text>
+        <text x="782" y="166" text-anchor="middle" class="op">1×1 → fc<tspan class="num">③V</tspan> → tanh</text>
+        <line x1="848" y1="155" x2="874" y2="155" stroke="var(--dim)" marker-end="url(#na)"/>
+        <text x="906" y="148" text-anchor="middle" class="rtx" font-weight="700">v 价值</text>
+        <text x="906" y="166" text-anchor="middle" class="sh">B·1</text>
+        <text x="782" y="196" text-anchor="middle" class="num">③ V＝value 隐层</text>
+        <!-- 块1 出块接线（残差块N 右缘到塔缘分叉） -->
       </svg>
       <div class="row" style="margin-top:8px">
         <div class="field"><label>新网络名</label><input id="pf_name" placeholder="如 mini64" title="小写字母开头，a-z0-9_，将成为目录名" style="max-width:130px"></div>
