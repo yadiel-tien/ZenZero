@@ -285,7 +285,6 @@
       <div class="panel"><h2>经验池<button class="mini danger bb" data-t="t_pools" disabled>删除选中的 0</button></h2><div style="overflow:auto;max-height:300px"><table id="t_pools"></table></div>
       </div>
       <div class="panel"><h2>TensorBoard runs<button class="mini danger bb" data-t="t_runs" disabled>删除选中的 0</button></h2><div style="overflow:auto;max-height:300px"><table id="t_runs"></table></div></div>
-      <div class="panel"><h2>日志<button class="mini danger bb" data-t="t_logs" disabled>删除选中的 0</button></h2><div style="overflow:auto;max-height:300px"><table id="t_logs"></table></div></div>
     </div>
   </section>
 
@@ -613,14 +612,6 @@ async function loadArtifacts(){
     $('t_runs').innerHTML = `<tr><th><input type=checkbox class=ckall data-t=t_runs></th><th>run</th><th>大小</th><th></th></tr>` + d.runs.slice(0,20).map(r=>`
       <tr><td><input type=checkbox class=ck data-kind=run value="${esc(r.path)}"></td><td class="hint">${esc(r.name)}</td><td class="num">${gb(r.size)}</td>
           <td><button class="mini danger" onclick="delArtifact('run','${r.path}','delete')">删</button></td></tr>`).join('');
-    let lastMod = '';
-    $('t_logs').innerHTML = `<tr><th><input type=checkbox class=ckall data-t=t_logs></th><th>日志</th><th>大小</th><th></th></tr>` + d.logs.map(l=>{
-      const mod = l.module || l.path.split('/')[1] || '其他';
-      const head = mod !== lastMod ? (lastMod = mod, `<tr><td colspan=4 style="padding-top:6px;color:var(--ndb);font-weight:600">${esc(mod)}</td></tr>`) : '';
-      return head + `
-      <tr><td><input type=checkbox class=ck data-kind=log value="${esc(l.path)}"></td><td class="hint">&nbsp;&nbsp;${esc(l.name)}</td><td class="num">${gb(l.size)}</td>
-          <td><button class="mini danger" onclick="delArtifact('log','${l.path}','delete')">删</button></td></tr>`;
-    }).join('');
     loadPools(game);
   }catch(e){ toast('资产读取失败: '+e.message); }
 }
@@ -665,7 +656,7 @@ function bindBatchUI(){
       const box = document.getElementById(t.dataset.t);
       if(box) box.querySelectorAll('.ck').forEach(c=>c.checked = t.checked);
     }
-    ['t_ckpt','t_pools','t_runs','t_logs'].forEach(syncBtn);
+    ['t_ckpt','t_pools','t_runs'].forEach(syncBtn);
   });
   document.addEventListener('click', ev=>{
     const b = ev.target.closest ? ev.target.closest('.bb') : null;

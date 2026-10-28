@@ -287,7 +287,7 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <tr><td><span class="post">POST</span> <code>/best</code></td><td><code>{iteration}</code>：一键改换守擂者（资产页"设为最强"），回滚坏模型的主路径</td></tr>
 <tr><td><span class="get">GET</span> <code>/logs?path=&amp;tail=</code> · <code>/logs/list</code> · <code>/health</code></td><td>任意日志尾读（限 log_dir 内，越界 403）；清单=白名单形态 <code>&lt;模块&gt;/latest.log*|console.log*</code>；体检</td></tr>
 <tr><td><span class="get">GET</span> <code>/buffers</code> · <span class="post">POST</span> <code>/buffers/create</code></td>
-<td>经验池注册表（目录现场扫描：命名池 + default@&lt;模型&gt; 原位池）与新建、<b>克隆</b>（<code>/buffers/clone</code>）、<b>删除</b>（<code>/buffers/delete</code>：需 confirm 令牌二次确认；后两者训练写入中一律 409 拒绝）。资产页四表支持勾选批量删（<code>/artifacts/delete_batch</code>：逐项过各自护栏，best 等受保护项跳过并回执）</td>元数据记录棋种、表示版本、容量/已用、最新内容来自哪个网络的第几代</td></tr>
+<td>经验池注册表（目录现场扫描：命名池 + default@&lt;模型&gt; 原位池）与新建、<b>克隆</b>（<code>/buffers/clone</code>）、<b>删除</b>（<code>/buffers/delete</code>：需 confirm 令牌二次确认；后两者训练写入中一律 409 拒绝）。资产页三表支持勾选批量删（<code>/artifacts/delete_batch</code>：逐项过各自护栏，best 等受保护项跳过并回执）</td>元数据记录棋种、表示版本、容量/已用、最新内容来自哪个网络的第几代</td></tr>
 <tr><td><span class="get">GET</span> <code>/tasks</code> · <span class="post">POST</span> <code>/tasks/start</code> · <code>/tasks/stop</code> · <span class="get">GET</span> <code>/tasks/log</code></td>
 <td>「任务」页后端：注册表驱动（priskvork 常驻；arena / bench / build_cython 一次性），参数按 schema 白名单校验，once 任务退出码即时回传（exit 0 即成功），输出追加落 <code>logs/&lt;任务名&gt;/console.log</code>（统一格式，历次会话连贯），服务重启按 pid + /proc cmdline 收养</td></tr>
 </table>
