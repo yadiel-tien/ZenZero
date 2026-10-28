@@ -235,6 +235,9 @@
     init() {
       this.dd1 = initDropdown($('dd1'));
       this.dd2 = initDropdown($('dd2'));
+      // 级联：选神经网络（类型）→ 重喂该网络代数清单（默认落最强代）
+      this.dd1k = initDropdown($('dd1k'), (prof) => this._fillGens && this._fillGens(this.dd1, prof));
+      this.dd2k = initDropdown($('dd2k'), (prof) => this._fillGens && this._fillGens(this.dd2, prof));
       $$('#l-step-game .card-btn').forEach((b) => b.addEventListener('click', () => {
         Sound.unlock(); Sound.play('click');
         this.game = b.dataset.game; this.showStep('mode');
@@ -282,42 +285,36 @@
         return;
       }
       const profiles = data.profiles || {};
-      const indices = (data.indices || []).slice().sort((a, b) => b - a);
       const best = data.best_index;
-      if (!indices.length) {
-        $('model-hint').classList.remove('hidden');
-        $('model-hint').innerHTML = `未检测到模型文件。<br>请从 GitHub Release 下载 .pt 放入 data/${envName}/ 目录。`;
-        return;
-      }
-      // 两个层次：先列神经网络（m/s/l/自定义名），再列该网络下的模型（第 N 代权重）。
-      // 术语定案：档位(profile)=神经网络；模型=权重 checkpoint。
-      // 曾经只列默认档，于是 m 网络的权重在对弈页里彻底看不见——两级都要跨网络。
+      // 级联选择：先选神经网络（类型），再选该网络下的代数（权重）。
       const order = [data.profile]
         .concat(Object.keys(profiles).filter((p) => p !== data.profile))
         .filter((p) => p && profiles[p] && (profiles[p].indices || []).length);
-      const opts = [];
-      let bestIdx = 0;
-      order.forEach((prof) => {
-        const info = profiles[prof];
+      if (!order.length) {
+        $('model-hint').classList.remove('hidden');
+        $('model-hint').innerHTML = '未检测到模型文件。<br>请从 GitHub Release 下载 .pt 放入 data/' + envName + '/ 目录。';
+        return;
+      }
+      this.profile = data.profile || null;
+      const fillGens = this._fillGens = (dd, prof) => {
+        const info = profiles[prof]; if (!info) return;
         const idxs = (info.indices || []).slice().sort((a, b) => b - a);
-        opts.push({ group: true, label: `— 网络 ${prof}${prof === data.profile ? '（最近有更新）' : ''} —` });
-        idxs.forEach((i) => {
-          const isBest = i === info.best_index;
-          opts.push({
-            value: { index: i, profile: prof },
-            label: i === -1 ? `${prof} · 原生模型（未训练）`
-                            : `${isBest ? '★ 最强' : 'AI'} · ${prof} · v${i}`
-          });
-          if (prof === data.profile && i === best) bestIdx = opts.length - 1;
-        });
-      });
-      this.profile = data.profile || null;   // 默认网络（最近有产出的那个）
-      const kinds = order.map((pp) => `${pp}（${profiles[pp].indices.length} 个模型）`).join(' · ');
-      $('model-hint').classList.remove('hidden');
-      $('model-hint').textContent = `神经网络：${kinds}　（默认 ${data.profile} 最新最强，展开可跨网络选模型）`;
-      this.dd1.setOptions(opts, bestIdx);
-      this.dd2.setOptions(opts, bestIdx);
-      $('btn-launch').disabled = false;
+        const gopts = idxs.map((i) => ({
+          value: { index: i, profile: prof },
+          label: i === -1 ? '原生模型（未训练）'
+                          : (i === info.best_index ? `★ v${i}（最强）` : `v${i}`),
+        }));
+        const d = gopts.findIndex((o) => o.value.index === info.best_index);
+        dd.setOptions(gopts, d >= 0 ? d : 0);
+      };
+      const kindOpts = order.map((pp) => ({
+        value: pp,
+        label: `网络 ${pp}${pp === data.profile ? '（默认）' : ''}`,
+      }));
+      fillGens(this.dd1, order[0]);
+      fillGens(this.dd2, order[0]);
+      this.dd1k.setOptions(kindOpts, 0);
+      this.dd2k.setOptions(kindOpts, 0);
     },
     start() {
       const mode = this.mode;

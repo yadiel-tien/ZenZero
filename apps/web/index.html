@@ -139,10 +139,16 @@
         未检测到模型文件。<br>请从 GitHub Release 下载 .pt 放入 data/&lt;游戏名&gt;/ 目录。
       </div>
       <div class="dd-label" id="dd1-label">AI 1（执先手）</div>
-      <div id="dd1" class="dropdown"><button class="dd-btn">请选择 AI 模型</button><ul class="dd-list"></ul></div>
+      <div class="dd-pair">
+        <div id="dd1k" class="dropdown kind"><button class="dd-btn">神经网络</button><ul class="dd-list"></ul></div>
+        <div id="dd1" class="dropdown"><button class="dd-btn">选择代数</button><ul class="dd-list"></ul></div>
+      </div>
       <div id="dd2-box">
         <div class="dd-label">AI 2（执后手）</div>
-        <div id="dd2" class="dropdown"><button class="dd-btn">请选择 AI 模型</button><ul class="dd-list"></ul></div>
+        <div class="dd-pair">
+          <div id="dd2k" class="dropdown kind"><button class="dd-btn">神经网络</button><ul class="dd-list"></ul></div>
+          <div id="dd2" class="dropdown"><button class="dd-btn">选择代数</button><ul class="dd-list"></ul></div>
+        </div>
       </div>
       <button id="btn-launch" class="row-btn red">开始对局</button>
       <button class="row-btn black tiny" data-back="mode">返回</button>
