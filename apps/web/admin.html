@@ -274,17 +274,15 @@
         <div class="field"><label>棋种</label><select id="a_game"><option>ChineseChess</option><option>Gomoku</option></select></div>
         <div class="field"><label>神经网络</label><select id="a_profile"><option value="s">s</option><option value="m">m</option><option value="l">l</option></select></div>
         <div class="field"><label>&nbsp;</label><button id="btn-refresh-art">刷新</button></div>
-        <div class="field"><label>&nbsp;</label><button id="btn-promote">把指定代设为 best</button></div>
-        <div class="field"><label>&nbsp;</label><input id="a_promote" type="number" placeholder="代" style="width:90px"></div>
       </div>
       <div class="hint" id="art_summary" style="margin-top:8px">—</div>
     </div>
     <div class="grid">
-      <div class="panel"><h2>Checkpoint <span class="lg">按代</span><button class="mini danger bb" data-t="t_ckpt" disabled>删除选中的 0</button></h2><div style="overflow:auto;max-height:360px"><table id="t_ckpt"></table></div></div>
+      <div class="panel"><h2>Checkpoint <span class="lg">按代</span><button class="mini danger bb" data-t="t_ckpt" hidden>删除 0</button></h2><div style="overflow:auto;max-height:360px"><table id="t_ckpt"></table></div></div>
       
-      <div class="panel"><h2>经验池<button class="mini danger bb" data-t="t_pools" disabled>删除选中的 0</button></h2><div style="overflow:auto;max-height:300px"><table id="t_pools"></table></div>
+      <div class="panel"><h2>经验池<button class="mini danger bb" data-t="t_pools" hidden>删除 0</button></h2><div style="overflow:auto;max-height:300px"><table id="t_pools"></table></div>
       </div>
-      <div class="panel"><h2>TensorBoard runs<button class="mini danger bb" data-t="t_runs" disabled>删除选中的 0</button></h2><div style="overflow:auto;max-height:300px"><table id="t_runs"></table></div></div>
+      <div class="panel"><h2>TensorBoard runs<button class="mini danger bb" data-t="t_runs" hidden>删除 0</button></h2><div style="overflow:auto;max-height:300px"><table id="t_runs"></table></div></div>
     </div>
   </section>
 
@@ -608,10 +606,10 @@ async function loadArtifacts(){
       <tr><td><input type=checkbox class=ck data-kind=checkpoint ${isSel('t_ckpt',c.path)?'checked':''} value="${esc(c.path)}"></td><td class="num">${c.iteration}${c.iteration===d.best_index?' <span class="pill run">best</span>':''}</td>
           <td class="num">${gb(c.size)}</td><td class="hint">${new Date(c.mtime*1000).toLocaleString()}</td>
           <td><button class="mini" onclick="promote(${c.iteration})">设为best</button>
-              <button class="mini danger" onclick="delArtifact('checkpoint','${c.path}','delete')">删</button></td></tr>`).join('');
+              <button class="mini danger" onclick="delArtifact('checkpoint','${c.path}','delete')" title="删除此代">🗑</button></td></tr>`).join('');
     $('t_runs').innerHTML = `<tr><th><input type=checkbox class=ckall data-t=t_runs></th><th>run</th><th>大小</th><th></th></tr>` + d.runs.slice(0,20).map(r=>`
       <tr><td><input type=checkbox class=ck data-kind=run ${isSel('t_runs',r.path)?'checked':''} value="${esc(r.path)}"></td><td class="hint">${esc(r.name)}</td><td class="num">${gb(r.size)}</td>
-          <td><button class="mini danger" onclick="delArtifact('run','${r.path}','delete')">删</button></td></tr>`).join('');
+          <td><button class="mini danger" onclick="delArtifact('run','${r.path}','delete')" title="删除此 run">🗑</button></td></tr>`).join('');
     tidySel('t_ckpt', d.checkpoints.map(c=>c.path));
     tidySel('t_runs', d.runs.slice(0,20).map(r=>r.path));
     loadPools(game);
@@ -631,7 +629,7 @@ async function loadPools(game){
           <td><b>${esc(b.ref)}</b></td>
           <td class="num">${num(b.size)} / ${num(b.capacity)}</td>
           <td class="hint">${esc(src)}<br>${esc((b.updated_at||'').slice(5,16)).replace('T',' ')}</td>
-          <td><button class="mini" title="克隆为新池" onclick="clonePool('${esc(b.ref)}')">⧉</button> <button class="mini danger" title="删除此池（数据不可恢复）" onclick="delPool('${esc(b.ref)}')">删</button></td></tr>`;
+          <td><button class="mini" title="克隆为新池" onclick="clonePool('${esc(b.ref)}')">⧉</button> <button class="mini danger" title="删除此池（数据不可恢复）" onclick="delPool('${esc(b.ref)}')">🗑</button></td></tr>`;
     }).join('') : (selMap.t_pools.clear(), '<tr><td colspan="5" class="hint">本棋种还没有经验池——训练表单里可直接新建</td></tr>'));
   syncBtn('t_pools');
   }catch(e){ t.innerHTML = `<tr><td class="hint">经验池读取失败：${esc(e.message)}</td></tr>`; }
@@ -679,7 +677,7 @@ function bindBatchUI(){
 function syncBtn(tid){
   const btn = document.querySelector(`.bb[data-t="${tid}"]`); if(!btn) return;
   const n = selMap[tid].size;
-  btn.disabled = !n; btn.textContent = `删除选中的 ${n}`;
+  btn.hidden = !n; btn.textContent = `删除 ${n}`;
 }
 /* 重绘后调用：清掉本次列表里已不存在的勾选（文件被删/切了棋种），并校正表头全选态 */
 function tidySel(tid, rows){
@@ -716,8 +714,8 @@ async function delArtifact(kind, path, confirm){
   }catch(e){ toast('删除失败: '+e.message); }
 }
 async function promote(it){
-  const v = (it===undefined||it===null) ? parseInt($('a_promote').value,10) : it;
-  if(!v){ toast('先填要设为 best 的代'); return; }
+  const v = it;
+  if(!v){ toast('未指定代数'); return; }
   try{
     const r = await api('/api/admin/best', {method:'POST', body: JSON.stringify({iteration:v, game:$('a_game').value, profile:$('a_profile').value})});
     r.ok ? toast('best_index 已设为 '+r.best_index, true) : toast('失败: '+r.error);
@@ -998,7 +996,6 @@ $('btn-start2').onclick = startTraining;
 $('btn-stop').onclick = () => stopTraining('kill');
 $('btn-stop-round').onclick = () => stopTraining('interrupt');
 $('btn-refresh-art').onclick = loadArtifacts;
-$('btn-promote').onclick = ()=>promote();
 $('btn-load-log').onclick = loadLog;
 $('a_game').onchange = $('a_profile').onchange = loadArtifacts;
 $('f_game').onchange = ()=>{ loadProfiles(); loadBuffers(); };
