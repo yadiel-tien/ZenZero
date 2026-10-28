@@ -67,7 +67,9 @@
   .card .v{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
   .card .s{font-size:11px;color:var(--dim)}
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:12px}
-  .panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);transition:background-color .18s ease, border-color .18s ease}
+  .chint{position:absolute;right:12px;top:12px;font-size:10px;color:var(--dim);opacity:0;transition:opacity .25s;pointer-events:none}
+  .panel:hover .chint{opacity:.6}
+  .panel{position:relative;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);transition:background-color .18s ease, border-color .18s ease}
   .panel h2{font-size:12px;margin:0 0 8px;font-weight:600;display:flex;gap:8px;align-items:center}
   .panel h2 .lg{font-weight:400;font-size:11px;color:var(--dim)}
   .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--dim);margin:-2px 0 5px}
@@ -119,9 +121,6 @@
 <main>
   <!-- ============ 监控 ============ -->
   <section class="tab on" id="tab-monitor">
-    <div class="hint" style="margin-bottom:8px">曲线：<b>滚轮缩放</b>（以光标为中心）· <b>拖动平移</b> · <b>双击复位</b>
-      ｜ 按轮的图（自博弈吞吐 / batch / 模拟耗时 / 评估胜率）<b>横轴 = 累计轮数</b>，跨重启累计；
-      按 step 的图（Loss / KL）横轴 = 训练步数</div>
     <div class="cards" id="cards"></div>
     <div class="grid">
       <div class="panel"><h2>自博弈吞吐 <span class="lg">局/分钟</span></h2><canvas id="c_gpm"></canvas></div>
@@ -391,6 +390,9 @@ function attachChart(id){
   const cv = $(id);
   if(!cv || cv._zoomed) return;
   cv._zoomed = true; cv.style.cursor = 'crosshair';
+  const pn = cv.closest('.panel');
+  if(pn && !pn.querySelector('.chint')){ const c = document.createElement('span');
+    c.className = 'chint'; c.textContent = '滚轮缩放 · 拖动平移 · 双击复位'; pn.appendChild(c); }
   cv.addEventListener('wheel', e => {
     const cfg = LASTCFG[id]; if(!cfg) return;
     e.preventDefault();
