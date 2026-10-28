@@ -191,7 +191,7 @@ ZZ_GAMES_PER_ROUND / ZZ_BATCH_LEAVES / ZZ_MAX_BATCH / ZZ_INFER_WORKERS / ZZ_ADMI
 <tr><th>症状</th><th>先看这</th></tr>
 <tr><td>起服务报端口占用</td><td><code>--port</code> 换一个；或找到旧进程（训练进程由控制台管理，不会撞 web 端口）</td></tr>
 <tr><td>界面提示"无法获取模型列表"</td><td>服务没起 / 该档位目录没有 <code>.pt</code>；模型下拉换档再试</td></tr>
-<tr><td>训练启动即停</td><td>管理台"训练"页展开 console 日志；或看 <code>logs/console/train_*.log</code>。最常见：仓不足以喂一个 batch（将自动先行填充缓冲区，等待其完成即可）；或显式设备不可用（设计如此，改 <code>ZZ_DEVICE=auto</code>）</td></tr>
+<tr><td>训练启动即停</td><td>日志页「● 实时」跟随（文件即 <code>logs/train/console.log</code>，历次会话追加）。最常见：仓不足以喂一个 batch（将自动先行填充缓冲区，等待其完成即可）；或显式设备不可用（设计如此，改 <code>ZZ_DEVICE=auto</code>）</td></tr>
 <tr><td>面板数字是"缓存"</td><td>看卡片副标题：标"实时"走心跳，标"上轮/已停"是 perf 记录或日志启发式；训练进程不在时全部转灰属正常</td></tr>
 <tr><td>怀疑哪里炸了</td><td><code>logs/crash/latest.log</code>（线程级异常全进这里，带堆栈）；面板顶部红色横幅同址提示</td></tr>
 <tr><td>GPU 训练吞吐骤降</td><td>监控页看 GPU 利用率与"凑批等待"：若与占用 GPU 的进程并发，应错峰运行；若 window 顶格而均批不涨，调大 <code>ZZ_MAX_BATCH</code>（§3 篇 5 节）</td></tr>

@@ -45,7 +45,8 @@ def _registry():
 
 
 def _runner():
-    return TaskRunner(state_file=os.path.join(_tmp, 'tasks.json'), registry=_registry())
+    return TaskRunner(state_file=os.path.join(_tmp, 'tasks.json'), registry=_registry(),
+                      log_root=os.path.join(_tmp, 'logs'))
 
 
 def test_lifecycle():

@@ -26,7 +26,7 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-STATE_DIR = ROOT / 'logs' / 'console'
+STATE_DIR = ROOT / 'logs' / '_state'        # 任务状态（tasks.json），非日志、不进清单
 STATE_FILE = STATE_DIR / 'tasks.json'
 
 TASKS: dict[str, dict] = {
@@ -66,10 +66,13 @@ def _alive_cmdline(pid: int, marker: str) -> bool:
 class TaskRunner:
     """按名字管理多个任务（一个进程内单例即可，状态在磁盘）。"""
 
-    def __init__(self, state_file: Path | None = None, registry: dict | None = None) -> None:
-        # registry 可注入：测试用假任务（argv 直启），绝不写生产 logs/console/tasks.json
+    def __init__(self, state_file: Path | None = None, registry: dict | None = None,
+                 log_root: Path | str | None = None) -> None:
+        # registry/state_file/log_root 可注入：测试用假任务与临时目录，绝不写生产 logs/
         self.state_file = Path(state_file or STATE_FILE)
         self.registry = dict(TASKS if registry is None else registry)
+        self.log_root = Path(log_root) if log_root else Path(__import__('core.utils.config',
+                                                                       fromlist=['CONFIG']).CONFIG['log_dir'])
         self.procs: dict[str, subprocess.Popen] = {}
         self.meta: dict[str, dict] = {}
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
@@ -175,9 +178,13 @@ class TaskRunner:
         cmd, err = self._build_cmd(name, params)
         if err:
             return {'ok': False, 'error': err}
-        stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        log_path = self.state_file.parent / f'task_{name}_{stamp}.log'
+        log_path = self.log_root / name / 'console.log'    # 统一格式：<模块>/console.log
+        log_path.parent.mkdir(parents=True, exist_ok=True)
         log_fp = open(log_path, 'ab', buffering=0)
+        if log_fp.tell():
+            log_fp.write(b'\n')
+        log_fp.write(f'═════ 新会话 {name} · {datetime.now().isoformat(timespec="seconds")} '
+                     f'· {" ".join(str(x) for x in cmd[1:])} ═════\n'.encode())
         env = os.environ.copy()
         env['PYTHONUNBUFFERED'] = '1'
         proc = subprocess.Popen(cmd, cwd=str(ROOT), env=env, stdout=log_fp, stderr=subprocess.STDOUT,

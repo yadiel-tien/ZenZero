@@ -144,7 +144,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
   <!-- train -->
   <rect x="420" y="266" width="340" height="52" rx="12" fill="none" stroke="#8b0000" stroke-width="1.8"/>
   <text x="440" y="286" font-weight="bold" fill="#8b0000">训练进程　scripts/train_server.py（子进程，start_new_session）</text>
-  <text x="440" y="304" font-size="10.8">TrainServer(=引擎) + SelfPlayManager；状态落 logs/console/trainer.json</text>
+  <text x="440" y="304" font-size="10.8">TrainServer(=引擎) + SelfPlayManager；状态落 logs/_state/trainer.json</text>
   <path d="M400 60 Q 560 40 640 90 Q 700 130 700 264" fill="none" stroke="#3d6b35" stroke-width="1.5" marker-end="url(#pa)"/>
   <text x="656" y="86" font-size="11" fill="#3d6b35">只读旁路：心跳/统计/日志/TensorBoard</text>
   <text x="40" y="330" font-size="11.3" fill="#6b6557">契约面只有四个：① HTTP 请求/响应；② 磁盘文件（ckpt/buffer/心跳/trainer.json）；③ 信号（INT/USR1/KILL）；④ /proc 收养。两进程不共享内存，任一方的异常退出均不损毁另一方的数据。</text>
@@ -170,7 +170,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 <tr><td><code>services/train/</code></td><td>selfplay（管线编排）、heartbeat（心跳）</td><td>§4 篇</td></tr>
 <tr><td><code>services/admin/ · services/monitor/</code></td><td>runner（生命周期）、artifacts（制品）、routes；monitor（快照采集）</td><td>本篇 7 节</td></tr>
 <tr><td><code>apps/web/</code></td><td>零构建前端：index（对弈）、admin（控制台）、js/（浏览器端棋规引擎）</td><td>本篇 8 节</td></tr>
-<tr><td><code>docs/ · data/ · logs/ · runs/</code></td><td>本文档集；模型与仓；运行日志与心跳；TensorBoard</td><td>—</td></tr>
+<tr><td><code>docs/ · data/ · logs/ · runs/</code></td><td>本文档集；模型与仓；运行日志与心跳（统一格式 <code>&lt;模块&gt;/latest.log*</code> 与 <code>&lt;模块&gt;/console.log*</code>，<code>_state/</code> 进程状态、<code>_archive/</code> 历史归档不进台账）；TensorBoard</td><td>—</td></tr>
 </table>
 
 <h2 id="s4">4　模型管理：注册表 + 档位制</h2>
@@ -284,11 +284,11 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <tr><td><span class="get">GET</span> <code>/artifacts</code></td><td>checkpoint / 日志 / 运行目录 / 仓清单（大小、时间、已用/容量、是否最佳）</td></tr>
 <tr><td><span class="post">POST</span> <code>/artifacts/delete</code></td><td><code>{kind, path, confirm}</code>：白名单 kind∈{checkpoint,log,run,buffer}；拒删当前 best（先回滚再删）；删仓需 <code>confirm:"delete-buffer"</code></td></tr>
 <tr><td><span class="post">POST</span> <code>/best</code></td><td><code>{iteration}</code>：一键改换守擂者（制品页"设为最强"），回滚坏模型的主路径</td></tr>
-<tr><td><span class="get">GET</span> <code>/logs?path=&amp;tail=</code> · <code>/logs/list</code> · <code>/health</code></td><td>任意日志尾读（路径穿越封堵，越界 403）；清单；体检</td></tr>
+<tr><td><span class="get">GET</span> <code>/logs?path=&amp;tail=</code> · <code>/logs/list</code> · <code>/health</code></td><td>任意日志尾读（限 log_dir 内，越界 403）；清单=白名单形态 <code>&lt;模块&gt;/latest.log*|console.log*</code>；体检</td></tr>
 <tr><td><span class="get">GET</span> <code>/buffers</code> · <span class="post">POST</span> <code>/buffers/create</code></td>
 <td>数据仓注册表（目录现场扫描：default@&lt;模型&gt; 原位仓 + 命名仓）与建仓；元数据记录棋种、表示版本、容量/已用、最新内容来自哪个模型的第几代</td></tr>
 <tr><td><span class="get">GET</span> <code>/tasks</code> · <span class="post">POST</span> <code>/tasks/start</code> · <code>/tasks/stop</code> · <span class="get">GET</span> <code>/tasks/log</code></td>
-<td>「任务」页后端：注册表驱动（priskvork 常驻；arena / bench / build_cython 一次性），参数按 schema 白名单校验，once 任务退出码即时回传（exit 0 即成功），输出落 <code>logs/console/task_&lt;名&gt;_&lt;时间&gt;.log</code>，服务重启按 pid + /proc cmdline 收养</td></tr>
+<td>「任务」页后端：注册表驱动（priskvork 常驻；arena / bench / build_cython 一次性），参数按 schema 白名单校验，once 任务退出码即时回传（exit 0 即成功），输出追加落 <code>logs/&lt;任务名&gt;/console.log</code>（统一格式，历次会话连贯），服务重启按 pid + /proc cmdline 收养</td></tr>
 </table>
 
 <h2 id="s8">8　前端与其它入口</h2>

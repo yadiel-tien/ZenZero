@@ -312,26 +312,26 @@ def logs():
 
 @bp.get('/api/admin/logs/list')
 def logs_list():
-    """日志清单：递归 logs/ 全树，文件名含 log 的一律入列，零过滤（用户拍板）。
+    """日志清单：只认统一格式 `<模块>/latest.log*`（logger 流）与 `<模块>/console.log*`
+    （受管子进程 stdout），一层目录、不递归；`_` 前缀目录（_state/_archive）不进台账。
 
-    分类 = 相对路径首段目录名（顶层散文件归 root）；清单按 mtime 倒序，
-    前端两级下拉：类型（目录）→ 文件（该类内倒序，默认最新）。
-    console/train_*.log 是训练子进程 stdout+stderr 全量落盘（启动横幅、崩溃栈都在），
-    与 <模块>/latest.log（logger 格式化流）互补；正在写的那份额外由「● 实时」跟随。"""
+    历史不合规文件已由一次性迁移归位或存入 logs/_archive/<原路径>——治理在源头
+    （写侧统一走 logger / runner 的 console.log 槽位），展示层不再做形状发明。
+    「● 实时」(name=current) 独立跟随 runner 正在写的文件，不受清单形态约束。"""
     base = Path(CONFIG['log_dir'])
     out = []
     if base.is_dir():
-        for f in base.rglob('*'):
-            if not (f.is_file() and 'log' in f.name.lower()):
+        for entry in sorted(base.iterdir()):
+            if not entry.is_dir() or entry.name.startswith(('_', '.')):
                 continue
-            try:
+            for f in sorted(entry.iterdir()):
+                if not f.is_file():
+                    continue
+                if not (f.name.startswith('latest.log') or f.name.startswith('console.log')):
+                    continue
                 st = f.stat()
-            except OSError:
-                continue
-            rel = f.relative_to(base)
-            out.append({'name': str(rel), 'path': str(rel),
-                        'cat': rel.parts[0] if len(rel.parts) > 1 else 'root',
-                        'size': st.st_size, 'mtime': st.st_mtime})
+                out.append({'name': f.name, 'path': f'{entry.name}/{f.name}',
+                            'cat': entry.name, 'size': st.st_size, 'mtime': st.st_mtime})
     out.sort(key=lambda x: x['mtime'], reverse=True)
     return jsonify({'logs': out})
 

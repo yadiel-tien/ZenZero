@@ -227,7 +227,7 @@
   <section class="tab" id="tab-tasks">
     <div class="hint" style="margin-bottom:10px">scripts/ 其余功能入口的启停（训练在「训练」页）。
       常驻任务停止走 SIGINT→SIGTERM→SIGKILL 逐级；一次性任务显示上次退出码。输出统一落
-      <code>logs/console/task_&lt;名&gt;_&lt;时间&gt;.log</code>。</div>
+      <code>logs/&lt;任务名&gt;/console.log</code>（追加，历次会话连贯）。</div>
     <div id="task-list"><div class="hint">加载中…</div></div>
     <div class="panel" style="margin-top:12px"><h2>任务日志 <span class="lg" id="task-log-name">—</span></h2>
       <pre id="task-log" style="max-height:340px">点击任务上的「查看日志」在此显示</pre></div>

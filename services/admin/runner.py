@@ -21,7 +21,7 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-STATE_DIR = ROOT / 'logs' / 'console'
+STATE_DIR = ROOT / 'logs' / '_state'        # 进程状态（trainer.json），非日志、不进清单
 STATE_FILE = STATE_DIR / 'trainer.json'
 
 # 允许从面板覆盖的旋钮 → 环境变量（core/utils/config.py 里有对应读取）
@@ -59,11 +59,16 @@ def _known_profile(v: str) -> bool:
 
 class TrainingRunner:
     def __init__(self, cmd: list[str] | None = None, marker: str = 'scripts.train_server',
-                 state_file: Path | None = None) -> None:
-        # cmd/marker/state_file 可注入：测试用假命令 + 临时状态文件，绝不写生产 logs/console
+                 state_file: Path | None = None, log_file: Path | str | None = None) -> None:
+        # cmd/marker/state_file/log_file 可注入：测试用假命令 + 临时文件，绝不写生产 logs/
         self._cmd = cmd or [sys.executable, '-X', 'gil=0', '-m', 'scripts.train_server']
         self.marker = marker
         self.state_file = Path(state_file or STATE_FILE)
+        if log_file:
+            self.log_file = Path(log_file)
+        else:                                        # 局部导入与本模块既有风格一致
+            from core.utils.config import CONFIG as _C
+            self.log_file = Path(_C['log_dir']) / 'train' / 'console.log'
         self.proc: subprocess.Popen | None = None
         self.meta: dict = {}
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
@@ -135,15 +140,19 @@ class TrainingRunner:
         if err:
             return {'ok': False, 'error': err}
         STATE_DIR.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        log_path = self.state_file.parent / f'train_{stamp}.log'
+        log_path = self.log_file                      # 统一格式：<模块>/console.log（追加，历次会话连贯）
         env = os.environ.copy()
         env['PYTHONUNBUFFERED'] = '1'
         for key, env_name in _KNOB_ENV.items():
             if clean.get(key) not in (None, ''):
                 env[env_name] = str(clean[key])
         cmd = list(self._cmd)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
         log_fp = open(log_path, 'ab', buffering=0)
+        if log_fp.tell():
+            log_fp.write(b'\n')
+        log_fp.write(f'═════ 新训练会话 · {datetime.now().isoformat(timespec="seconds")} '
+                     f'· {" ".join(cmd[-2:])} ═════\n'.encode())
         proc = subprocess.Popen(cmd, cwd=str(ROOT), env=env, stdout=log_fp, stderr=subprocess.STDOUT,
                                 start_new_session=True)
         self.proc = proc
