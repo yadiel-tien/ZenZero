@@ -361,7 +361,7 @@ feature_version（§1 篇 §6，错位会被引擎的面数闸拒绝）；<code>
 </table>
 
 <h2 id="s9">9　实验：吞吐演进与测量方法</h2>
-<div class="tbl-cap"><b>决策层逐阶段演进</b>（固定 200 sims/手、32 线程、同机同网；测量日志：logs/perf/perf.jsonl 与运行记录，2026-10-27）。</div>
+<div class="tbl-cap"><b>决策层逐阶段演进</b>（固定 200 sims/手、32 线程、同机同网；测量日志：logs/_state/perf.jsonl 与运行记录，2026-10-27）。</div>
 <table>
 <tr><th>#</th><th>阶段</th><th>请求吞吐 (局面/秒)</th><th>局/分 @200 sims</th><th>均批大小</th><th>关键变化</th></tr>
 <tr><td>0</td><td>改造前基线</td><td>5.8k</td><td>6.7</td><td>~1</td><td>串行；进程间 socket 推理</td></tr>

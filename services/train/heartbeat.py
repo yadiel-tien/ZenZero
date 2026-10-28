@@ -5,7 +5,7 @@
 一动不动（看着像死数据），而且卡住时面板也只能干说一句 stalled。
 
 心跳是训练进程自己每 2 秒（或每局）写一次的小 JSON：
-    logs/runtime.json
+    logs/_state/runtime.json          # 与 trainer.json/tasks.json 同柜：非文本日志的记录文件都进 _state/
 字段都是训练侧的真实内存值（buffer.size/capacity、已完局数、阶段、本轮 iteration），
 写失败一律静默——绝不能因为监控影响训练。
 
@@ -31,7 +31,12 @@ MIN_INTERVAL = 2.0          # 秒；同一阶段内的高频更新按这个节�
 
 
 def path() -> str:
-    return os.path.join(CONFIG['log_dir'], 'runtime.json')
+    return os.path.join(CONFIG['log_dir'], '_state', 'runtime.json')
+
+
+def read_candidates() -> list[str]:
+    """新路径优先；旧路径（logs/runtime.json）回退一程，兼容升级窗口内的对端。"""
+    return [path(), os.path.join(CONFIG['log_dir'], 'runtime.json')]
 
 
 def write(force: bool = False, **fields) -> None:
@@ -58,7 +63,8 @@ def write(force: bool = False, **fields) -> None:
 
 def read() -> dict | None:
     try:
-        with open(path(), encoding='utf-8') as fp:
+        p = next((c for c in read_candidates() if os.path.exists(c)), path())
+        with open(p, encoding='utf-8') as fp:
             data = json.load(fp)
         data['age_s'] = round(time.time() - float(data.get('ts') or 0), 1)
         return data

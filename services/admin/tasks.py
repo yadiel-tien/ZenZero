@@ -4,10 +4,10 @@
 参数一律以命令行 flags 传下去，且只接受任务注册表里声明过的项（白名单校验）：
 
 - 独立子进程（start_new_session=True）：本服务重启不影响任务，任务崩溃不带走服务；
-- 状态落 logs/console/tasks.json：按 pid + /proc cmdline 特征收养，防误杀；
+- 状态落 logs/_state/tasks.json：按 pid + /proc cmdline 特征收养，防误杀；
 - 停止 = SIGINT →（超时）SIGTERM →（超时）SIGKILL → wait 回收；
 - long 类任务（如 piskvork 协议服）常驻直到手动停止；once 类（bench/build）跑完留退出码与日志；
-- 一切输出追加到 logs/console/task_<name>_<时间>.log，日志尾读走现有 /api/admin/tasks/log。
+- 一切输出追加到 logs/<任务名>/console.log（统一格式，历次会话连贯），日志尾读走现有 /api/admin/tasks/log。
 
 注册表（新增任务只改这里）：
     module      以 -m 启动的模块，或 script 以脚本路径启动（二选一）

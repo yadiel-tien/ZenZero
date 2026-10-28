@@ -200,7 +200,8 @@ def test_stop_modes():
         assert r.status()['running'], '拒绝之后进程必须还活着'
         # ② 写入该 pid 的心跳（声明支持 after_round）→ 这次才允许
         import json as _json
-        hb = Path(CONFIG['log_dir']) / 'runtime.json'
+        from services.train import heartbeat as _hb
+        hb = Path(_hb.path())
         hb.parent.mkdir(parents=True, exist_ok=True)
         hb.write_text(_json.dumps({'pid': pid, 'ts': _t.time(), 'caps': ['heartbeat', 'after_round']}),
                       encoding='utf-8')
@@ -253,7 +254,9 @@ def test_drain_keeps_grace():
     from core.utils.config import CONFIG
     setUp()
     try:
-        hb = Path(CONFIG['log_dir']) / 'runtime.json'
+        from services.train import heartbeat as _hb
+        hb = Path(_hb.path())
+        hb.parent.mkdir(parents=True, exist_ok=True)
         # 假训练进程：收到 SIGINT 进入"收尾"，每 0.4s 写一次带 stopping 的心跳，
         # 4 秒后（模拟收完在跑的局、存盘）自己退出
         code = (

@@ -15,10 +15,14 @@
 - 版本号 UI 只显示 semver（构建号退到悬停与接口字段）；日志页收录训练 console 日志与轮转历史
   （读取端点支持 log_dir 内相对路径，越界 403）；控制台「档位」文案统一改称「模型」。
 - 测试：`tests/test_named_buffers.py` 4 项（起点矩阵 / 注册表与闸门 / replay 落点往返 / 路由与旋钮）。
-- **日志格式统一**：清单只认 `<模块>/latest.log*`（logger 流）与 `<模块>/console.log*`（受管子进程
-  stdout，追加模式 + 会话横幅，历次连贯）两种形态；runner/tasks 状态改落 `logs/_state/`。
-  历史不合规文件一次性迁移 670 个：现行会话正名进模块目录，其余归 `logs/_archive/<原路径>`
-  （保留原文不删，不进台账）。日志查看器附 ANSI 着色渲染。
+- **日志/记录格式统一**（定案）：`logs/` 只有三个抽屉，命名规则唯一——
+  ① 文本日志 `<模块>/latest.log*`（logger 写，按天轮转）与 `<模块>/console.log`（受管子进程
+  stdout 唯一合法例外：runner/tasks 追加写、会话横幅分隔）；
+  ② 数据与状态 `logs/_state/`（`runtime.json` 心跳、`perf.jsonl` 轮次档案、`trainer.json`/
+  `tasks.json` 进程状态、`batch_sweep.json` 扫描结果）；③ 历史 `logs/_archive/<原路径>`。
+  台账只认 ①，`_` 前缀目录不进。**归档判据 = 时间（mtime 超一周），不是形状**——一周内的
+  一律正名归位，超一周的（含合规形态的旧轮转）进 _archive，可查不占台账。累计迁移 697 文件，零删除。
+  日志查看器附 ANSI 着色渲染。
 
 ## 2.1.0 — 2026-10-28
 

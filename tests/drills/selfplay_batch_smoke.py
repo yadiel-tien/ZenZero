@@ -91,8 +91,8 @@ try:
     vs = mgr.buffer.value_buffer[:mgr.buffer.size]
     assert np.all(np.abs(vs) <= 1.0 + 1e-5), f'样本 v 越界: {vs[:5]}'
     assert os.path.exists(os.path.join(tmp, 'Gomoku', 'checkpoint_1.pt')), 'checkpoint 未落盘'
-    assert os.path.exists(os.path.join(tmp, 'logs', 'perf', 'perf.jsonl')), '[perf] 未落盘'
-    with open(os.path.join(tmp, 'logs', 'perf', 'perf.jsonl'), encoding='utf-8') as fp:
+    assert os.path.exists(os.path.join(tmp, 'logs', '_state', 'perf.jsonl')), '[perf] 未落盘'
+    with open(os.path.join(tmp, 'logs', '_state', 'perf.jsonl'), encoding='utf-8') as fp:
         print('[smoke] perf: ' + fp.read().strip())
     print('[smoke] ALL OK ✓')
 finally:

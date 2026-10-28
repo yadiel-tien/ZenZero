@@ -147,7 +147,7 @@ def main() -> None:
         t = a + c * bb
         print(f"  b={bb:>4}: {t:6.2f}ms/batch → {bb / t * 1e3:7.0f} req/s")
 
-    out = args.out or os.path.join(CONFIG['log_dir'], 'perf', 'batch_sweep.json')
+    out = args.out or os.path.join(CONFIG['log_dir'], '_state', 'batch_sweep.json')
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, 'w', encoding='utf-8') as fp:
         json.dump({'ts': time.strftime('%Y-%m-%d %H:%M:%S'), 'profile': get_profile(),

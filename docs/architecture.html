@@ -113,7 +113,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 <tr><td>引擎（InferenceEngine）</td><td>绑定一份权重 + 档位 + 表示版本的常驻推理单元</td><td>§3 篇 1 节</td></tr>
 <tr><td>登记簿（ServerHub）</td><td>进程内的引擎目录与引用计数；不是网络组件</td><td>§3 篇 8 节</td></tr>
 <tr><td>守擂 / 晋升（gatekeeper / promotion）</td><td>现任最强模型与新模型的裁决赛，得分率 &gt; 52% 换王</td><td>§4 篇 8 节</td></tr>
-<tr><td>心跳（heartbeat）</td><td>训练进程每 2s 原子写的状态快照 <code>logs/runtime.json</code>，面板的实时真源</td><td>§4 篇 9 节</td></tr>
+<tr><td>心跳（heartbeat）</td><td>训练进程每 2s 原子写的状态快照 <code>logs/_state/runtime.json</code>，面板的实时真源</td><td>§4 篇 9 节</td></tr>
 <tr><td>对拍（golden/parity test）</td><td>两份实现（Python/Cython、服务端/浏览器端）对同输入逐位比对</td><td>§1 篇 4.4、9 节</td></tr>
 </table>
 

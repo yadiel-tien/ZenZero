@@ -3,7 +3,7 @@
 设计要点：
 - 训练是**独立子进程**（start_new_session=True）：本 API 服务重启或退出都不影响它，
   反过来训练崩了也不会带走棋类服务；
-- 状态落 `logs/console/trainer.json`：API 服务自己重启后能"认领"还在跑的训练
+- 状态落 `logs/_state/trainer.json`：API 服务自己重启后能"认领"还在跑的训练
   （按 pid 存活 + /proc/<pid>/cmdline 里含 train_server 双重确认，避免杀错进程）；
 - 停止是"先礼后兵"：SIGINT（train_server 里 register_sigint 会走 shutdown_all）→
   等优雅退出 → SIGTERM → 再等 → SIGKILL；
@@ -233,7 +233,11 @@ class TrainingRunner:
         try:
             import json as _json
             from core.utils.config import CONFIG
-            data = _json.loads((Path(CONFIG['log_dir']) / 'runtime.json').read_text(encoding='utf-8'))
+            from services.train import heartbeat as _hb
+            p = next((c for c in _hb.read_candidates() if Path(c).exists()), None)
+            if p is None:
+                return False
+            data = _json.loads(Path(p).read_text(encoding='utf-8'))
         except (OSError, ValueError):
             return False
         if int(data.get('pid') or 0) != int(pid):
@@ -299,8 +303,11 @@ def _trainer_caps(pid: int) -> tuple[list[str], str]:
     try:
         import json as _json
         from core.utils.config import CONFIG
-        path = Path(CONFIG['log_dir']) / 'runtime.json'      # 与 heartbeat.path() 同源
-        data = _json.loads(path.read_text(encoding='utf-8'))
+        from services.train import heartbeat as _hb
+        p = next((c for c in _hb.read_candidates() if Path(c).exists()), None)
+        if p is None:
+            return [], '没有心跳文件，像是旧版本进程'
+        data = _json.loads(Path(p).read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return [], '没有心跳文件，像是旧版本进程'
     if int(data.get('pid') or 0) != int(pid):

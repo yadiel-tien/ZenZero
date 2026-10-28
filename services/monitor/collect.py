@@ -1,7 +1,7 @@
 """训练监控的数据采集层：只读 + 带缓存，绝不碰训练进程。
 
 四个数据源：
-1. logs/perf/perf.jsonl —— 每轮一行结构化吞吐档案（[perf] 行的机器可读版）
+1. logs/_state/perf.jsonl —— 每轮一行结构化吞吐档案（[perf] 行的机器可读版）
 2. logs/{selfplay,fit,inference}/latest.log 尾部 —— 当前轮/当前阶段的实时数
 3. runs/*/events.out.tfevents.* —— TensorBoard 曲线（Loss/Val/Perf）
 4. /proc + nvidia-smi —— CPU/内存/负载/GPU
@@ -23,7 +23,8 @@ from collections import deque
 
 from core.utils.config import CONFIG, get_profile, net_config_for, game_name
 
-PERF_JSONL = os.path.join(CONFIG['log_dir'], 'perf', 'perf.jsonl')
+PERF_JSONL = os.path.join(CONFIG['log_dir'], '_state', 'perf.jsonl')
+PERF_JSONL_OLD = os.path.join(CONFIG['log_dir'], 'perf', 'perf.jsonl')  # 回退一程
 
 # 注意格式随版本演进了两次：`batch mean N (max M, top ...)` → 现在多了尾部均值段
 # `batch mean N (recent R) (max M, top ...)`。正则必须容忍可选段，否则整个吞吐卡片变空。
@@ -299,7 +300,8 @@ class Monitor:
     def _rounds(self, limit: int = 400) -> list[dict]:
         rows: list[dict] = []
         try:
-            with open(PERF_JSONL, encoding='utf-8') as fp:
+            p = PERF_JSONL if os.path.exists(PERF_JSONL) else PERF_JSONL_OLD
+            with open(p, encoding='utf-8') as fp:
                 for line in fp:
                     line = line.strip()
                     if not line:

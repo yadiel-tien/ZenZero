@@ -177,7 +177,7 @@ class SelfPlayManager:
 
     def _record_perf(self, round_index: int, iteration: int, sp: dict, fill: dict,
                      fit: dict, ev: dict | None, ev_wall: float) -> None:
-        """吞吐记录：三段计时 → logs/perf/perf.jsonl 留档 + TensorBoard Perf/* + 终端一行摘要。"""
+        """吞吐记录：三段计时 → logs/_state/perf.jsonl 留档 + TensorBoard Perf/* + 终端一行摘要。"""
         sp_w = max(sp['wall'], 1e-9)
         fit_sps = fit['steps'] * fit['batch'] / max(fit['wall'], 1e-9)
         ev = ev or {}
@@ -208,7 +208,7 @@ class SelfPlayManager:
             'val_buffer_size': self.val_buffer.size,
             'val_buffer_capacity': self.val_buffer.capacity,
         }
-        perf_dir = os.path.join(CONFIG['log_dir'], 'perf')
+        perf_dir = os.path.join(CONFIG['log_dir'], '_state')
         os.makedirs(perf_dir, exist_ok=True)
         with open(os.path.join(perf_dir, 'perf.jsonl'), 'a', encoding='utf-8') as fp:
             fp.write(json.dumps(rec, ensure_ascii=False) + '\n')
