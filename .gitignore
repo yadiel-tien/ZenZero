@@ -1,7 +1,6 @@
 .git
 .ipynb_checkpoints
 __pycache__/
-tests/
 data/
 logs/
 *.so
