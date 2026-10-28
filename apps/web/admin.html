@@ -231,7 +231,9 @@
         <!-- 策略头（内部按 PolicyHead 实码，两行小链） -->
         <rect x="696" y="26" width="196" height="68" rx="7" fill="none" stroke="var(--green)" stroke-width="1.6"/>
         <text x="794" y="20" text-anchor="middle" class="gtx" font-weight="700">策略头 Policy（学「走哪」）</text>
-        <rect class="cell" x="704" y="34" width="52" height="20" rx="3"/><text x="730" y="48" text-anchor="middle" class="op">1×1降维</text>
+        <rect class="cell" x="704" y="34" width="52" height="20" rx="3"/>
+        <text x="730" y="48" text-anchor="middle" class="op"><title>1×1 卷积＝逐格通道混合：每个格子的 F 通道线性压到几个通道（本棋类 32），不看邻格、只降维，让后面的 fc 参数省一个数量级</title>Conv</text>
+        <text x="730" y="31" text-anchor="middle" class="op" font-size="7.5">1×1</text>
         <line x1="756" y1="44" x2="764" y2="44" stroke="var(--dim)" marker-end="url(#na)"/>
         <rect class="cell" x="766" y="34" width="24" height="20" rx="3"/><text x="778" y="48" text-anchor="middle" class="op">BN</text>
         <line x1="790" y1="44" x2="798" y2="44" stroke="var(--dim)" marker-end="url(#na)"/>
@@ -246,10 +248,12 @@
         <!-- 价值头（ValueHead 实码：无 BN，全程 LeakyReLU） -->
         <rect x="696" y="112" width="196" height="70" rx="7" fill="none" stroke="var(--red)" stroke-width="1.6"/>
         <text x="794" y="104" text-anchor="middle" class="rtx" font-weight="700">价值头 Value（学「谁优」）</text>
-        <rect class="cell" x="704" y="118" width="52" height="20" rx="3"/><text x="730" y="132" text-anchor="middle" class="op">1×1降维</text>
+        <rect class="cell" x="704" y="118" width="52" height="20" rx="3"/>
+        <text x="730" y="132" text-anchor="middle" class="op"><title>同策略头：1×1 先把 F 通道压窄（价值头压到 32 或 1），再展平进 fc</title>Conv</text>
+        <text x="730" y="115" text-anchor="middle" class="op" font-size="7.5">1×1</text>
         <line x1="756" y1="128" x2="764" y2="128" stroke="var(--dim)" marker-end="url(#na)"/>
         <rect class="cell" x="766" y="118" width="46" height="20" rx="3"/><text x="789" y="132" text-anchor="middle" class="op">激活</text>
-        <text x="789" y="112" text-anchor="middle" class="op" font-size="7.5" fill="var(--dim)">LeakyReLU·无BN</text>
+        <text x="888" y="114" text-anchor="end" class="op" font-size="7.5" fill="var(--dim)">全程 LeakyReLU·无 BN</text>
         <path d="M789,138 L789,144 L730,144 L730,148" stroke="var(--dim)" fill="none" marker-end="url(#na)"/>
         <rect class="cell" x="704" y="150" width="40" height="20" rx="3"/><text x="724" y="164" text-anchor="middle" class="op">展平</text>
         <line x1="744" y1="160" x2="752" y2="160" stroke="var(--dim)" marker-end="url(#na)"/>
