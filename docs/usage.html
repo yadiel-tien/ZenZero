@@ -157,7 +157,7 @@ ZZ_BATCH_LEAVES=12 ZZ_DEVICE=auto python -X gil=0 -m scripts.train_server</code>
 <tr><td>监控</td><td>实时吞吐/批/心跳进度；Loss·policy / Loss·value / 策略 KL+熵 / 胜率 / 硬件曲线（滚轮缩放、双击复位）；每卡悬停有释义</td></tr>
 <tr><td>训练</td><td>启停 + 三档停止；表单即环境变量（见 §5 篇 5 节对照表）</td></tr>
 <tr><td>制品</td><td>checkpoint / 日志 / 运行目录 / 仓清单；<b>设为最强</b>（回滚守擂者）；按护栏删除（拒删 best、删仓需二次确认）</td></tr>
-<tr><td>日志</td><td>任选日志文件尾读（自训练 console 日志起）</td></tr>
+<tr><td>日志</td><td><b>训练进程实时尾部</b>（含停止按钮联动）置顶；任选日志文件尾读：模块日志、轮转历史、console 原始输出</td></tr>
 </table>
 <p class="note">接口契约（供脚本/集成调用）在 §5 篇第 7 节；写操作若设了 <code>ZZ_ADMIN_TOKEN</code> 需带请求头 <code>X-ZZ-Token</code>。</p>
 

@@ -167,13 +167,10 @@
       </div>
       <div class="hint" id="launch_hint" style="margin-top:8px"></div>
     </div>
+    
+
     <div class="panel">
-      <h2>训练进程 <span class="lg" id="trainer_detail">—</span></h2>
-      <div class="hint" style="margin-bottom:8px">启动即独立进程（新会话），本服务重启不影响它；停止走 SIGINT → 优雅退出 → SIGTERM → SIGKILL。</div>
-      <pre id="trainer_log" style="max-height:340px">（尚无进程日志）</pre>
-    </div>
-  
-      <h2 style="margin-top:16px">模型配置<span class="lg">data/profiles.json · 只许规模键 · 名字即数据目录</span></h2>
+      <h2>模型配置<span class="lg">data/profiles.json · 只许规模键 · 名字即数据目录</span></h2>
       <table><tr><th>模型名</th><th>网络规模</th><th>来源</th><th>模型</th><th></th></tr></thead>
         <tbody id="pf_rows"><tr><td colspan="5" class="hint">加载中…</td></tr></tbody></table>
       <div class="row" style="margin-top:8px">
@@ -185,6 +182,7 @@
         <button id="pf_add" title="校验通过后写入 data/profiles.json，下拉立即可选">新增配置</button>
       </div>
       <div class="hint">新增后在上方「模型」选它开训；删除只移除配置名，磁盘上已训练的模型保留（重新添加同名配置即可再接上）。</div>
+    </div>
 </section>
 
   <!-- ============ 制品 ============ -->
@@ -211,6 +209,12 @@
 
   <!-- ============ 日志 ============ -->
   <section class="tab" id="tab-logs">
+  <div class="panel">
+      <h2>训练进程 <span class="lg" id="trainer_detail">—</span></h2>
+      <div class="hint" style="margin-bottom:8px">启动即独立进程（新会话），本服务重启不影响它；停止走 SIGINT → 优雅退出 → SIGTERM → SIGKILL。</div>
+      <pre id="trainer_log" style="max-height:260px">（尚无进程日志）</pre>
+    </div>
+
     <div class="panel">
       <h2>日志查看</h2>
       <div class="row">
@@ -742,7 +746,7 @@ function switchTab(name){
 }
 document.querySelectorAll('nav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault(); switchTab(a.dataset.tab);}));
 async function tick(){
-  if(tab!=='monitor' && tab!=='train') return;
+  if(tab!=='monitor' && tab!=='train' && tab!=='logs') return;
   try{
     const s = await api('/api/admin/snapshot'); renderSnapshot(s);
   }catch(e){ $('phase').textContent = '拉取失败: '+e.message; }
