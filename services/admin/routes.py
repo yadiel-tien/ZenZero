@@ -226,6 +226,21 @@ def buffers_clone():
                     'buffer': {'name': meta.get('name'), 'from': str(data.get('from') or '')} if ok else {}}), (200 if ok else 400)
 
 
+@bp.post('/api/admin/buffers/delete')
+def buffers_delete():
+    err, data = _guard()
+    if err:
+        return err
+    if _r().status().get('running'):
+        return jsonify({'ok': False, 'error': '训练进行中，不能删经验池'}), 409
+    if str(data.get('confirm') or '') != 'delete-pool':
+        return jsonify({'ok': False, 'error': '需要二次确认（输入池名）'}), 409
+    from core.utils.buffers import delete_pool
+    ok, msg = delete_pool(str(data.get('game') or CONFIG['game_name']),
+                          str(data.get('name') or '').strip().lower())
+    return jsonify({'ok': ok, 'error': '' if ok else msg}), (200 if ok else 400)
+
+
 @bp.post('/api/admin/buffers/create')
 def buffers_create():
     err, data = _guard()

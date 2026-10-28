@@ -174,6 +174,22 @@ def test_clone_pool():
         tearDown()
 
 
+def test_delete_pool():
+    """删池：存在则整目录移除；不存在/非法名拒绝；路由缺 confirm 409。"""
+    setUp()
+    try:
+        from core.utils.buffers import create_named, delete_pool
+        create_named('ChineseChess', 'pool1')
+        (buffers.named_root('ChineseChess') / 'pool1' / 'buffer.pkl').write_bytes(b'Z')
+        ok, msg = delete_pool('ChineseChess', 'pool1')
+        assert ok and not (buffers.named_root('ChineseChess') / 'pool1').exists(), msg
+        assert delete_pool('ChineseChess', 'pool1')[0] is False        # 不存在
+        assert delete_pool('ChineseChess', 'A B!')[0] is False         # 非法名
+        print('   ok   删池核心：目录移除/不存在/非法名')
+    finally:
+        tearDown()
+
+
 def test_routes_and_knobs():
     """HTTP 面 + 训练旋钮白名单校验。"""
     setUp()
@@ -212,10 +228,11 @@ def test_routes_and_knobs():
 
 def main() -> None:
     for fn in (test_resolve_start_from_matrix, test_registry_and_gates,
-               test_replay_buffer_dir_roundtrip, test_auto_pool_numbering, test_clone_pool, test_routes_and_knobs):
+               test_replay_buffer_dir_roundtrip, test_auto_pool_numbering, test_clone_pool,
+               test_delete_pool, test_routes_and_knobs):
         print(f'== {fn.__name__}')
         fn()
-    print('\nALL 6 NAMED-BUFFER/START tests PASSED')
+    print('\nALL 7 NAMED-BUFFER/START tests PASSED')
 
 
 if __name__ == '__main__':

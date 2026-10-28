@@ -282,8 +282,8 @@
     <div class="grid">
       <div class="panel"><h2>Checkpoint <span class="lg">按代</span></h2><div style="overflow:auto;max-height:360px"><table id="t_ckpt"></table></div></div>
       
-      <div class="panel"><h2>经验池 <span class="lg">棋种级 · 可克隆</span></h2><div style="overflow:auto;max-height:300px"><table id="t_pools"></table></div>
-        <div class="hint" style="margin-top:8px">重训会环形覆盖池内容；实验前先在这里克隆，再去训练表单选择副本。训练进行中不可克隆。</div></div>
+      <div class="panel"><h2>经验池</h2><div style="overflow:auto;max-height:300px"><table id="t_pools"></table></div>
+      </div>
       <div class="panel"><h2>TensorBoard runs</h2><div style="overflow:auto;max-height:300px"><table id="t_runs"></table></div></div>
       <div class="panel"><h2>日志</h2><div style="overflow:auto;max-height:300px"><table id="t_logs"></table></div></div>
     </div>
@@ -632,9 +632,18 @@ async function loadPools(game){
           <td><b>${esc(b.ref)}</b></td>
           <td class="num">${num(b.size)} / ${num(b.capacity)}</td>
           <td class="hint">${esc(src)}<br>${esc((b.updated_at||'').slice(5,16)).replace('T',' ')}</td>
-          <td><button class="mini" title="整体复制为自动编号的新池；原池保持不动" onclick="clonePool('${esc(b.ref)}')">⧉</button></td></tr>`;
+          <td><button class="mini" title="克隆为新池" onclick="clonePool('${esc(b.ref)}')">⧉</button> <button class="mini danger" title="删除此池（数据不可恢复）" onclick="delPool('${esc(b.ref)}')">删</button></td></tr>`;
     }).join('') : '<tr><td colspan="4" class="hint">本棋种还没有经验池——训练表单里可直接新建</td></tr>');
   }catch(e){ t.innerHTML = `<tr><td class="hint">经验池读取失败：${esc(e.message)}</td></tr>`; }
+}
+async function delPool(name){
+  if(window.prompt(`删除经验池 ${name}？池内全部对局数据不可恢复。输入池名确认：`, '') !== name) return;
+  try{
+    const r = await api('/api/admin/buffers/delete', {method:'POST',
+      body: JSON.stringify({game: $('a_game').value, name, confirm:'delete-pool'})});
+    if(r.ok){ toast(`经验池 ${name} 已删除`, true); loadPools($('a_game').value); loadBuffers(); }
+    else toast('删除失败: '+r.error);
+  }catch(e){ toast('删除失败: '+e.message); }
 }
 async function clonePool(src){
   try{

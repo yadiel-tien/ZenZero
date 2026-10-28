@@ -157,6 +157,20 @@ def clone_pool(game: str, src: str, dst: str = '') -> tuple[bool, str, dict]:
         return False, f'克隆失败：{e}', {}
 
 
+def delete_pool(game: str, name: str) -> tuple[bool, str]:
+    """删除命名经验池（整个目录，含数 GB 数据）；default 原位池不允许从这里删。"""
+    if not SLUG.match(str(name or '')):
+        return False, '池名不合法'
+    d = named_root(game) / name
+    if not (d / 'meta.json').exists():
+        return False, f'命名池 {name} 不存在'
+    try:
+        shutil.rmtree(d)
+        return True, f'已删除经验池 {name}'
+    except OSError as e:
+        return False, f'删除失败：{e}'
+
+
 def list_buffers(game: str) -> list[dict]:
     """注册表 = 目录现场扫描（不维护第二份索引，杜绝与实际文件漂移）。"""
     from .config import available_profiles
