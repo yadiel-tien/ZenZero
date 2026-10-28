@@ -310,12 +310,30 @@ def logs():
                     'lines': rows[-lines:]})
 
 
+_LOG_CATS = {'train': '训练', 'fit': '训练', 'evaluation': '训练',
+             'selfplay': '自博弈',
+             'engine': '引擎', 'inference': '引擎', 'hub': '引擎', 'client': '引擎',
+             'network': '引擎', 'ai_server': '引擎', 'ai_client': '引擎', 'cli_play': '引擎',
+             'play_server': '服务', 'piskvork_server': '服务',
+             'monitor': '系统', 'debug': '系统', 'crash': '系统', 'admin': '系统'}
+
+
+def _log_cat(rel: str) -> str:
+    n = str(rel).replace('\\', '/')
+    if n.startswith('console/train'):
+        return '训练'
+    if n.startswith('console/task'):
+        return '任务'
+    return _LOG_CATS.get(n.split('/', 1)[0], '其它')
+
+
 @bp.get('/api/admin/logs/list')
 def logs_list():
     """日志清单：各模块 latest.log（含轮转历史）+ console 的 train_*/task_* 原始输出。
 
     console/train_*.log 是训练子进程 stdout+stderr 的全量落盘（启动横幅、崩溃栈都在），
-    与 logs/train/latest.log（logger 格式化流）互补，管理台训练页展开的就是前者。"""
+    与 logs/train/latest.log（logger 格式化流）互补；日志查看器的「当前训练进程」实时跟随前者。
+    每条打 cat 分类（训练/自博弈/引擎/服务/任务/系统/其它），前端按类分下拉分组。"""
     base = Path(CONFIG['log_dir'])
     out = []
     if base.is_dir():
@@ -334,6 +352,8 @@ def logs_list():
                 out.append({'name': f'console/{f.stem}', 'path': str(f.relative_to(base)),
                             'size': st.st_size, 'mtime': st.st_mtime})
     out.sort(key=lambda x: x['mtime'], reverse=True)
+    for x in out:
+        x['cat'] = _log_cat(x['path'])
     return jsonify({'logs': out[:200]})
 
 

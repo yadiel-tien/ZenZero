@@ -484,6 +484,7 @@ function renderSnapshot(s){
   ['btn-stop','btn-stop2'].forEach(id => { $(id).disabled = !running; });
   $('pending-stop').style.display = pending? 'inline-block' : 'none';
   if(pending) $('phase').textContent = '待退出 · ' + $('phase').textContent;
+  TRAIN_RUNNING = running;
   const tn = $('trainer_now');
   if(tn) tn.textContent = running ? `● 训练进程运行中 pid ${tr.pid} · ${Math.round((tr.uptime_s||0)/60)} 分钟`
     : (tr.exit_code!==null && tr.exit_code!==undefined ? `○ 训练进程上次退出码 ${tr.exit_code}` : '○ 训练进程未运行');
@@ -650,15 +651,35 @@ async function stopTraining(mode){
 }
 
 /* ---------- 日志 ---------- */
+const LOG_CAT_ORDER = ['训练','自博弈','引擎','服务','任务','系统','其它'];
+function logOpt(x){ return `<option value="${esc(x.path||x.name)}">${esc(x.name)} (${gb(x.size)})</option>`; }
 async function loadLogList(){
-  try{
-    const d = await api('/api/admin/logs/list');
-    const keep = $('l_name').value;
-    const cur = '<option value="current">● 当前训练进程（自动跟随最新 console 日志）</option>';
-    $('l_name').innerHTML = cur + (d.logs.map(x=>`<option value="${esc(x.path||x.name)}">${esc(x.name)} (${gb(x.size)})</option>`).join('') || '') || cur+'<option value="selfplay">selfplay</option>';
-    if(keep && [...$('l_name').options].some(o=>o.value===keep)) $('l_name').value = keep;
-    else if(!keep && $('trainer_now').textContent.includes('运行中')) $('l_name').value = 'current';
-  }catch(e){ /* 忽略 */ }
+  let d;
+  try{ d = await api('/api/admin/logs/list'); }catch(e){ return; }
+  const logs = d.logs || [];
+  const sel = $('l_name'), keep = sel.value;
+  // 按分类分组；每组内后端已按 mtime 倒序 → 组内首个即该组最新
+  const bycat = {};
+  logs.forEach(x=>{ (bycat[x.cat||'其它'] = bycat[x.cat||'其它'] || []).push(x); });
+  let html = '';
+  if(TRAIN_RUNNING) html += `<optgroup label="● 实时"><option value="current">当前训练进程（自动跟随）</option></optgroup>`;
+  LOG_CAT_ORDER.forEach(cat=>{
+    const g = bycat[cat]; if(!g || !g.length) return;
+    const shown = g.slice(0, 10);                       // 组内已按 mtime 倒序，限 10 份防长尾
+    let inner = shown.map(logOpt).join('');
+    if(g.length > shown.length) inner += `<option disabled>${g.length-10} 份更早历史（清理 logs/console 可缩短）</option>`;
+    html += `<optgroup label="${cat}（${shown.length === g.length ? g.length : shown.length + '+'}）">${inner}</optgroup>`;
+  });
+  sel.innerHTML = html || '<option value="selfplay">selfplay</option>';
+  const vals = [...sel.options].map(o=>o.value);
+  if(keep && vals.includes(keep)) sel.value = keep;                       // 尊重已选
+  else if(TRAIN_RUNNING && vals.includes('current')) sel.value = 'current'; // 训练中→默认实时
+  else {                       // 默认"最新"：训练类最新优先（看日志多为训练），再退全局最新
+    const pool = logs.filter(x=>x.cat==='训练' && x.path!=='train/latest.log');
+    const newest = pool[0] || logs[0];
+    if(newest && vals.includes(newest.path)) sel.value = newest.path;
+  }
+  loadLog();
 }
 async function loadLog(){
   const name=$('l_name').value, lines=$('l_lines').value||200, grep=$('l_grep').value||'';
@@ -734,13 +755,14 @@ async function taskShowLog(name){
 
 /* ---------- 主循环 ---------- */
 let tab = 'monitor';
+let TRAIN_RUNNING = false;
 function switchTab(name){
   tab = name;
   document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('on', a.dataset.tab===name));
   document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('on', s.id==='tab-'+name));
   if(name==='monitor'){ tick(); tickSeries(); }
   if(name==='artifacts') loadArtifacts();
-  if(name==='logs'){ loadLogList(); loadLog(); }
+  if(name==='logs'){ loadLogList(); }
   if(name==='tasks') loadTasks(true);
 }
 document.querySelectorAll('nav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault(); switchTab(a.dataset.tab);}));
