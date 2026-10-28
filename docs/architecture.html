@@ -110,7 +110,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 <tr><td>代 / 轮（iteration / round）</td><td>代 = 模型版本号（每完成一轮 +1）；轮 = 一次"自博弈→fit→守擂"循环</td><td>§4 篇 1、3 节</td></tr>
 <tr><td>经验池（buffer，旧称「仓」）</td><td>棋种级的自博弈样本库（主池+留出集成对）；不按网络分家，元数据记录最新写入的网络与代数</td><td>本篇 4.3</td></tr>
 <tr><td>神经网络（profile）</td><td>同一棋种下的<b>命名网络配置</b>：内置 s / m / l，可自定义；数据目录与引擎身份都带网络名。<b>术语定案</b>：界面与文档中 profile 称「神经网络」，「模型」专指其下每一代权重（checkpoint）；旧称「档位」</td><td>本篇 4 节</td></tr>
-<tr><td>表示版本（feature_version，文中亦称 epoch）</td><td>棋盘张量的布局版本号；不同版本互不兼容，引擎与转换必须对齐</td><td>§1 篇 §6</td></tr>
+<tr><td>表示版本（feature_version，文中亦称 epoch；<b>界面名「输入特征编码」</b>）</td><td>棋盘张量的布局版本号；不同版本互不兼容，引擎与转换必须对齐</td><td>§1 篇 §6</td></tr>
 <tr><td>引擎（InferenceEngine）</td><td>绑定一份权重 + 档位 + 表示版本的常驻推理单元</td><td>§3 篇 1 节</td></tr>
 <tr><td>登记簿（ServerHub）</td><td>进程内的引擎目录与引用计数；不是网络组件</td><td>§3 篇 8 节</td></tr>
 <tr><td>守擂 / 晋升（gatekeeper / promotion）</td><td>现任最强模型与新模型的裁决赛，得分率 &gt; 52% 换王</td><td>§4 篇 8 节</td></tr>

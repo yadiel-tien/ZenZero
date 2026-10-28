@@ -988,7 +988,7 @@ async function loadBuffers(){
     const o = document.createElement('option');
     o.value = b.ref;
     o.textContent = `${b.ref}　${used}${cap ? '/'+cap : ''}`;
-    o.title = `${b.ref} · 棋种 ${b.game}\n${src}\n更新：${b.updated_at||b.created_at||'—'}${b.note?('\n备注：'+b.note):''}`;
+    o.title = `${b.ref} · 棋种 ${b.game}\n输入特征编码：v${b.feature_version??'?'}\n${src}\n更新：${b.updated_at||b.created_at||'—'}${b.note?('\n备注：'+b.note):''}`;
     return o.outerHTML;
   }).join('');
   const nxt = 'pool' + (pools.reduce((m,b)=>{ const t=/^(\d+)$/.exec((b.ref||'').replace(/^pool/,'')) ? +b.ref.slice(4) : m; return Math.max(m, t||0); }, 0) + 1);
