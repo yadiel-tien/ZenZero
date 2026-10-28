@@ -16,9 +16,11 @@ class AIServer(Player):
     """服务器端AI玩家。通过进程内hub获取共享的推理引擎，MCTS走队列请求推理。"""
 
     def __init__(self, env_name: EnvName, model_id: int, n_simulation=500, verbose=True,
-                 hub: ServerHub = None) -> None:
+                 hub: ServerHub = None, profile: str | None = None) -> None:
         super().__init__(env_name)
         self.model_id = model_id
+        # 档位：不传就用进程档位。对弈页要能开到 s 档（新训练）而不是只有 m 档老模型
+        self.profile = profile
         self._n_simulation = n_simulation
         self.mcts: NeuronMCTS | None = None
         self.verbose = verbose  # verbose=True打印日志信息
@@ -41,14 +43,16 @@ class AIServer(Player):
         self._print_verbose(f'Thinking... (Model: {self.model_id})')
         if self.mcts is None:  # 新建
             # 向hub获取(或复用)推理引擎，引用计数+1
-            engine, self.model_id = self.hub.get_engine(cast(EnvName, self.env_class.__name__), self.model_id)
+            engine, self.model_id = self.hub.get_engine(cast(EnvName, self.env_class.__name__),
+                                                        self.model_id, profile=self.profile)
             self._engine_name = engine.name
             self.mcts = NeuronMCTS.make_queue_mcts(
                 infer_q=engine.request_queue,
                 state=state,
                 env_class=self.env_class,
                 last_action=last_action,
-                player_to_move=player_to_move
+                player_to_move=player_to_move,
+                planes_version=engine.feature_version  # 人机对战：按所选模型的 feature_version 布局生成特征面
             )
         else:  # 扩展并裁剪
             child_state = self.mcts.root.get_child(last_action).state

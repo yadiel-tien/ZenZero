@@ -3,6 +3,7 @@ import threading
 from services.inference.engine import InferenceEngine
 from services.inference.functions import get_model_name
 from core.network.functions import read_latest_index
+from core.utils.config import get_profile
 from core.utils.logger import get_logger
 from core.utils.types import EnvName
 
@@ -31,24 +32,27 @@ class ServerHub:
         threading.Thread(target=self.show_status, daemon=True).start()
         self.logger.info('Server hub started (in-process).')
 
-    def get_engine(self, env_name: EnvName, model_id: int) -> tuple[InferenceEngine, int]:
+    def get_engine(self, env_name: EnvName, model_id: int,
+                   profile: str | None = None) -> tuple[InferenceEngine, int]:
         """获取(必要时创建)推理引擎，引用计数+1
         :param model_id: 0代表使用最新模型
+        :param profile: 模型档位（m/s/l）；缺省=本进程档位。对弈面板要能开到 s 档的新模型
         :return: engine与其实际加载的model_id (加载失败时为-1)"""
+        prof = (profile or get_profile()).strip().lower()
         if model_id == 0:  # model_id=0代表使用最新模型
-            model_id = read_latest_index(env_name)
+            model_id = read_latest_index(env_name, prof)
         with self.lock:
-            key = get_model_name(env_name, model_id)
+            key = get_model_name(env_name, model_id, prof)
             engine = self.engines.get(key)
             loaded_id = model_id
             if engine is None:
                 # 尝试加载，按实际加载结果修正key (加载失败时index为-1)
-                _, loaded_id = InferenceEngine.load_model(model_id, env_name)
-                key = get_model_name(env_name, loaded_id)
+                _, loaded_id = InferenceEngine.load_model(model_id, env_name, profile=prof)
+                key = get_model_name(env_name, loaded_id, prof)
                 engine = self.engines.get(key)
                 if engine is None:
                     # 都不存在，创建引擎
-                    engine = InferenceEngine(loaded_id, env_name)
+                    engine = InferenceEngine(loaded_id, env_name, profile=prof)
                     self.engines[key] = engine
                     engine.start()
                     self.logger.info(f'Created new engine {key}.')

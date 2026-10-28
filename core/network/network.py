@@ -2,7 +2,6 @@ import glob
 import json
 import os
 import re
-import traceback
 from typing import Self
 
 import torch
@@ -145,6 +144,11 @@ class BaseNet(nn.Module):
         self.config = config
         self.device = device
         self.eval_model = eval_model
+        # 棋盘表示版本（模型身份的一部分）：convert_to_network 按它选布局。
+        # v1 老 config 无此字段 → 1；新模型从 default_net 携带当前表示版本。
+        self.feature_version = 1
+        if isinstance(config, dict) and 'feature_version' in config:
+            self.feature_version = int(config['feature_version'])
 
     # 显存探测余量：CUDA context + cuDNN workspace + torch 缓存碎片
     _VRAM_RESERVE = 600 * 1024 * 1024
@@ -210,23 +214,19 @@ class BaseNet(nn.Module):
 
     @classmethod
     def load_from_checkpoint(cls, path: str, eval_model: bool = True, device=CONFIG['device']) -> tuple[Self, bool]:
-        """从存档读取模型配置创建模型，并加载参数
+        """从存档读取并重建模型；**架构由 checkpoint envelope 的 arch 字段决定**
+        （经 registry 分发，v1 老档缺字段按 config 形状兜底为 resnet_v1）。
+        文件缺失/缺键时用 cls 的默认配置 fresh build（success=False），损坏文件抛异常。
         :return model和是否成功"""
-        success = True
+        from . import registry
         try:
-            checkpoint = torch.load(path, map_location='cpu')  # 先落 CPU 再 .to(device)，支持跨设备加载
-            config = checkpoint['config']
-            # 创建网络
-            model = cls(config, eval_model=eval_model, device=device)
-            # 加载参数
-            model.load_state_dict(checkpoint['model'])
-        except (FileNotFoundError, KeyError) as e:
-            success = False
-            logger.warning(f"Checkpoint not found or invalid: {path}. Error: {e}")
+            model, success = registry.load_model(path, eval_model=eval_model, device=device)
+        except KeyError as e:
+            model, success = None, False
+            logger.warning(f"Checkpoint invalid (missing key {e}): {path}. Starting from raw model.")
+        if model is None:
             model = cls(eval_model=eval_model, device=device)
-        except Exception as e:
-            logger.error(f"Error loading checkpoint from {path}: {e}", exc_info=True)
-            raise
+            success = False
         return model, success
 
 
@@ -303,3 +303,13 @@ class BiGameNet(BaseNet):
         for res_block in self.res_blocks:
             x = res_block(x)
         return self.policy_heads[key](x), self.value_heads[key](x)
+
+
+# ---------- 架构注册（S1）----------
+# 存量类在定义处登记；新架构放 archs/ 下自动注册（见 archs/__init__.py）
+from .registry import register as _register  # noqa: E402
+
+_register('resnet_v1')(Net)
+_register('bigame_v1')(BiGameNet)
+
+from . import archs as _archs  # noqa: F401,E402

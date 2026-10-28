@@ -3,6 +3,7 @@ import os
 import queue
 import threading
 import time
+from collections import Counter, deque
 from typing import Sequence
 
 import numpy as np
@@ -11,6 +12,7 @@ from numpy.typing import NDArray
 
 from core.utils.logger import get_logger
 from core.utils.types import EnvName
+from core.utils.config import get_profile
 from .functions import get_checkpoint_path, get_model_name
 from .request import QueueRequest
 from core.network.network import Net
@@ -65,11 +67,13 @@ class _ModelAccess:
 
 
 class InferenceEngine:
-    def __init__(self, model_index: int, env_name: EnvName):
-        # 推理model
-        self.eval_model, self.model_index = self.load_model(model_index, env_name)
+    def __init__(self, model_index: int, env_name: EnvName, profile: str | None = None):
+        # 推理model（profile 缺省 = 进程档位；引擎是三身份载体：arch/feature_version/profile）
+        self.profile = (profile or get_profile()).strip().lower()
+        self.eval_model, self.model_index = self.load_model(model_index, env_name, profile=self.profile)
         self.env_name = env_name
-        self.name = get_model_name(self.env_name, self.model_index)
+        self.name = get_model_name(self.env_name, self.model_index, self.profile)
+        self.arch_name = getattr(self.eval_model, 'arch_name', 'resnet_v1')
         # 负责单个request的发送接收
         self.request_queue: queue.Queue[QueueRequest] = queue.Queue()
         self._collector_thread: threading.Thread | None = None
@@ -77,7 +81,8 @@ class InferenceEngine:
         self.preprocess_queue: queue.Queue[list[QueueRequest]] = queue.Queue()
         self._preprocess_thread: threading.Thread | None = None
         # 负责推理（CPU 多 worker 并发 forward，见下方并行策略注释）
-        self.infer_queue: queue.Queue[tuple[list[QueueRequest], torch.Tensor]] = queue.Queue()
+        # 三元组：(请求切片, 输入张量, 该批开始收集的时刻) —— 时间戳用于分段计时
+        self.infer_queue: queue.Queue[tuple[list[QueueRequest], torch.Tensor, float]] = queue.Queue()
         self._infer_threads: list[threading.Thread] = []
         # 负责推理结果的处理
         self.result_queue: queue.Queue[tuple[list[QueueRequest], NDArray, NDArray]] = queue.Queue()
@@ -110,12 +115,39 @@ class InferenceEngine:
         self.start_time = time.time()
         self.total_requests = 0
         self.finished_requests = 0
-        self.max_batch_size = 50
+        # 批大小上限。GPU 上 t(b) 实测接近常数（b=8 1.24ms → b=256 2.37ms/批，
+        # 边际仅 ~4.5µs/样本），所以批越大越划算，256 是吞吐/单请求延迟的折中；
+        # CPU 上多 worker 小批才是正解（历史结论），保持 50。
+        default_batch = 256 if not is_cpu else 50
+        try:
+            self.max_batch_size = max(1, int(os.environ['ZZ_MAX_BATCH']))
+        except (KeyError, ValueError):
+            self.max_batch_size = default_batch
+        # 收批窗口：队列里没活时最多等这么久再交付。按最近的批大小自适应——
+        # 批一直很小（人机对战/评估）就几乎不等，保单步延迟；批很大（自博弈）才开窗口。
+        self._ema_batch = 0.0
+        # 每批计时/批大小直方图（供日志与 [perf] 汇总）
+        self._recent_batches: deque = deque(maxlen=2000)
+        self._batch_hist: Counter = Counter()
+        self._fwd_ms: deque = deque(maxlen=2000)   # (forward+后处理 毫秒, 批大小)
+        self._post_ms: deque = deque(maxlen=2000)  # 结果投递毫秒
+        # 统计数据的读写跨线程（收集/推理/投递各写各的，统计行与 [perf] 汇总来读）。
+        # free-threading 的 3.14t 会**真的**并发：边 append 边迭代 deque 抛
+        # RuntimeError('deque mutated during iteration')，边写边遍历 Counter 抛
+        # dict changed size——线上已炸过一次（投递线程死掉）。所有读写都进这把锁。
+        self._stat_lock = threading.Lock()
+        # 棋盘表示版本（模型身份）：调用方 convert_to_network 必须按本引擎 feature_version
+        # 生成对应布局的面。跨 version 面语义不同，不做切片兼容——通道数不符直接报错。
+        cfg = getattr(self.eval_model, 'config', None)
+        self._in_channels = int(cfg['in_channels']) if isinstance(cfg, dict) and 'in_channels' in cfg else 0
+        self.feature_version = int(getattr(self.eval_model, 'feature_version', 1))
 
     @classmethod
-    def load_model(cls, model_index: int, env_name: EnvName, eval_mode=True) -> tuple[Net, int]:
-        """尝试加载模型，加载失败时使用初始参数，index为-1"""
-        model_path = get_checkpoint_path(env_name, model_index)
+    def load_model(cls, model_index: int, env_name: EnvName, eval_mode=True,
+                   profile: str | None = None) -> tuple[Net, int]:
+        """尝试加载模型（envelope 经 registry 分发架构），加载失败时用当前档位默认配置
+        新建，index=-1"""
+        model_path = get_checkpoint_path(env_name, model_index, profile)
         model, success = Net.load_from_checkpoint(model_path, eval_model=eval_mode)
         print(f'Success: {success}')
         index = model_index if success else -1
@@ -123,7 +155,7 @@ class InferenceEngine:
         return model, index
 
     def _configure_backend(self, device: str) -> None:
-        """按设备类型配置 autocast / pin_memory 策略"""
+        """按设备类型配置 autocast / 输入搬运策略"""
         self._ac_dev = torch.device(device).type
         if self._ac_dev == 'cpu':
             self._tune_intraop_threads(self._threads_single)
@@ -131,12 +163,10 @@ class InferenceEngine:
         # 此 torch 构建无好的 oneDNN bf16 路径），只在 GPU 类后端启用
         self._ac_factory = (lambda: torch.amp.autocast(self._ac_dev)) \
             if self._ac_dev in ('cuda', 'xpu') else (lambda: contextlib.nullcontext())
-        if self._ac_dev == 'cuda':
-            self._pin = torch.cuda.is_available()
-        elif self._ac_dev == 'xpu':
-            self._pin = hasattr(torch, 'xpu') and torch.xpu.is_available()
-        else:
-            self._pin = False
+        # pin_memory 关掉：这里没有任何重叠调度（单 worker 顺序跑），pin 只等于
+        # "先拷进 pinned 暂存区再 cudaMemcpy"的额外一次拷贝。实测 b=256 时
+        # 3.31ms → 2.15ms/批（scripts/bench_batch_sweep.py），大 batch 下纯亏。
+        self._pin = False
 
     def _tune_intraop_threads(self, want: int) -> None:
         """调整 torch intra-op 线程池。set_num_threads 只是原子写一个全局值，
@@ -170,67 +200,85 @@ class InferenceEngine:
             self._configure_backend(device)
         self.logger.info(f'Engine {self.name} relocated: {old_dev} -> {device}')
 
+    def _spawn(self, name: str, target, *args) -> threading.Thread:
+        """启动一条带异常兜底的引擎线程。
+
+        引擎线程一旦抛异常就是"静默死亡"：没人接手它那份队列，所有请求只能等到
+        300s 超时才报错，而日志里一个字都没有（8/27 投递线程 deque 竞态即此形态）。
+        这里把栈完整写进 logs/inference，并把 stop_event 置位让引擎尽快停而不是半死。
+        """
+        def _run():
+            try:
+                target(*args)
+            except BaseException:                       # noqa: BLE001 兜底一切，含 KeyboardInterrupt
+                self.logger.exception(f'引擎线程 {name} 崩溃（该线程已退出，后续请求将超时）')
+                self.stop_event.set()
+        thread = threading.Thread(target=_run, name=f'{name}-{self.name}', daemon=True)
+        thread.start()
+        return thread
+
     def start(self) -> None:
-        """启动推理线程"""
-        self._collector_thread = threading.Thread(target=self._collect_loop, daemon=True)
-        self._collector_thread.start()
-        self._preprocess_thread = threading.Thread(target=self._pre_infer_loop, daemon=True)
-        self._preprocess_thread.start()
-        self._infer_threads = [
-            threading.Thread(target=self._inference_loop, args=(i,),
-                             name=f'infer-{i}-{self.name}', daemon=True)
-            for i in range(self._infer_workers)]
-        for t in self._infer_threads:
-            t.start()
-        self._result_thread = threading.Thread(target=self._post_infer_loop, daemon=True)
-        self._result_thread.start()
+        """启动推理线程（每条都经 _spawn 兜底，异常必进日志）"""
+        self._collector_thread = self._spawn('collect', self._collect_loop)
+        self._preprocess_thread = self._spawn('preprocess', self._pre_infer_loop)
+        self._infer_threads = [self._spawn(f'infer{i}', self._inference_loop, i)
+                               for i in range(self._infer_workers)]
+        self._result_thread = self._spawn('post', self._post_infer_loop)
+
+    def _collect_window(self) -> float:
+        """收批窗口：队列空时最多等多久再交付。批越大越舍得等——批小的时候
+        （人机对战/评估，一步一手要低延迟）几乎不等。
+
+        流水线 MCTS 之后请求是"每完成一条补一条"地流入的，不再是整批涌进来，
+        所以中等批量时也要给一点窗口，否则引擎会把 8 条一局的流水拆成 1~3 条一发。
+        """
+        if self._ema_batch >= 32:
+            return 2e-3
+        if self._ema_batch >= 8:
+            return 1e-3
+        if self._ema_batch >= 3:
+            return 5e-4
+        return 1e-4
 
     def _collect_loop(self):
-        """从request queue收集数据，尽可能多的收集数据打包"""
+        """从 request queue 尽可能多地收批。
+
+        旧版是"TCP 拥塞控制"式把 batch_size 从 1 翻倍爬坡，一次超时就把目标打回 1——
+        在虚拟损失批量 MCTS 之后请求是成批到达的，批目标从 1 爬反而永远追不上。
+        现在：先等第一条，然后一直收到 max_batch_size 或队列空为止（空时最多等一个
+        自适应窗口）。批大小由在飞请求数决定，而不是由这个循环猜。
+        """
         self.start_time = time.time()
         while not self.stop_event.is_set():
-            batch_size = 1
-            threshold = 32
-            # max_size = 50
             n_pending = self.infer_queue.qsize()
-            delay = 1e-4 + 1e-3 * n_pending  # 根据queue排队情况，动态调整
-            phase = 'ramp up'
+            delay = 1e-4 + 1e-3 * n_pending  # 空闲时先等这么久（有活时 get 立即返回）
+            t_start = time.perf_counter()
             requests = []
-
-            while len(requests) < min(batch_size, self.max_batch_size):
-                # 思路参考tcp拥塞控制
+            try:
+                requests.append(self.request_queue.get(timeout=delay))
+            except queue.Empty:
+                continue
+            window = self._collect_window()
+            while len(requests) < self.max_batch_size:
                 try:
-                    request = self.request_queue.get(timeout=delay)
-                    requests.append(request)
-                    if phase == 'ramp up':
-                        if batch_size < threshold:
-                            batch_size *= 2
-                        else:
-                            batch_size += 1
-                            phase = 'steady increase'
-                    elif phase == 'steady increase':
-                        batch_size += 1
-
+                    requests.append(self.request_queue.get(timeout=window))
                 except queue.Empty:
-                    threshold = max(1, batch_size // 2)
-                    batch_size = threshold
-                    phase = 'ramp up'
-                    # 注意：超时退出时必须先交付已收集的 requests，否则请求方的
-                    # event.wait() 将永久挂起（曾导致 CPU 慢推理下整树卡死）
                     break
-            if requests:
-                self.preprocess_queue.put(requests)
+            self._record_batch(len(requests), (time.perf_counter() - t_start) * 1e3)
+            self._ema_batch = 0.8 * self._ema_batch + 0.2 * len(requests)
+            self.preprocess_queue.put(requests)
             if self.stop_event.is_set():
                 break
 
     def _pre_infer_loop(self):
-        """做推理前准备工作，将batch_queue接收到的数据查缓存，打包，转tensor"""
+        """做推理前准备工作：把已收集的 requests 打包成 tensor 送推理队列"""
         while not self.stop_event.is_set():
             # 获取推理列表
             try:
                 requests = self.preprocess_queue.get(timeout=0.5)
             except queue.Empty:
                 continue
+            t0 = time.perf_counter()
 
             # 处理batch，转为tensor。CPU 多 worker 时把大 batch 均分切片
             # （每片 ≈ n/workers），让各 worker 真正并行；实测小批并行
@@ -240,23 +288,32 @@ class InferenceEngine:
             chunk = max(1, n // self._infer_workers) if self._split_batches else n
             for i in range(0, n, chunk):
                 part = requests[i:i + chunk]
-                batch_tensor = torch.from_numpy(np.stack([r.state for r in part]))
-                if self._pin:
-                    batch_tensor = batch_tensor.pin_memory()
-                self.infer_queue.put((part, batch_tensor))
+                batch = np.stack([r.state for r in part])
+                # version 校验：面的通道数必须等于模型出生时的面数（语义随 version 整体变化，
+                # 静默降级比崩溃毒得多）。不符说明调用方转换时传错了 planes_version。
+                if self._in_channels and batch.shape[1] != self._in_channels:
+                    msg = (f'feature-version mismatch: input has {batch.shape[1]} planes, '
+                           f'engine {self.name} (version {self.feature_version}) expects '
+                           f'{self._in_channels}; convert_to_network must use planes_version=engine.feature_version')
+                    self.logger.error(msg)
+                    raise ValueError(msg)
+                # 不做 pin_memory（见 _configure_backend）；.to() 在推理线程里，
+                # 这样 H2D 拷贝与本线程的打包不抢同一条线程的时间片。
+                self.infer_queue.put((part, torch.from_numpy(batch), t0))
 
     def _inference_loop(self, worker_id: int = 0):
         """推理worker loop：接收切片 batch，并发 forward，回填结果"""
         while not self.stop_event.is_set():
             try:
-                requests, tensor = self.infer_queue.get(timeout=0.5)
+                requests, tensor, t0 = self.infer_queue.get(timeout=0.5)
+                t_fwd = time.perf_counter()
                 # 交模型推理，取回结果。输入设备必须跟本引擎模型参数走，
                 # 不能读全局 CONFIG['device']：别的模型加载失败时 _degrade_cpu
                 # 会把全局配置改成 cpu，而本引擎权重可能仍驻留 cuda:0，
                 # 曾因此产生 F.conv2d "weight is on cuda:0 / input on cpu" 崩溃。
                 # shared 锁多 worker 并发；relocate 持 exclusive 时所有
                 # worker 排空，锁内取参/调线程与搬模型原子一致。
-                with torch.no_grad():
+                with torch.inference_mode():
                     with self.model_lock.shared():
                         active = self.model_lock.active_readers()
                         if self._ac_dev == 'cpu':
@@ -264,11 +321,12 @@ class InferenceEngine:
                             self._tune_intraop_threads(
                                 self._threads_single if active <= 1 else self._threads_multi)
                         batch_tensor = tensor.to(self._model_device(), dtype=torch.float32,
-                                                 non_blocking=self._pin)
+                                                 non_blocking=False)
                         with self._ac_factory():  # 混合精度(按设备类型自适应)
                             logits, values = self.eval_model(batch_tensor)
                 probs = torch.nn.functional.softmax(logits.float(), dim=-1).cpu().numpy()
                 values = values.float().cpu().numpy()
+                self._record_fwd((time.perf_counter() - t_fwd) * 1e3, len(requests))
                 self.result_queue.put((requests, probs, values))
             except queue.Empty:
                 continue
@@ -277,42 +335,125 @@ class InferenceEngine:
         while not self.stop_event.is_set():
             try:
                 requests, probs, values = self.result_queue.get(timeout=0.5)
+                t0 = time.perf_counter()
                 self.deliver_result(requests, probs, values)
+                self._record_post((time.perf_counter() - t0) * 1e3)
 
                 self.finished_requests += len(requests)
-                # 每 1000 个请求打印一次吞吐量统计，避免频繁刷新控制台
+                # 每 1000 个请求打印一次统计，避免频繁刷新控制台
                 if self.finished_requests % 1000 == 0:
-                    avg_cost = (time.time() - self.start_time) * 1000 / self.finished_requests
-                    msg = f"Throughput: {len(requests):>2} batch | Pending: {self.infer_queue.qsize():2} | "
-                    msg += f"Total: {self.finished_requests:>8} | Avg: {avg_cost:.4f}s/1k req"
-                    self.logger.info(msg)
+                    self.logger.info(self._stat_line())
 
             except queue.Empty:
                 continue
+
+    def _record_batch(self, n: int, window_ms: float) -> None:
+        with self._stat_lock:
+            self._recent_batches.append((n, window_ms))
+            self._batch_hist[n] += 1
+
+    def _record_fwd(self, ms: float, n: int) -> None:
+        with self._stat_lock:
+            self._fwd_ms.append((ms, n))
+
+    def _record_post(self, ms: float) -> None:
+        with self._stat_lock:
+            self._post_ms.append(ms)
+
+    def _stats_snapshot(self) -> dict:
+        """锁内一次性拷成普通 list——free-threading 下绝不能边迭代边让别人 append"""
+        with self._stat_lock:
+            return {'batch': [b for b, _ in self._recent_batches],
+                    'window': [w for _, w in self._recent_batches],
+                    'fwd': [x for x, _ in self._fwd_ms],
+                    'post': list(self._post_ms),
+                    'hist': dict(self._batch_hist)}
+
+    def _stat_line(self) -> str:
+        """一行吞吐/批大小/分段耗时，够判断瓶颈在收批、前向还是投递"""
+        elapsed = max(time.time() - self.start_time, 1e-9)
+        snap = self._stats_snapshot()
+        bs = snap['batch'] or [0]
+        top = ', '.join(f'{k}:{v}' for k, v in
+                        sorted(snap['hist'].items(), key=lambda kv: -kv[1])[:5])
+        fwd = snap['fwd'] or [0.0]
+        post = snap['post'] or [0.0]
+        win = snap['window'] or [0.0]
+        hist = snap['hist']
+        total_b = sum(hist.values())
+        mean_all = (sum(k * v for k, v in hist.items()) / total_b) if total_b else 0.0
+        return (f"[infer] {self.finished_requests / elapsed:.0f} req/s | batch mean {mean_all:.0f} "
+                f"(recent {np.mean(bs):.0f}) "
+                f"(max {max(bs)}, top {top}) | window {np.mean(win):.2f}ms | "
+                f"fwd {np.mean(fwd):.2f}ms | post {np.mean(post):.3f}ms | "
+                f"pending {self.infer_queue.qsize()} | total {self.finished_requests}")
+
+    def infer_stats(self) -> dict:
+        """给 [perf] 汇总用的推理侧指标快照。
+
+        **均值按整轮累计直方图算，不是滑动窗口**：一轮末尾几十局的批会缩到 8~16
+        （正是"剩几局"的尾部），滑动窗口（最近 2000 批）会被尾巴完全占满，
+        于是整轮头条变成 均批16——看着像批处理坏了，其实前面 90% 的批都是 256。
+        这里同时给出 `batch_recent_mean`（最近窗口）当尾部指示。
+        """
+        elapsed = max(time.time() - self.start_time, 1e-9)
+        snap = self._stats_snapshot()
+        hist = snap['hist']
+        total = sum(hist.values())
+        reqs = sum(k * v for k, v in hist.items())
+        bs = snap['batch'] or [0]
+        fwd = snap['fwd'] or [0.0]
+
+        def pct(p: float) -> int:
+            if not total:
+                return 0
+            need, acc = total * p, 0
+            for size in sorted(hist):
+                acc += hist[size]
+                if acc >= need:
+                    return int(size)
+            return int(max(hist))
+
+        return {'batches': int(total),
+                'batch_mean': round(reqs / total, 2) if total else 0.0,   # 恒 float：统计口径要稳定
+                'batch_recent_mean': round(float(np.mean(bs)), 2),
+                'batch_p50': pct(0.5),
+                'batch_p90': pct(0.9),
+                'batch_max': int(max(hist)) if hist else 0,
+                'fwd_ms_mean': round(float(np.mean(fwd)), 3),
+                'req_per_s': round(self.finished_requests / elapsed, 1)}
 
     def reset_statistic(self):
         self.start_time = time.time()
         self.total_requests = 0
         self.finished_requests = 0
+        with self._stat_lock:
+            self._recent_batches.clear()
+            self._batch_hist.clear()
+            self._fwd_ms.clear()
+            self._post_ms.clear()
 
     def deliver_result(self, requests: list[QueueRequest], probs: Sequence[NDArray], values: Sequence[float]) -> None:
-        # 结果交给请求方，通知request继续
+        # 结果交给请求方，通知 request 继续。组请求（批量 MCTS 一局 K 发）由最后一条
+        # 回填者唤醒，省掉 K-1 次线程唤醒（一批 256 时这是半个批次的量级）。
         for r, p, v in zip(requests, probs, values):
-            r.policy = p
-            r.value = v
-            r.event.set()
+            event = r.fill(p, v)
+            if event is not None:
+                event.set()
 
     def deliver_one(self, request: QueueRequest, prob: NDArray, value: float) -> None:
-        request.policy = prob
-        request.value = value
-        request.event.set()
+        event = request.fill(prob, value)
+        if event is not None:
+            event.set()
 
     def shutdown(self) -> None:
-        """清理资源，关闭推理线程"""
+        """清理资源，关闭推理线程。
+
+        顺序很重要：**先停线程、再丢模型**。旧版先 `eval_model = None` 再 join，
+        于是正在前向的线程会在 `_model_device()` 里撞上 None：
+        `AttributeError: 'NoneType' object has no attribute 'parameters'`
+        （10/28 04:46 就是这样把评估引擎的 infer0 线程搞崩的）。"""
         self.stop_event.set()
-        if self.eval_model:
-            del self.eval_model
-            self.eval_model = None
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         # 清空队列
@@ -323,10 +464,18 @@ class InferenceEngine:
                 except queue.Empty:
                     break
 
+        # join 必须带超时：线程若是卡在 CUDA/驱动里，无超时 join 会让"优雅停止"永远吊在退役阶段，
+        # 外部只能升级成 SIGKILL（10/27 23:29 就是这样：数据都存好了，进程却退不掉）。
         for t in [self._collector_thread, self._preprocess_thread,
                   *self._infer_threads, self._result_thread]:
             if t:
-                t.join()
+                t.join(timeout=5.0)
+                if t.is_alive():
+                    self.logger.warning(f'引擎线程 {t.name} 5s 内没退出（卡在驱动/回收），放弃等待')
+        # 线程都停了，这时才释放模型（顺序见 docstring）
+        if getattr(self, 'eval_model', None) is not None:
+            del self.eval_model
+            self.eval_model = None
 
         self._collector_thread = self._preprocess_thread = self._result_thread = None
         self._infer_threads = []

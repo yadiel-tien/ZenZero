@@ -35,7 +35,8 @@ class Gomoku(BaseEnv):
         return self.state, {}
 
     @classmethod
-    def convert_to_network(cls, state: NDArray, current_player: int) -> NDArray:
+    def convert_to_network(cls, state: NDArray, current_player: int, version: int = None) -> NDArray:
+        # version 为通用接口参数；五子棋尚未经历表示版本演进，任何值均按现行 2 面布局
         return state.copy()
 
     @classmethod
@@ -75,8 +76,9 @@ class Gomoku(BaseEnv):
         return self.state, reward, terminated, self.truncated, {}
 
     @classmethod
-    def check_winner(cls, state: NDArray, player_just_moved: int, action_just_executed: int) -> GameResult:
-        """:return 1胜，0平，-1负, 2未分胜负"""
+    def check_winner(cls, state: NDArray, player_just_moved: int, action_just_executed: int,
+                     ctx=None, valid_actions_next: NDArray = None) -> GameResult:
+        """:return 1胜，0平，-1负, 2未分胜负。ctx/valid_actions_next 为通用接口参数，五子棋不使用"""
         if action_just_executed < 0:  # 刚开局的情况
             return GameResult.ONGOING
         # 和棋
@@ -184,6 +186,37 @@ class Gomoku(BaseEnv):
     @classmethod
     def restore_policy(cls, policy: NDArray, symmetry_idx: int) -> NDArray:
         return reverse_board_policy(policy, symmetry_idx, cls.shape)
+
+    @classmethod
+    def _sym_idx_list(cls) -> tuple[int, ...]:
+        return tuple(range(8)) if Gomoku.shape[1] == Gomoku.shape[2] else (0, 2, 4, 5)
+
+    @classmethod
+    def symmetry_indices(cls) -> tuple[int, ...]:
+        return cls._sym_idx_list()
+
+    @staticmethod
+    def _apply4(a: NDArray, idx: int) -> NDArray:
+        """apply_symmetry 的 4D 批量版（通道后两维做几何变换），语义逐项对齐"""
+        if idx == 0:
+            return a
+        if idx < 4:
+            return np.rot90(a, k=idx, axes=(2, 3))
+        if idx == 4:
+            return np.flip(a, axis=3)
+        if idx == 5:
+            return np.flip(a, axis=2)
+        if idx == 6:
+            return np.transpose(a, (0, 1, 3, 2))
+        if idx == 7:
+            return np.transpose(np.rot90(a, k=2, axes=(2, 3)), (0, 1, 3, 2))
+        raise ValueError(f'invalid symmetry idx {idx}')
+
+    @classmethod
+    def transform_batch(cls, states: NDArray, policies: NDArray, symmetry_idx: int):
+        b, h, w = policies.shape[0], Gomoku.shape[1], Gomoku.shape[2]
+        return (cls._apply4(states, symmetry_idx),
+                cls._apply4(policies.reshape(b, 1, h, w), symmetry_idx).reshape(b, h * w))
 
     @classmethod
     def augment_data(cls, data: tuple[NDArray, NDArray, float]) -> list[tuple[NDArray, NDArray, float]]:

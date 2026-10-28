@@ -38,8 +38,11 @@ class BaseEnv(ABC):
 
     @classmethod
     @abstractmethod
-    def convert_to_network(cls, state: NDArray, current_player: int) -> NDArray:
-        """将逻辑state转换为适合神经网络的one-hot array"""
+    def convert_to_network(cls, state: NDArray, current_player: int, version: int = None) -> NDArray:
+        """将逻辑state转换为适合神经网络的one-hot array。
+        :param version: 棋盘表示版本（feature version）。缺省 None = 当前 config 的 feature_version；
+               跨 version 共存时必须由调用方传入**目标推理引擎的 feature_version**，
+               保证模型永远吃到出生时布局的面"""
         raise NotImplementedError
 
     @classmethod
@@ -138,11 +141,14 @@ class BaseEnv(ABC):
 
     @classmethod
     @abstractmethod
-    def check_winner(cls, state: NDArray, player_just_moved: int, action_just_executed: int) -> GameResult:
+    def check_winner(cls, state: NDArray, player_just_moved: int, action_just_executed: int,
+                     ctx=None, valid_actions_next: NDArray = None) -> GameResult:
         """检查胜负情况，相对于player_just_moved来说
                :param action_just_executed: 刚刚做过的动作
                :param state: 棋盘表示
                :param player_just_moved:相对于刚落子的玩家来说的结果， 0或1
+               :param ctx: RuleContext，对局级判定（重复/长将）需要；搜索树内为 None
+               :param valid_actions_next: 调用方预计算好的轮走方合法着法（可选，省重复生成）
                :return: 1胜，0平，-1负, 2未分胜负"""
         raise NotImplementedError
 
@@ -172,6 +178,20 @@ class BaseEnv(ABC):
         self.player_to_move = 0
         self.terminated = False
         self.truncated = False
+
+    @classmethod
+    def symmetry_indices(cls) -> tuple[int, ...]:
+        """在线增强的对称群成员（apply_symmetry 的 idx 域）。默认 (0,) = 无增强。
+        ReplayBuffer.get_batch 每次取样后随机挑一个成员做批变换——
+        取代旧"写入时复制 N 份"的增强（buffer 容量 = 不同局面数，而不是增强份数）。"""
+        return (0,)
+
+    @classmethod
+    def transform_batch(cls, states: NDArray, policies: NDArray, symmetry_idx: int
+                        ) -> tuple[NDArray, NDArray]:
+        """向量化在线增强：对 (B,C,H,W)/(B,n_actions) 批量施加 symmetry_idx 变换。
+        必须与 augment_data 逐样本施加同一 idx 的结果完全一致（有对拍测试锁死）。"""
+        return states, policies
 
     @classmethod
     @abstractmethod
