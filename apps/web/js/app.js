@@ -289,7 +289,7 @@
         $('model-hint').innerHTML = `未检测到模型文件。<br>请从 GitHub Release 下载 .pt 放入 data/${envName}/ 目录。`;
         return;
       }
-      // 两个层次：先列"种类"（档位 m/s/l），再列该档的序号。
+      // 两个层次：先列"种类"（模型 m/s/l），再列该档的序号。
       // 之前只给默认档的序号，于是 m 档（老模型）在对弈页里彻底看不见了。
       const order = [data.profile]
         .concat(Object.keys(profiles).filter((p) => p !== data.profile))

@@ -94,7 +94,7 @@
 </style></head><body>
 <header>
   <h1>ZenZero 训练控制台</h1>
-  <span class="pill" id="appver" title="应用版本（git 构建号）。表示版本/档位/模型代数见 meta 行">—</span>
+  <span class="pill" id="appver" title="应用版本（git 构建号）。表示版本/模型/代数见 meta 行">—</span>
   <span class="pill" id="trainer">—</span>
   <button id="btn-theme" class="mini" title="外观：自动（跟随系统） → 明亮 → 暗色">🌗 自动</button>
   <span class="pill" id="phase">—</span>
@@ -147,7 +147,7 @@
       </div>
       <div class="row">
         <div class="field"><label>棋种</label><select id="f_game"><option>ChineseChess</option><option>Gomoku</option></select></div>
-        <div class="field"><label>档位 (profile)</label><select id="f_profile"><option value="s">s</option><option value="m">m</option><option value="l">l</option></select></div>
+        <div class="field"><label>模型 (profile)</label><select id="f_profile"><option value="s">s</option><option value="m">m</option><option value="l">l</option></select></div>
         <div class="field"><label>自博弈线程数</label><input id="f_workers" type="number" min="1" value="32"></div>
         <div class="field"><label>每轮局数</label><input id="f_games" type="number" min="1" value="400"></div>
         <div class="field"><label>并行 leaf 数 K</label><input id="f_leaves" type="number" min="1" value="12"></div>
@@ -163,8 +163,8 @@
       <pre id="trainer_log" style="max-height:340px">（尚无进程日志）</pre>
     </div>
   
-      <h2 style="margin-top:16px">模型配置（命名档位）<span class="lg">data/profiles.json · 只许规模键 · 名字即数据目录</span></h2>
-      <table><tr><th>配置名</th><th>网络规模</th><th>来源</th><th>模型</th><th></th></tr></thead>
+      <h2 style="margin-top:16px">模型配置<span class="lg">data/profiles.json · 只许规模键 · 名字即数据目录</span></h2>
+      <table><tr><th>模型名</th><th>网络规模</th><th>来源</th><th>模型</th><th></th></tr></thead>
         <tbody id="pf_rows"><tr><td colspan="5" class="hint">加载中…</td></tr></tbody></table>
       <div class="row" style="margin-top:8px">
         <div class="field"><label>新配置名</label><input id="pf_name" placeholder="mini64（小写字母开头）" style="max-width:130px"></div>
@@ -174,7 +174,7 @@
         <div class="field"><label>SE 注意力</label><select id="pf_se"><option value="1">开</option><option value="0">关</option></select></div>
         <button id="pf_add" title="校验通过后写入 data/profiles.json，下拉立即可选">新增配置</button>
       </div>
-      <div class="hint">新增后在上方「档位」选它开训；删除只移除配置名，磁盘上已训练的模型保留（重新添加同名配置即可再接上）。</div>
+      <div class="hint">新增后在上方「模型」选它开训；删除只移除配置名，磁盘上已训练的模型保留（重新添加同名配置即可再接上）。</div>
 </section>
 
   <!-- ============ 制品 ============ -->
@@ -183,7 +183,7 @@
       <h2>制品概览</h2>
       <div class="row">
         <div class="field"><label>棋种</label><select id="a_game"><option>ChineseChess</option><option>Gomoku</option></select></div>
-        <div class="field"><label>档位</label><select id="a_profile"><option value="s">s</option><option value="m">m</option><option value="l">l</option></select></div>
+        <div class="field"><label>模型</label><select id="a_profile"><option value="s">s</option><option value="m">m</option><option value="l">l</option></select></div>
         <div class="field"><label>&nbsp;</label><button id="btn-refresh-art">刷新</button></div>
         <div class="field"><label>&nbsp;</label><button id="btn-promote">把指定代设为 best</button></div>
         <div class="field"><label>&nbsp;</label><input id="a_promote" type="number" placeholder="代" style="width:90px"></div>
@@ -447,10 +447,11 @@ function renderSnapshot(s){
     card('已完成轮数', fmt((s.rounds||[]).length,0)+' 轮', '第 '+fmt(L.iteration||last.iteration,0)+' 代 · 每轮 '+fmt(s.meta.games_per_round,0)+' 局',
          '完成的自博弈 + 训练轮数（跨重启累计）。“代”是模型版本号，每完成一轮加 1。'),
   ].join('');
-  $('appver').textContent = 'v' + (s.meta.version || '?') + (s.meta.revision ? ' · ' + s.meta.revision : '');
+  $('appver').textContent = 'v' + (s.meta.version || '?');
+  $('appver').title = '应用版本（构建 ' + (s.meta.revision || '未知') + '）· 表示/模型/代数见下行';
   $('meta').textContent = `${s.meta.game} · ${s.meta.profile} · ${s.meta.device} · ${s.meta.net.n_filters}x${s.meta.net.n_res_blocks}`
       + ` · K=${s.meta.batch_leaves}` + (sims? ` · ${fmt(sims,0)} sims/手` : '')
-      + (s.meta.profile_source==='default'? '（档位取面板默认值，训练未在跑）' : '');
+      + (s.meta.profile_source==='default'? '（模型取面板默认值，训练未在跑）' : '');
   window.__lastProgress = L.progress || {};
   const ph = L.phase || 'idle', p = L.progress, running = tr.running;
   let chip = 'pill ' + (ph==='stalled'?'stalled':''), txt;
@@ -553,7 +554,7 @@ async function promote(it){
   }catch(e){ toast('失败: '+e.message); }
 }
 
-/* ---------- 模型配置（命名档位） ---------- */
+/* ---------- 模型配置 ---------- */
 let PROFILES = [];
 async function loadProfiles(){
   const game = $('f_game').value;
@@ -634,14 +635,15 @@ async function loadLogList(){
   try{
     const d = await api('/api/admin/logs/list');
     const keep = $('l_name').value;
-    $('l_name').innerHTML = d.logs.map(x=>`<option value="${x.name}">${x.name} (${gb(x.size)})</option>`).join('') || '<option>selfplay</option>';
-    if(keep && d.logs.some(x=>x.name===keep)) $('l_name').value = keep;
+    $('l_name').innerHTML = d.logs.map(x=>`<option value="${esc(x.path||x.name)}">${esc(x.name)} (${gb(x.size)})</option>`).join('') || '<option value="selfplay">selfplay</option>';
+    if(keep && d.logs.some(x=>(x.path||x.name)===keep)) $('l_name').value = keep;
   }catch(e){ /* 忽略 */ }
 }
 async function loadLog(){
   const name=$('l_name').value, lines=$('l_lines').value||200, grep=$('l_grep').value||'';
   try{
-    const d = await api(`/api/admin/logs?name=${encodeURIComponent(name)}&lines=${lines}&grep=${encodeURIComponent(grep)}`);
+    const key = name.includes('/') ? `path=${encodeURIComponent(name)}` : `name=${encodeURIComponent(name)}`;
+    const d = await api(`/api/admin/logs?${key}&lines=${lines}&grep=${encodeURIComponent(grep)}`);
     if(!d.ok){ $('log_view').textContent = d.error||'读取失败'; return; }
     const pre = $('log_view'); const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 40;
     pre.textContent = d.lines.join('\n') || '（空）';

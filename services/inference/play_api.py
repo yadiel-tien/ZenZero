@@ -117,8 +117,8 @@ class PlayApiServer:
 
         @self.app.route('/info', methods=['GET'])
         def server_info():
-            from core.utils.version import full as _full
-            return jsonify({**probe_device_info(), 'version': _full()})
+            from core.utils.version import __version__
+            return jsonify({**probe_device_info(), 'version': __version__})
 
         @self.app.route('/devices', methods=['GET'])
         def devices_list():

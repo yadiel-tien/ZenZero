@@ -256,11 +256,18 @@ def set_best():
 # ---------------------------------------------------------------- 日志
 @bp.get('/api/admin/logs')
 def logs():
-    name = request.args.get('name', 'selfplay')
+    # path= 相对日志根目录的文件（清单接口回传什么就查什么）；name= 模块目录，旧调用兼容
     lines = min(int(request.args.get('lines', 200)), 2000)
     grep = request.args.get('grep', '').strip()
-    safe = ''.join(ch for ch in name if ch.isalnum() or ch in '._-')
-    path = Path(CONFIG['log_dir']) / safe / 'latest.log'
+    base = Path(CONFIG['log_dir']).resolve()
+    if request.args.get('path'):
+        cand = (base / str(request.args['path'])).resolve()
+        if not str(cand).startswith(str(base) + os.sep):
+            return jsonify({'ok': False, 'error': '路径越界', 'lines': []}), 403
+        path, safe = cand, str(request.args['path'])
+    else:
+        safe = ''.join(ch for ch in request.args.get('name', 'selfplay') if ch.isalnum() or ch in '._-')
+        path, safe = base / safe / 'latest.log', safe
     if not path.exists():
         return jsonify({'ok': False, 'error': f'没有这个日志: {safe}', 'lines': []})
     try:
@@ -280,16 +287,29 @@ def logs():
 
 @bp.get('/api/admin/logs/list')
 def logs_list():
+    """日志清单：各模块 latest.log（含轮转历史）+ console 的 train_*/task_* 原始输出。
+
+    console/train_*.log 是训练子进程 stdout+stderr 的全量落盘（启动横幅、崩溃栈都在），
+    与 logs/train/latest.log（logger 格式化流）互补，管理台训练页展开的就是前者。"""
     base = Path(CONFIG['log_dir'])
     out = []
     if base.is_dir():
         for entry in sorted(base.iterdir()):
-            f = entry / 'latest.log'
-            if f.exists():
+            if not entry.is_dir():
+                continue
+            for f in sorted(entry.glob('latest.log*')):        # 含 latest.log.2026-10-27 轮转
+                if f.is_file():
+                    st = f.stat()
+                    out.append({'name': entry.name if f.name == 'latest.log' else f'{entry.name}/{f.name}',
+                                'path': str(f.relative_to(base)), 'size': st.st_size, 'mtime': st.st_mtime})
+        cdir = base / 'console'
+        if cdir.is_dir():
+            for f in sorted(cdir.glob('*.log')):
                 st = f.stat()
-                out.append({'name': entry.name, 'size': st.st_size, 'mtime': st.st_mtime})
+                out.append({'name': f'console/{f.stem}', 'path': str(f.relative_to(base)),
+                            'size': st.st_size, 'mtime': st.st_mtime})
     out.sort(key=lambda x: x['mtime'], reverse=True)
-    return jsonify({'logs': out})
+    return jsonify({'logs': out[:200]})
 
 
 # ---------------------------------------------------------------- 一键体检
