@@ -298,8 +298,8 @@ def logs():
     try:
         size = path.stat().st_size
         with open(path, 'rb') as fp:
-            if size > 512_000:
-                fp.seek(-512_000, os.SEEK_END)
+            if size > 2_000_000:
+                fp.seek(-2_000_000, os.SEEK_END)
                 fp.readline()
             rows = fp.read().decode('utf-8', 'replace').splitlines()
     except OSError as e:
@@ -312,7 +312,7 @@ def logs():
 
 @bp.get('/api/admin/logs/list')
 def logs_list():
-    """日志清单：各模块 latest.log（含轮转历史）+ console 最近一份训练原始输出。
+    """日志清单：各模块 latest.log（含轮转历史）+ console 全部原始输出，不做过滤。
 
     console/train_*.log 是训练子进程 stdout+stderr 的全量落盘（启动横幅、崩溃栈都在），
     与 logs/train/latest.log（logger 格式化流）互补；日志查看器的「当前训练进程」实时跟随前者。
@@ -328,13 +328,11 @@ def logs_list():
                     st = f.stat()
                     out.append({'name': entry.name if f.name == 'latest.log' else f'{entry.name}/{f.name}',
                                 'path': str(f.relative_to(base)), 'size': st.st_size, 'mtime': st.st_mtime})
-        # console/ 只留最新一份训练原始输出：历史滚存多为各模块日志的 stdout 重复，
-        # 不进台账；正在写的另由「● 实时」(name=current) 跟随，task_* 在任务页各自可见。
+        # console/ 全量入列（用户拍板：清单不做过滤，历史滚存也都在）；
+        # 「● 实时」(name=current) 依旧置顶跟随正在写的那份。
         cdir = base / 'console'
         if cdir.is_dir():
-            trains = [f for f in cdir.glob('train_*.log') if f.is_file()]
-            if trains:
-                f = max(trains, key=lambda x: x.stat().st_mtime)
+            for f in sorted(cdir.glob('*.log')):
                 st = f.stat()
                 out.append({'name': f.stem, 'path': str(f.relative_to(base)),
                             'size': st.st_size, 'mtime': st.st_mtime})
