@@ -74,10 +74,10 @@ def main():
         """SIGUSR1：本轮（自博弈→fit→评估→perf）全做完再退；启动阶段收到视同立即退。"""
         m = state['manager']
         if m is None:
-            logger.warning('收到"等本轮结束"请求（启动阶段，无轮可等）：直接退出')
+            logger.warning('收到"收尾后停"请求（启动阶段，无轮可等）：直接退出')
             os._exit(0)
         m.stop_after_round = True
-        logger.info('收到"等本轮结束"请求：完成当前这一轮后退出（想立刻停就再发 SIGINT）')
+        logger.info('收到"收尾后停"请求：完成当前这一轮后退出（想立刻停就再发 SIGINT）')
 
     def hard_stop(sig, frame):
         """SIGTERM：尽力收尾 + 限时，然后硬退。"""
@@ -85,7 +85,7 @@ def main():
         os._exit(0)
 
     signal.signal(signal.SIGINT, graceful_stop)          # 立即结束
-    signal.signal(signal.SIGUSR1, stop_after_round)      # 等本轮结束
+    signal.signal(signal.SIGUSR1, stop_after_round)      # 收尾后停
     signal.signal(signal.SIGTERM, hard_stop)
 
     from core.utils import buffers as bufmod

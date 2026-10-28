@@ -193,7 +193,7 @@ def train_stop():
     err, data = _guard()
     if err:
         return err
-    # kill=立即结束(SIGKILL) / interrupt=等本轮收尾(SIGINT) / finish_round=跑完整轮(SIGUSR1)
+    # kill=立即结束(SIGKILL) / interrupt=收尾后停(SIGINT) / finish_round=跑完整轮(SIGUSR1)
     mode = str(data.get('mode') or 'interrupt')
     if mode not in ('kill', 'interrupt', 'immediate', 'finish_round', 'after_round'):
         return jsonify({'ok': False,

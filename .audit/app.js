@@ -286,17 +286,16 @@ async function loadArtifacts(){
     const d = await api(`/api/admin/artifacts?game=${game}&profile=${profile}`);
     $('art_summary').innerHTML = `best_index <b>${d.best_index}</b> · 最新 <b>${d.latest_index}</b> · `
       + `checkpoint ${d.checkpoints.length} 个 · data ${gb(d.totals.data)} · runs ${gb(d.totals.runs)} · 磁盘余 ${d.disk_free_gb} GB`;
-    $('t_ckpt').innerHTML = `<tr><th>代</th><th>大小</th><th>时间</th><th></th></tr>` + d.checkpoints.slice().reverse().map(c=>`
-      <tr><td class="num">${c.iteration}${c.iteration===d.best_index?' <span class="pill run">best</span>':''}</td>
+    $('t_ckpt').innerHTML = `<tr><th><input type=checkbox class=ckall data-t=t_ckpt></th><th>代</th><th>大小</th><th>时间</th><th></th></tr>` + d.checkpoints.slice().reverse().map(c=>`
+      <tr><td><input type=checkbox class=ck data-kind=checkpoint ${isSel('t_ckpt',c.path)?'checked':''} value="${esc(c.path)}"></td><td class="num">${c.iteration}${c.iteration===d.best_index?' <span class="pill run">best</span>':''}</td>
           <td class="num">${gb(c.size)}</td><td class="hint">${new Date(c.mtime*1000).toLocaleString()}</td>
           <td><button class="mini" onclick="promote(${c.iteration})">设为best</button>
-              <button class="mini danger" onclick="delArtifact('checkpoint','${c.path}','delete')">删</button></td></tr>`).join('');
-    $('t_runs').innerHTML = `<tr><th>run</th><th>大小</th><th></th></tr>` + d.runs.slice(0,20).map(r=>`
-      <tr><td class="hint">${esc(r.name)}</td><td class="num">${gb(r.size)}</td>
-          <td><button class="mini danger" onclick="delArtifact('run','${r.path}','delete')">删</button></td></tr>`).join('');
-    $('t_logs').innerHTML = `<tr><th>日志</th><th>大小</th><th></th></tr>` + d.logs.map(l=>`
-      <tr><td class="hint">${esc(l.name)}</td><td class="num">${gb(l.size)}</td>
-          <td><button class="mini danger" onclick="delArtifact('log','${l.path}','delete')">删</button></td></tr>`).join('');
+              <button class="mini danger" onclick="delArtifact('checkpoint','${c.path}','delete')" title="删除此代">${ICO_TRASH}</button></td></tr>`).join('');
+    $('t_runs').innerHTML = `<tr><th><input type=checkbox class=ckall data-t=t_runs></th><th>run</th><th>大小</th><th></th></tr>` + d.runs.slice(0,20).map(r=>`
+      <tr><td><input type=checkbox class=ck data-kind=run ${isSel('t_runs',r.path)?'checked':''} value="${esc(r.path)}"></td><td class="hint">${esc(r.name)}</td><td class="num">${gb(r.size)}</td>
+          <td><button class="mini danger" onclick="delArtifact('run','${r.path}','delete')" title="删除此 run">${ICO_TRASH}</button></td></tr>`).join('');
+    tidySel('t_ckpt', d.checkpoints.map(c=>c.path));
+    tidySel('t_runs', d.runs.slice(0,20).map(r=>r.path));
     loadPools(game);
   }catch(e){ toast('资产读取失败: '+e.message); }
 }
@@ -306,16 +305,27 @@ async function loadPools(game){
     const d = await api('/api/admin/buffers?game='+encodeURIComponent(game));
     const pools = (d.buffers||[]).filter(b=>b.kind==='named');
     const num = (v)=> v>=1000 ? (v/1000).toFixed(1)+'k' : String(v??0);
-    t.innerHTML = '<tr><th>池</th><th>已用/容量</th><th>来源</th><th></th></tr>' + (pools.length ? pools.map(b=>{
+    t.innerHTML = '<tr><th><input type=checkbox class=ckall data-t=t_pools></th><th>池</th><th>已用/容量</th><th>来源</th><th></th></tr>' + (pools.length ? pools.map(b=>{
       const src = b.source ? `${b.source.model} 网络 · 第 ${b.source.iteration} 代` : '尚无数据';
       return `
       <tr title="${esc(b.note||'')}\n输入特征编码：v${b.feature_version??'?'} · 棋种 ${b.game}\n更新：${esc(b.updated_at||b.created_at||'—')}" style="cursor:help">
+          <td><input type=checkbox class=ck data-kind=pool ${isSel('t_pools',b.ref)?'checked':''} value="${esc(b.ref)}"></td>
           <td><b>${esc(b.ref)}</b></td>
           <td class="num">${num(b.size)} / ${num(b.capacity)}</td>
           <td class="hint">${esc(src)}<br>${esc((b.updated_at||'').slice(5,16)).replace('T',' ')}</td>
-          <td><button class="mini" title="整体复制为自动编号的新池；原池保持不动" onclick="clonePool('${esc(b.ref)}')">⧉</button></td></tr>`;
-    }).join('') : '<tr><td colspan="4" class="hint">本棋种还没有经验池——训练表单里可直接新建</td></tr>');
+          <td><button class="mini" title="克隆为新池" onclick="clonePool('${esc(b.ref)}')">${ICO_COPY}</button> <button class="mini danger" title="删除此池（数据不可恢复）" onclick="delPool('${esc(b.ref)}')">${ICO_TRASH}</button></td></tr>`;
+    }).join('') : (selMap.t_pools.clear(), '<tr><td colspan="5" class="hint">本棋种还没有经验池——训练表单里可直接新建</td></tr>'));
+  syncBtn('t_pools');
   }catch(e){ t.innerHTML = `<tr><td class="hint">经验池读取失败：${esc(e.message)}</td></tr>`; }
+}
+async function delPool(name){
+  if(window.prompt(`删除经验池 ${name}？池内全部对局数据不可恢复。输入池名确认：`, '') !== name) return;
+  try{
+    const r = await api('/api/admin/buffers/delete', {method:'POST',
+      body: JSON.stringify({game: $('a_game').value, name, confirm:'delete-pool'})});
+    if(r.ok){ toast(`经验池 ${name} 已删除`, true); loadPools($('a_game').value); loadBuffers(); }
+    else toast('删除失败: '+r.error);
+  }catch(e){ toast('删除失败: '+e.message); }
 }
 async function clonePool(src){
   try{
@@ -324,6 +334,63 @@ async function clonePool(src){
     else toast('克隆失败: '+r.error);
   }catch(e){ toast('克隆失败: '+e.message); }
 }
+/* 勾选状态活在 DOM 之外：资产页每 15s 自动刷新、切棋种会整表重绘，
+   innerHTML 重建会把 checkbox 抹掉——用 Map(路径→kind) 记账，重绘时回填 */
+const selMap = {t_ckpt:new Map(), t_pools:new Map(), t_runs:new Map()};
+const isSel  = (tid,p)=> selMap[tid].has(p);
+function bindBatchUI(){
+  document.addEventListener('change', ev=>{
+    const t = ev.target;
+    if(!t.classList) return;
+    if(t.classList.contains('ck')){
+      const tid = t.closest('table').id;
+      t.checked ? selMap[tid].set(t.value, t.dataset.kind) : selMap[tid].delete(t.value);
+      syncBtn(tid);
+    } else if(t.classList.contains('ckall')){
+      const box = document.getElementById(t.dataset.t);
+      box.querySelectorAll('.ck').forEach(c=>{ c.checked = t.checked;
+        t.checked ? selMap[t.dataset.t].set(c.value, c.dataset.kind) : selMap[t.dataset.t].delete(c.value); });
+      syncBtn(t.dataset.t);
+    }
+  });
+  document.addEventListener('click', ev=>{
+    const b = ev.target.closest ? ev.target.closest('.bb') : null;
+    if(b) batchDel(b.dataset.t);
+  });
+}
+function syncBtn(tid){
+  const btn = document.querySelector(`.bb[data-t="${tid}"]`); if(!btn) return;
+  const n = selMap[tid].size;
+  btn.hidden = !n; btn.textContent = `删除 ${n}`;
+}
+const ICO_COPY = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+const ICO_TRASH = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-2px"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
+/* 重绘后调用：清掉本次列表里已不存在的勾选（文件被删/切了棋种），并校正表头全选态 */
+function tidySel(tid, rows){
+  const alive = new Set(rows);
+  [...selMap[tid].keys()].forEach(p=>{ if(!alive.has(p)) selMap[tid].delete(p); });
+  const box = document.getElementById(tid);
+  if(box){ const all=[...box.querySelectorAll('.ck')];
+    const head=box.querySelector('.ckall');
+    if(head) head.checked = all.length>0 && all.every(c=>c.checked); }
+  ['t_ckpt','t_pools','t_runs'].forEach(syncBtn);
+}
+async function batchDel(tid){
+  const items = [...selMap[tid]].map(([path,kind])=>({kind, path}));
+  if(!items.length) return;
+  if(!window.confirm(`删除 ${items.length} 项？不可恢复：\n` + items.map(i=>i.path.split('/').pop()).join('\n').slice(0,600))) return;
+  try{
+    const r = await api('/api/admin/artifacts/delete_batch', {method:'POST',
+      body: JSON.stringify({game:$('a_game').value, profile:$('a_profile').value, items, confirm:'delete'})});
+    if(r.ok){
+      const skip = (r.skipped||[]).length;
+      selMap[tid].clear();
+      toast(`已删 ${(r.deleted||[]).length} 项` + (skip?`，跳过 ${skip} 项：`+r.skipped.map(x=>x.path.split('/').pop()+'('+x.error+')').join('；'):''), !skip);
+      loadArtifacts(); loadPools($('a_game').value); loadBuffers();
+    } else toast('批量删除失败: '+r.error);
+  }catch(e){ toast('批量删除失败: '+e.message); }
+}
+bindBatchUI();
 async function delArtifact(kind, path, confirm){
   if(!window.confirm(`删除？\n${path}`)) return;
   try{
@@ -333,8 +400,8 @@ async function delArtifact(kind, path, confirm){
   }catch(e){ toast('删除失败: '+e.message); }
 }
 async function promote(it){
-  const v = (it===undefined||it===null) ? parseInt($('a_promote').value,10) : it;
-  if(!v){ toast('先填要设为 best 的代'); return; }
+  const v = it;
+  if(!v){ toast('未指定代数'); return; }
   try{
     const r = await api('/api/admin/best', {method:'POST', body: JSON.stringify({iteration:v, game:$('a_game').value, profile:$('a_profile').value})});
     r.ok ? toast('best_index 已设为 '+r.best_index, true) : toast('失败: '+r.error);
@@ -615,7 +682,6 @@ $('btn-start2').onclick = startTraining;
 $('btn-stop').onclick = () => stopTraining('kill');
 $('btn-stop-round').onclick = () => stopTraining('interrupt');
 $('btn-refresh-art').onclick = loadArtifacts;
-$('btn-promote').onclick = ()=>promote();
 $('btn-load-log').onclick = loadLog;
 $('a_game').onchange = $('a_profile').onchange = loadArtifacts;
 $('f_game').onchange = ()=>{ loadProfiles(); loadBuffers(); };
@@ -680,3 +746,5 @@ window.addEventListener('resize', ()=>{ if(tab==='monitor') tickSeries(); });
   setInterval(()=>{ if(tab==='logs' && $('l_follow').checked) loadLog(); }, 5000);
   setInterval(()=>{ if(tab==='artifacts') loadArtifacts(); }, 15000);
 })();
+
+globalThis.__P=()=>selMap;

@@ -103,8 +103,8 @@
   <span class="pill" id="phase">—</span>
   <span class="pill" id="meta">—</span>
   <span style="flex:1"></span>
-  <span class="pill" id="pending-stop" style="display:none">将在本轮结束后退出</span>
-  <button id="btn-stop-round" title="= 发送 SIGINT：取消还没开跑的局，把手上正在下的几十局收完并入池，存盘后退出">等本轮结束</button>
+  <span class="pill" id="pending-stop" style="display:none">收尾后停已排定</span>
+  <button id="btn-stop-round" title="不中断在跑的对局：正在下的局下完入池后退出，还没开跑的局取消；本轮成果不留遗憾">收尾后停</button>
   <button class="danger" id="btn-stop" title="= kill -9：直接杀进程，本轮已下完的局不会存盘">立即结束</button>
   <a href="/" class="pill" style="text-decoration:none">← 对弈</a>
   <a class="pill" href="/docs/" title="项目文档集：环境 / MCTS / 推理引擎 / 训练管线 / 架构与 API" style="text-decoration:none">📖 文档</a>
@@ -803,7 +803,7 @@ async function startTraining(){
 async function stopTraining(mode){
   const done = ((window.__lastProgress||{}).done) || 0;
   const ask = mode === 'interrupt'
-      ? '等本轮结束？（发 SIGINT：取消还没开跑的局，把手上正在下的局收完入池、存盘后退出；fit/评估若还没开始会跳过）'
+      ? '收尾后停？正在下的局会下完并入池，还没开跑的局取消；本轮的 fit/评估若还没开始则跳过。'
       : '立即结束？会直接 kill -9：本轮已下完的 ' + done + ' 局不会存盘，全白跑。确定要硬杀吗？';
   if(!window.confirm(ask)) return;
   try{

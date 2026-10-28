@@ -76,7 +76,7 @@ class SelfPlayManager:
         self.stop_event = threading.Event()
         # 两种结束方式：
         #   stop_event            = 立即结束（取消没开跑的局、收完在跑的、存盘退出）
-        #   stop_after_round=True = 等本轮结束（自博弈→fit→评估 全做完，再退出，不丢本轮成果）
+        #   stop_after_round=True = 收尾后停（自博弈→fit→评估 全做完，再退出，不丢本轮成果）
         self.stop_after_round = False
 
     def run(self, n_games: int) -> None:
@@ -169,7 +169,7 @@ class SelfPlayManager:
             self._record_perf(round_index, iteration, sp, fill, fit, ev, time.time() - t_ev)
 
             if self.stop_after_round:
-                self.logger.info('收到"等本轮结束"请求：本轮（自博弈+fit+评估+perf）已全部完成，退出。')
+                self.logger.info('收到"收尾后停"请求：本轮（自博弈+fit+评估+perf）已全部完成，退出。')
                 hb.write(force=True, phase='idle', note='stopped after round')
                 return
             # 训练网络，保存网络

@@ -105,7 +105,7 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
 <div class="step"><div class="n">2</div><div class="b"><b>启动服务</b>：<code>python main.py</code>（默认绑定本机回环 127.0.0.1:5000；局域网开放加 <code>--host 0.0.0.0</code>，
 换端口加 <code>--port 8080</code>）。浏览器访问 <code>http://&lt;主机&gt;:5000/</code> 即可开始对局。</div></div>
 <div class="step"><div class="n">3</div><div class="b"><b>训练模型</b>：开 <code>http://&lt;主机IP&gt;:5000/admin</code> → 训练页 → 核对棋种/神经网络/参数 →
-点击「启动训练」；训练结束时点「等本轮结束」。全程无需终端操作。</div></div>
+点击「启动训练」；训练结束时点「收尾后停」。全程无需终端操作。</div></div>
 
 <h2 id="s1">1　安装</h2>
 <p>单一环境，用 <a href="https://docs.astral.sh/uv/">uv</a> 管理（依赖清单只有 <code>requirements-backend.txt</code> 一份，前端零依赖）：</p>
@@ -136,7 +136,7 @@ uv pip install -r requirements-backend.txt --extra-index-url https://download.py
 <h3>3.1　推荐路径：管理台</h3>
 <pre><code>http://&lt;主机IP&gt;:5000/admin　→　「训练」页　→　启动训练</code></pre>
 <p>表单字段就是训练旋钮：棋种、神经网络（s/m/l/自定义）、并发线程、每轮局数、虚拟损失 K、（可选）批上限与设备。
-启动后"监控"页看实时；停止三档：<b>等本轮结束</b>（推荐，自博弈+fit+守擂全做完）· <b>优雅停止</b>（在跑的局收完入仓即退）·
+启动后"监控"页看实时；停止三档：<b>收尾后停</b>（推荐，自博弈+fit+守擂全做完）· <b>优雅停止</b>（在跑的局收完入仓即退）·
 <b>立即结束</b>（kill -9，丢当轮未落盘数据）。</p>
 <h3>3.2　裸命令（服务外的独立终端）</h3>
 <pre><code>python -X gil=0 -m scripts.train_server          # 用仓库 config 缺省

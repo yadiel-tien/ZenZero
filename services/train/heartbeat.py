@@ -22,7 +22,7 @@ import time
 from core.utils.config import CONFIG
 
 # 本进程支持的控制能力：runner 会先看心跳里的 caps 再决定能不能发 SIGUSR1。
-# 旧进程没有这条 → 面板会拒绝"等本轮结束"（SIGUSR1 的默认动作是**杀掉进程**，不能盲发）。
+# 旧进程没有这条 → 面板会拒绝"收尾后停"（SIGUSR1 的默认动作是**杀掉进程**，不能盲发）。
 CAPS = ['heartbeat', 'after_round']
 
 _LOCK = threading.Lock()

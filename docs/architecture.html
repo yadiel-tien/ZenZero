@@ -317,7 +317,7 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <table>
 <tr><th>要做</th><th>路径</th></tr>
 <tr><td>开一夜训练</td><td><code>/admin</code> → 训练 → 核对棋种/档位/参数 → 启动。监控页看：局/分、均批、KL。关浏览器不影响</td></tr>
-<tr><td>收工</td><td>「等本轮结束」（成果完整）；急用机器「优雅停止」；「立即结束」= kill（会丢当轮，确认框写明丢几局）</td></tr>
+<tr><td>收工</td><td>「收尾后停」（成果完整）；急用机器「优雅停止」；「立即结束」= kill（会丢当轮，确认框写明丢几局）</td></tr>
 <tr><td>终止时机</td><td>§4 篇第 7 节判据：KL 连续 10 代不降 + Val/value 平台 + 晋升胜率均值 &lt; 54% + 跨代对局 &lt; 60%，四项同时满足方可终止</td></tr>
 <tr><td>回滚坏模型</td><td>资产页「设为最强」，或 <code>POST /api/admin/best {iteration}</code></td></tr>
 <tr><td>GPU 被占满时的对战</td><td>ZenZero 设计为<b>显式失败不静默</b>：auto 探测失败会降级并在 <code>/info.device_note</code> 与前端标注；如需 GPU 推理请先释放 GPU（本机经换班调度台 baton 协调），或手动 <code>POST /device</code></td></tr>

@@ -207,13 +207,13 @@ class TrainingRunner:
             return {'ok': True, 'message': '已立即结束（SIGKILL，未存盘）', 'status': self.status()}
         if mode == 'finish_round':
             if self.meta.get('stop_after_round'):
-                return {'ok': True, 'pending': True, 'message': '已经在等本轮结束了',
+                return {'ok': True, 'pending': True, 'message': '收尾后停已排定，本轮完成后退出',
                         'status': st}
             caps, why = _trainer_caps(pid)
             if 'after_round' not in caps:
                 # SIGUSR1 默认动作是终止进程！旧进程没装 handler，盲发等于直接杀死训练
                 return {'ok': False,
-                        'error': f'该训练进程不支持"等本轮结束"（{why}）——请用"立即结束"',
+                        'error': f'该训练进程不支持"收尾后停"（{why}）——请用"立即结束"',
                         'status': st}
             try:
                 os.kill(pid, signal.SIGUSR1)

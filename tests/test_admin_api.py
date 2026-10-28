@@ -213,7 +213,7 @@ def test_stop_modes():
         assert r.status()['running'], 'after_round 不该立刻杀掉进程'
         assert r.status()['stop_after_round'] is True, r.status()
         again = r.stop(mode='finish_round')
-        assert again['ok'] and '已经在等本轮结束' in again['message'], again
+        assert again['ok'] and '收尾后停已排定，本轮完成后退出' in again['message'], again
 
         out2 = r.stop(mode='interrupt', grace=8.0)
         assert out2['ok'], out2
