@@ -116,6 +116,26 @@ def main():
         os._exit(2)
     logger.info(f'起点：{note} | 仓：{buf_ref or f"default@{get_profile()}（原位）"}'
                 + (f' → {bdir}' if bdir else ''))
+
+    # ── 训练目标（⑥）：目标代数 / 每手模拟次数区间 / 守擂晋升阈值，均可选，缺省回 config ──
+    _sims = CONFIG[game_name]['sims']
+    for _k, _e in (('start', 'ZZ_SIMS_START'), ('max', 'ZZ_SIMS_END')):
+        _v = (_os.environ.get(_e) or '').strip()
+        if _v.isdigit() and int(_v) >= 10:
+            _sims[_k] = int(_v)
+    _wt = (_os.environ.get('ZZ_WIN_THRESHOLD') or '').strip()
+    if _wt:
+        try:
+            _f = float(_wt)
+            CONFIG['win_threshold'] = min(0.9, max(0.4, (_f / 100 if _f > 1 else _f)))
+        except ValueError:
+            logger.warning(f'ZZ_WIN_THRESHOLD 无法解析，忽略：{_wt!r}')
+    _sti = (_os.environ.get('ZZ_STOP_AT_ITER') or '').strip()
+    if _sti.isdigit():
+        CONFIG['stop_at_iter'] = int(_sti)
+    logger.info(f'目标：sims {_sims["start"]}→{_sims["max"]}（{_sims.get("ramp_generations", 50)} 代爬满） · '
+                f'守擂 >{CONFIG["win_threshold"]:.0%} 晋升'
+                + (f' · 练到第 {CONFIG["stop_at_iter"]} 代后收尾' if CONFIG.get('stop_at_iter') else ' · 代数无上限'))
     # 进程内推理引擎(同时承担训练)
     server = TrainServer(model_idx, game_name)
     server.start()

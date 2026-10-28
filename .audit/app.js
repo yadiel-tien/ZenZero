@@ -75,36 +75,69 @@ function attachChart(id){
   const cv = $(id);
   if(!cv || cv._zoomed) return;
   cv._zoomed = true; cv.style.cursor = 'crosshair';
-  cv.addEventListener('wheel', e => {
+  cv.style.touchAction = 'none';                       // 触屏手势接管，页面不滚画布
+  const COARSE = window.matchMedia && matchMedia('(hover: none)').matches;
+  const pn = cv.closest('.panel');
+  if(pn && !pn.querySelector('.chint')){ const c = document.createElement('span');
+    c.className = 'chint'; c.textContent = COARSE ? '拖动平移 · 双指缩放 · 双击复位' : '滚轮缩放 · 拖动平移 · 双击复位';
+    pn.appendChild(c); }
+  const rect = () => cv.getBoundingClientRect();
+  const fracOf = (clientX) => Math.min(1, Math.max(0, (clientX - rect().left - 46) / Math.max(1, rect().width - 56)));
+  function zoomAt(clientX, f){                          // 滚轮与双指共用：以光标/两指中心为锚
     const cfg = LASTCFG[id]; if(!cfg) return;
-    e.preventDefault();
     const R = dataRange(cfg), cur = VIEW[id] || {x0: R.x0, x1: R.x1};
     const span = Math.max(cur.x1 - cur.x0, 1e-9);
-    const rect = cv.getBoundingClientRect();
-    const frac = Math.min(1, Math.max(0, (e.clientX - rect.left - 46) / Math.max(1, rect.width - 56)));
-    const anchor = cur.x0 + frac * span;
-    const f = e.deltaY < 0 ? 0.8 : 1.25;                  // 上滚放大
+    const frac = fracOf(clientX), anchor = cur.x0 + frac * span;
     const nspan = Math.min(R.x1 - R.x0, Math.max(span * f, (R.x1 - R.x0) * 1e-3));
     let nx0 = anchor - frac * nspan, nx1 = nx0 + nspan;
     if(nx0 < R.x0){ nx0 = R.x0; nx1 = Math.min(R.x1, nx0 + nspan); }
     if(nx1 > R.x1){ nx1 = R.x1; nx0 = Math.max(R.x0, nx1 - nspan); }
     VIEW[id] = {x0: nx0, x1: nx1}; draw(id, cfg);
-  }, {passive: false});
-  let drag = null;
-  cv.addEventListener('mousedown', e => { drag = {x: e.clientX, cfg: LASTCFG[id], view: VIEW[id] || null}; cv.style.cursor = 'grabbing'; });
-  window.addEventListener('mouseup', () => { if(drag){ drag = null; cv.style.cursor = 'crosshair'; } });
-  cv.addEventListener('mousemove', e => {
-    if(!drag || !drag.cfg) return;
-    const R = dataRange(drag.cfg), cur = drag.view || {x0: R.x0, x1: R.x1};
+  }
+  function panBy(dxPx, base){                           // 鼠标拖动与单指拖动共用
+    const cfg = LASTCFG[id]; if(!cfg) return;
+    const R = dataRange(cfg), cur = base || VIEW[id] || {x0: R.x0, x1: R.x1};
     const span = Math.max(cur.x1 - cur.x0, 1e-9);
-    const rect = cv.getBoundingClientRect();
-    const dx = (e.clientX - drag.x) / Math.max(1, rect.width - 56) * span;
+    const dx = dxPx / Math.max(1, rect().width - 56) * span;
     let nx0 = cur.x0 - dx, nx1 = cur.x1 - dx;
     if(nx0 < R.x0){ nx0 = R.x0; nx1 = R.x0 + span; }
     if(nx1 > R.x1){ nx1 = R.x1; nx0 = R.x1 - span; }
-    VIEW[id] = {x0: nx0, x1: nx1}; draw(id, drag.cfg);
-  });
-  cv.addEventListener('dblclick', () => { delete VIEW[id]; draw(id, LASTCFG[id]); });
+    VIEW[id] = {x0: nx0, x1: nx1}; draw(id, cfg);
+  }
+  const reset = () => { delete VIEW[id]; draw(id, LASTCFG[id]); };
+  cv.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.clientX, e.deltaY < 0 ? 0.8 : 1.25); }, {passive: false});
+  let drag = null;
+  cv.addEventListener('mousedown', e => { drag = {x: e.clientX, view: VIEW[id] ? {...VIEW[id]} : null}; cv.style.cursor = 'grabbing'; });
+  window.addEventListener('mouseup', () => { if(drag){ drag = null; cv.style.cursor = 'crosshair'; } });
+  cv.addEventListener('mousemove', e => { if(drag){ panBy(e.clientX - drag.x, drag.view); } });
+  cv.addEventListener('dblclick', reset);
+  // ---- 触屏：单指平移 · 双指捏合缩放（锚=两指中点）· 双击复位 ----
+  let tSt = null, lastTap = 0;
+  const dist = ts => Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY);
+  cv.addEventListener('touchstart', e => {
+    const ts = e.touches;
+    if(ts.length === 1){
+      const now = Date.now();
+      if(now - lastTap < 320){ reset(); e.preventDefault(); lastTap = 0; return; }   // 双击复位
+      lastTap = now;
+      tSt = {mode: 'pan', x: ts[0].clientX, view: VIEW[id] ? {...VIEW[id]} : null};
+    } else if(ts.length === 2){
+      lastTap = 0;
+      tSt = {mode: 'pinch', d: dist(ts), cx: (ts[0].clientX + ts[1].clientX) / 2, view: VIEW[id] ? {...VIEW[id]} : null};
+    }
+    e.preventDefault();
+  }, {passive: false});
+  cv.addEventListener('touchmove', e => {
+    if(!tSt) return;
+    const ts = e.touches;
+    if(tSt.mode === 'pan' && ts.length === 1){ panBy(ts[0].clientX - tSt.x, tSt.view); }
+    else if(tSt.mode === 'pinch' && ts.length === 2){
+      const d = dist(ts);
+      if(d > 4 && tSt.d > 0){ const f = tSt.d / d; tSt.d = d; zoomAt(tSt.cx, f); tSt.cx = (ts[0].clientX + ts[1].clientX) / 2; }
+    }
+    e.preventDefault();
+  }, {passive: false});
+  cv.addEventListener('touchend', () => { tSt = null; });
 }
 
 function renderLegend(id, cfg){
@@ -239,7 +272,9 @@ function renderSnapshot(s){
   $('phase').className = chip; $('phase').textContent = txt;
   document.body.classList.toggle('stalled', !running);
   // 训练进程
-  $('trainer').textContent = running? `训练中 pid ${tr.pid} · ${secs(tr.uptime_s)}` : '训练未运行';
+  // 未运行时「阶段」pill 已说明一切，进程 pill 说同一句话纯属重复——只在运行中现身
+  $('trainer').style.display = running ? 'inline-block' : 'none';
+  $('trainer').textContent = running? `训练中 pid ${tr.pid} · ${secs(tr.uptime_s)}` : '';
   $('trainer').className = 'pill ' + (running?'run':'stop');
   $('btn-stop').disabled = !running;
   $('btn-start2').disabled = running;
@@ -485,7 +520,7 @@ async function startTraining(){
 async function stopTraining(mode){
   const done = ((window.__lastProgress||{}).done) || 0;
   const ask = mode === 'interrupt'
-      ? '等本轮结束？（发 SIGINT：取消还没开跑的局，把手上正在下的局收完入池、存盘后退出；fit/评估若还没开始会跳过）'
+      ? '收尾后停？正在下的局会下完并入池，还没开跑的局取消；本轮的 fit/评估若还没开始则跳过。'
       : '立即结束？会直接 kill -9：本轮已下完的 ' + done + ' 局不会存盘，全白跑。确定要硬杀吗？';
   if(!window.confirm(ask)) return;
   try{

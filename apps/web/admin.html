@@ -165,6 +165,12 @@
         <div class="field hidden" id="f_startn_w"><label>起始代数</label><input id="f_startn" type="number" min="1" placeholder="N"></div>
         <div class="field"><label>经验池</label><select id="f_buffer" title="游戏级经验池：主池+留出集成对；选择已有池、悬停看详情，或选末项新建"></select></div>
 
+      </div>
+      <div class="row">
+        <div class="field"><label>训练到第几代</label><input id="f_stopiter" type="number" min="1" style="width:110px" placeholder="不限" title="练到该代数完成后自动收尾退出；留空=一直练到手动停止"></div>
+        <div class="field"><label>模拟次数 起始</label><input id="f_sims0" type="number" min="10" style="width:90px" placeholder="400" title="开局每手棋的 MCTS 模拟数，随代数线性爬升至上限"></div>
+        <div class="field"><label>上限</label><input id="f_sims1" type="number" min="10" style="width:90px" placeholder="800" title="模拟次数爬到此值后不再增长"></div>
+        <div class="field"><label>守擂胜率</label><input id="f_gate" type="number" min="40" max="90" style="width:80px" placeholder="52" title="新模型对守擂者胜率须严格超过该百分比才晋升为最强；调低晋级容易（模型质量下降风险），调高近乎守死"></div>
         <div class="field"><label>&nbsp;</label><button class="primary" id="btn-start2">启动</button></div>
       </div>
       <div class="hint" id="launch_hint" style="margin-top:8px"></div>
@@ -855,6 +861,8 @@ function launchOpts(){
   const bufv = $('f_buffer').value;
   if(!bufv || bufv==='__new__'){ toast('经验池必须选择：选已有池或选「新建经验池」'); return null; }
   o.buffer = bufv;
+  for(const [k, el] of [['stop_at_iter','f_stopiter'],['sims_start','f_sims0'],['sims_end','f_sims1'],['win_threshold','f_gate']])
+    { const v = $(el).value.trim(); if(v) o[k] = v; }
   return o;
 }
 async function startTraining(){

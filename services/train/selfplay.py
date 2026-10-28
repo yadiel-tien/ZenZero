@@ -172,6 +172,11 @@ class SelfPlayManager:
                 self.logger.info('收到"收尾后停"请求：本轮（自博弈+fit+评估+perf）已全部完成，退出。')
                 hb.write(force=True, phase='idle', note='stopped after round')
                 return
+            _tgt = CONFIG.get('stop_at_iter')
+            if _tgt and iteration >= int(_tgt):
+                self.logger.info(f'达成训练目标：第 {iteration} 代 ≥ 目标 {_tgt} 代，优雅收尾（等效"收尾后停"）。')
+                hb.write(force=True, phase='idle', note=f'reached target iter {_tgt}')
+                return
             # 训练网络，保存网络
             iteration += 1
 

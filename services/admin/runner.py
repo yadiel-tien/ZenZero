@@ -35,11 +35,19 @@ _KNOB_ENV = {
     'max_batch': 'ZZ_MAX_BATCH',
     'buffer': 'ZZ_BUFFER',            # 经验池：空=原位池；名字=棋种级命名池；default@<模型>=兼容定位
     'start_from': 'ZZ_START_FROM',    # 起点：auto|fresh|<代数N>
+    'stop_at_iter': 'ZZ_STOP_AT_ITER',      # 目标代数（轮末优雅收尾）
+    'sims_start': 'ZZ_SIMS_START',          # 每手模拟次数：起始
+    'sims_end': 'ZZ_SIMS_END',              # 每手模拟次数：上限
+    'win_threshold': 'ZZ_WIN_THRESHOLD',    # 守擂晋升阈值（百分数 40~90）
 }
 _STR_OK = {
     'buffer': lambda v: v == 'default' or v.startswith('default@') or
                         __import__('re').fullmatch(r'[a-z][a-z0-9_]{0,31}', v) is not None,
     'start_from': lambda v: v in ('auto', 'fresh') or v.isdigit(),
+    'stop_at_iter': lambda v: v.isdigit() and 1 <= int(v) <= 1_000_000,
+    'sims_start': lambda v: v.isdigit() and 10 <= int(v) <= 100_000,
+    'sims_end': lambda v: v.isdigit() and 10 <= int(v) <= 100_000,
+    'win_threshold': lambda v: v.replace('.', '', 1).isdigit() and 40 <= float(v) <= 90,
 }
 _INT_KNOBS = ('workers', 'games_per_round', 'batch_leaves', 'max_batch')
 _CHOICES = {
@@ -298,6 +306,12 @@ def _validate(opts: dict) -> tuple[dict, str | None]:
             clean[key] = iv
         else:
             clean[key] = str(value)
+    try:
+        _a, _b = clean.get('sims_start'), clean.get('sims_end')
+        if _a and _b and int(_a) > int(_b):
+            return {}, f'模拟次数起始({_a})不能大于上限({_b})'
+    except (TypeError, ValueError):
+        pass
     return clean, None
 
 

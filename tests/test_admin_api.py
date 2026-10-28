@@ -341,6 +341,25 @@ def test_log_ledger_and_batch_delete():
         tearDown()
 
 
+def test_goal_knobs():
+    """训练目标旋钮校验：代数/sims 区间/守擂阈值非法值全拒，合法值透传 env 名正确。"""
+    from services.admin.runner import _validate, _KNOB_ENV
+    for k in ('stop_at_iter', 'sims_start', 'sims_end', 'win_threshold'):
+        assert k in _KNOB_ENV, k
+    bad = [{'stop_at_iter': '0'}, {'stop_at_iter': 'x'}, {'sims_start': '9'},
+           {'sims_end': 'abc'}, {'win_threshold': '20'}, {'win_threshold': '95'},
+           {'win_threshold': 'a'}, {'sims_start': '600', 'sims_end': '400'}]
+    for o in bad:
+        _, err = _validate(o)
+        assert err, f'应被拒: {o}'
+    ok, err = _validate({'stop_at_iter': '100', 'sims_start': '400', 'sims_end': '800',
+                         'win_threshold': '55', 'game': 'ChineseChess'})
+    assert not err and ok['stop_at_iter'] == '100' and ok['win_threshold'] == '55', (err, ok)
+    ok2, _ = _validate({'sims_start': '800', 'sims_end': '800'})   # 起=止合法
+    assert 'sims_start' in ok2
+    print('   ok   目标旋钮：8 组非法拒绝、合法透传、起>止交叉拦截')
+
+
 def test_stop_mode_route_validation():
     setUp()
     try:
@@ -442,11 +461,11 @@ def test_profiles_routes():
 def main() -> None:
     for fn in (test_artifacts_listing, test_buffer_stats_sidecar, test_delete_guards, test_set_best,
                test_runner_lifecycle, test_stop_modes, test_kill_mode_is_sigkill,
-               test_drain_keeps_grace, test_stop_mode_route_validation, test_log_ledger_and_batch_delete,
+               test_drain_keeps_grace, test_goal_knobs, test_stop_mode_route_validation, test_log_ledger_and_batch_delete,
                test_routes_and_token, test_profiles_routes):
         print(f'== {fn.__name__}')
         fn()
-    print('\nALL 12 ADMIN-CONSOLE TESTS PASSED')
+    print('\nALL 13 ADMIN-CONSOLE TESTS PASSED')
 
 
 if __name__ == '__main__':

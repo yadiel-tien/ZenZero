@@ -136,7 +136,7 @@ uv pip install -r requirements-backend.txt --extra-index-url https://download.py
 <h3>3.1　推荐路径：管理台</h3>
 <pre><code>http://&lt;主机IP&gt;:5000/admin　→　「训练」页　→　启动训练</code></pre>
 <p>表单字段就是训练旋钮：棋种、神经网络（s/m/l/自定义）、并发线程、每轮局数、虚拟损失 K、（可选）批上限与设备。
-启动后"监控"页看实时；停止三档：<b>收尾后停</b>（推荐，自博弈+fit+守擂全做完）· <b>优雅停止</b>（在跑的局收完入仓即退）·
+启动参数里的<b>训练目标</b>三项可留空（留空=config 缺省）：练到第几代自动收尾、每手模拟次数从几爬到了、守擂胜率门槛。启动后"监控"页看实时；停止三档：<b>收尾后停</b>（推荐，自博弈+fit+守擂全做完）· <b>优雅停止</b>（在跑的局收完入仓即退）·
 <b>立即结束</b>（kill -9，丢当轮未落盘数据）。</p>
 <h3>3.2　裸命令（服务外的独立终端）</h3>
 <pre><code>python -X gil=0 -m scripts.train_server          # 用仓库 config 缺省
