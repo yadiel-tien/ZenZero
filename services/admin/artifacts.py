@@ -120,10 +120,19 @@ def list_all(game: str, profile: str) -> dict:
 
     logs = []
     log_dir = Path(CONFIG['log_dir'])
+    _LOG_F = re.compile(r'^(latest\.log(\.\d{4}-\d{2}-\d{2})?|console\.log)$')
     if log_dir.is_dir():
         for entry in sorted(log_dir.iterdir()):
-            if entry.is_dir() and (entry / 'latest.log').exists():
-                logs.append(_artifact('log', entry / 'latest.log'))
+            if not entry.is_dir() or entry.name.startswith(('_', '.')):
+                continue
+            for f in sorted(entry.iterdir()):
+                try:
+                    if f.is_file() and _LOG_F.match(f.name) and f.stat().st_size > 0:
+                        a = _artifact('log', f)
+                        a['module'] = entry.name      # 前端分组用
+                        logs.append(a)
+                except OSError:
+                    continue
     runs.sort(key=lambda x: x['mtime'] or 0, reverse=True)
     logs.sort(key=lambda x: x['mtime'] or 0, reverse=True)
     return {
@@ -158,9 +167,9 @@ def delete(kind: str, path: str, confirm: str, game: str, profile: str) -> dict:
             return {'ok': False, 'error': "需要 confirm='delete'"}
     elif kind == 'log':
         in_log_dir = target.parent.parent == log_dir
-        allowed_name = bool(re.match(r'^(latest\.log|log)(\..*)?$', target.name))
+        allowed_name = bool(re.match(r'^(latest\.log(\.\d{4}-\d{2}-\d{2})?|console\.log)$', target.name))
         if not in_log_dir or not allowed_name:
-            return {'ok': False, 'error': '只允许删 logs/<name>/latest.log 或 logs/<name>/log.<日期>'}
+            return {'ok': False, 'error': '只允许删日志台账文件（latest.log 及轮转、console.log）'}
         if confirm != 'delete':
             return {'ok': False, 'error': "需要 confirm='delete'"}
     elif kind == 'buffer':

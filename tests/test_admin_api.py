@@ -295,6 +295,52 @@ def test_drain_keeps_grace():
         tearDown()
 
 
+def test_log_ledger_and_batch_delete():
+    """日志台账采集（轮转+console、0 字节除名、module 字段）与批量删除（护栏逐项、部分成功）。"""
+    setUp()
+    try:
+        from flask import Flask
+        import services.admin.routes as routes
+        app = Flask(__name__)
+        app.register_blueprint(routes.bp)
+        c = app.test_client()
+        lg = Path(CONFIG['log_dir']) / 'selfplay'
+        lg.mkdir(parents=True, exist_ok=True)
+        for name, size in (('latest.log', 10), ('latest.log.2026-10-20', 20),
+                           ('console.log', 30), ('latest.log.2026-10-19', 0), ('weird.txt', 5)):
+            (lg / name).write_bytes(b'x' * size)
+        run = Path(CONFIG['runs_dir']) / 'ChineseChess_20260101_010101'
+        run.mkdir(parents=True, exist_ok=True)
+        nd = Path(net_dir(GAME, PROFILE))
+        (nd / 'checkpoint_5.pt').write_bytes(b'p')
+        (nd / 'checkpoint_7.pt').write_bytes(b'p')
+        from services.admin import artifacts as _af
+        _af.set_best(7, GAME, PROFILE)
+        d = c.get(f'/api/admin/artifacts?game={GAME}&profile={PROFILE}').get_json()
+        names = {l['name']: l for l in d['logs']}
+        assert {'latest.log', 'latest.log.2026-10-20', 'console.log'} <= set(names), names.keys()
+        assert 'latest.log.2026-10-19' not in names, '0 字节必须除名'
+        assert 'weird.txt' not in names, '非台账文件不得混入'
+        assert all(l['module'] == 'selfplay' for l in d['logs'])
+        bad = c.post('/api/admin/artifacts/delete_batch',
+                     json={'game': GAME, 'profile': PROFILE, 'items': [{'kind': 'log', 'path': 'x'}]})
+        assert bad.status_code == 409, '缺 confirm 令牌必须拒'
+        r = c.post('/api/admin/artifacts/delete_batch', json={'game': GAME, 'profile': PROFILE, 'confirm': 'delete', 'items': [
+            {'kind': 'log', 'path': str(lg / 'latest.log')},
+            {'kind': 'log', 'path': str(lg / 'latest.log.2026-10-20')},
+            {'kind': 'run', 'path': str(run)},
+            {'kind': 'checkpoint', 'path': str(nd / 'checkpoint_7.pt')},      # best → skip
+            {'kind': 'checkpoint', 'path': str(nd / 'checkpoint_5.pt')},      # ok
+            {'kind': 'log', 'path': str(lg / 'weird.txt')},                   # 白名单外 → skip
+        ]}).get_json()
+        assert len(r['deleted']) == 4, r
+        assert len(r['skipped']) == 2 and not (lg / 'latest.log').exists() and run.exists() is False
+        assert (nd / 'checkpoint_7.pt').exists(), 'best 必须存活'
+        print('   ok   日志台账（轮转/console/0 字节/module）+ 批量删除（逐项护栏/部分成功）')
+    finally:
+        tearDown()
+
+
 def test_stop_mode_route_validation():
     setUp()
     try:
@@ -396,11 +442,11 @@ def test_profiles_routes():
 def main() -> None:
     for fn in (test_artifacts_listing, test_buffer_stats_sidecar, test_delete_guards, test_set_best,
                test_runner_lifecycle, test_stop_modes, test_kill_mode_is_sigkill,
-               test_drain_keeps_grace, test_stop_mode_route_validation,
+               test_drain_keeps_grace, test_stop_mode_route_validation, test_log_ledger_and_batch_delete,
                test_routes_and_token, test_profiles_routes):
         print(f'== {fn.__name__}')
         fn()
-    print('\nALL 11 ADMIN-CONSOLE TESTS PASSED')
+    print('\nALL 12 ADMIN-CONSOLE TESTS PASSED')
 
 
 if __name__ == '__main__':

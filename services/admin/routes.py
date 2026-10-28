@@ -335,6 +335,36 @@ def artifacts_delete():
                                     str(data.get('confirm') or ''), game, profile))
 
 
+@bp.post('/api/admin/artifacts/delete_batch')
+def artifacts_delete_batch():
+    """批量删除：items=[{kind,path}]，kind ∈ checkpoint|run|log|pool。
+    护栏逐项复用单删逻辑（best 拒删、路径白名单、confirm）；pool 训练中拒删。
+    逐项成功/跳过都记明细，一个坏项不影响其它项。"""
+    err, data = _guard()
+    if err:
+        return err
+    items = data.get('items')
+    if not isinstance(items, list) or not 1 <= len(items) <= 200:
+        return jsonify({'ok': False, 'error': 'items 需为 1~200 条数组'}), 400
+    if str(data.get('confirm') or '') != 'delete':
+        return jsonify({'ok': False, 'error': "需要 confirm='delete'"}), 409
+    game, profile = _target_game_profile(data)
+    running = bool(_r().status().get('running'))
+    from core.utils.buffers import delete_pool
+    deleted, skipped = [], []
+    for it in items[:200]:
+        kind, path = str((it or {}).get('kind') or ''), str((it or {}).get('path') or '')
+        if kind == 'pool':
+            if running:
+                skipped.append({'path': path, 'error': '训练进行中'}); continue
+            ok, msg = delete_pool(game, path)
+        else:
+            res = artifacts.delete(kind, path, 'delete', game, profile)
+            ok, msg = bool(res.get('ok')), str(res.get('error') or '')
+        (deleted if ok else skipped).append(path if ok else {'path': path, 'error': msg})
+    return jsonify({'ok': True, 'deleted': deleted, 'skipped': skipped})
+
+
 @bp.post('/api/admin/best')
 def set_best():
     err, data = _guard()
