@@ -170,18 +170,68 @@
     
 
     <div class="panel">
-      <h2>神经网络配置<span class="lg">data/profiles.json · 只许规模键 · 名字即数据目录</span></h2>
+      <h2>神经网络配置<span class="lg" title="模板存 data/profiles.json；只允许规模键；名字即数据目录">?</span></h2>
       <table><tr><th>网络名</th><th>规模</th><th>来源</th><th>模型（权重）</th><th></th></tr></thead>
         <tbody id="pf_rows"><tr><td colspan="5" class="hint">加载中…</td></tr></tbody></table>
+      <!-- resnet_v1 结构示意：标出表单每个字段作用在哪 -->
+      <svg viewBox="0 0 660 196" style="width:100%;max-width:660px;display:block;margin:6px auto 2px"
+           font-size="10.5" font-family="inherit" role="img" aria-label="resnet_v1 结构示意">
+        <defs><marker id="na" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <path d="M0,0 L7,3.5 L0,7 z" fill="var(--dim)"/></marker></defs>
+        <!-- 输入 -->
+        <rect x="8" y="66" width="34" height="52" rx="5" fill="none" stroke="var(--fg)" stroke-width="1.4"/>
+        <text x="25" y="60" text-anchor="middle" fill="var(--fg)">输入</text>
+        <text x="25" y="133" text-anchor="middle" fill="var(--dim)">26×9×10</text>
+        <line x1="42" y1="92" x2="62" y2="92" stroke="var(--dim)" marker-end="url(#na)"/>
+        <!-- stem -->
+        <rect x="64" y="76" width="52" height="32" rx="5" fill="none" stroke="var(--fg)" stroke-width="1.2"/>
+        <text x="90" y="90" text-anchor="middle" fill="var(--fg)">conv 3×3</text>
+        <text x="90" y="102" text-anchor="middle" fill="var(--dim)">stem</text>
+        <text x="90" y="132" text-anchor="middle" fill="var(--blue)">① 宽度=<tspan font-weight="700">通道数</tspan></text>
+        <line x1="116" y1="92" x2="136" y2="92" stroke="var(--dim)" marker-end="url(#na)"/>
+        <!-- 残差干 -->
+        <rect x="138" y="46" width="252" height="94" rx="8" fill="none" stroke="var(--fg)" stroke-width="1.4" stroke-dasharray="4 3"/>
+        <text x="264" y="40" text-anchor="middle" fill="var(--fg)">ResBlock × <tspan font-weight="700">N</tspan>　② N=<tspan font-weight="700">残差块数</tspan></text>
+        <rect x="150" y="66" width="106" height="54" rx="5" fill="var(--card)" stroke="var(--line)"/>
+        <text x="203" y="82" text-anchor="middle" fill="var(--fg)">conv3×3 · conv3×3</text>
+        <rect x="186" y="88" width="34" height="14" rx="4" fill="none" stroke="var(--purple)" stroke-width="1.2"/>
+        <text x="203" y="98.5" text-anchor="middle" fill="var(--purple)" font-size="9.5">SE ④</text>
+        <circle cx="268" cy="93" r="7" fill="none" stroke="var(--fg)" stroke-width="1.2"/>
+        <text x="268" y="96.5" text-anchor="middle" fill="var(--fg)">+</text>
+        <path d="M150,116 Q150,127 162,127 L262,127 Q268,127 268,120" fill="none" stroke="var(--fg)" stroke-width="1"/>
+        <text x="264" y="130" text-anchor="middle" fill="var(--dim)" font-size="9">恒等捷径</text>
+        <text x="316" y="76" text-anchor="middle" fill="var(--dim)">⋯</text>
+        <rect x="336" y="66" width="42" height="54" rx="5" fill="none" stroke="var(--line)"/>
+        <text x="357" y="95" text-anchor="middle" fill="var(--dim)">×n</text>
+        <text x="264" y="158" text-anchor="middle" fill="var(--blue)">干宽 ① 通道数 · 每块可选 SE ④（开/关）</text>
+        <!-- 分叉 -->
+        <line x1="390" y1="93" x2="416" y2="93" stroke="var(--dim)"/>
+        <line x1="416" y1="93" x2="416" y2="50" stroke="var(--dim)"/>
+        <line x1="416" y1="93" x2="416" y2="140" stroke="var(--dim)"/>
+        <line x1="416" y1="50" x2="438" y2="50" stroke="var(--dim)" marker-end="url(#na)"/>
+        <line x1="416" y1="140" x2="438" y2="140" stroke="var(--dim)" marker-end="url(#na)"/>
+        <!-- policy 头 -->
+        <rect x="440" y="26" width="130" height="46" rx="6" fill="none" stroke="var(--fg)" stroke-width="1.2"/>
+        <text x="505" y="44" text-anchor="middle" fill="var(--fg)">策略头 π（走哪）</text>
+        <text x="505" y="60" text-anchor="middle" fill="var(--dim)">1×1→fc→动作分布</text>
+        <line x1="570" y1="49" x2="596" y2="49" stroke="var(--dim)" marker-end="url(#na)"/>
+        <text x="614" y="53" text-anchor="middle" fill="var(--fg)" font-weight="700">π</text>
+        <!-- value 头 -->
+        <rect x="440" y="116" width="130" height="46" rx="6" fill="none" stroke="var(--fg)" stroke-width="1.2"/>
+        <text x="505" y="132" text-anchor="middle" fill="var(--fg)">价值头 v（胜率）</text>
+        <text x="505" y="148" text-anchor="middle" fill="var(--dim)">1×1→fc<tspan fill="var(--blue)">③</tspan>→tanh</text>
+        <line x1="570" y1="139" x2="596" y2="139" stroke="var(--dim)" marker-end="url(#na)"/>
+        <text x="614" y="143" text-anchor="middle" fill="var(--fg)" font-weight="700">v</text>
+        <text x="505" y="180" text-anchor="middle" fill="var(--blue)">③ = <tspan font-weight="700">value 隐层</tspan>（价值头中间的宽度）</text>
+      </svg>
       <div class="row" style="margin-top:8px">
-        <div class="field"><label>新配置名</label><input id="pf_name" placeholder="mini64（小写字母开头）" style="max-width:130px"></div>
+        <div class="field"><label>新网络名</label><input id="pf_name" placeholder="如 mini64" title="小写字母开头，a-z0-9_，将成为目录名" style="max-width:130px"></div>
         <div class="field"><label>通道数</label><input id="pf_filters" type="number" value="96" min="16" max="1024"></div>
         <div class="field"><label>残差块</label><input id="pf_blocks" type="number" value="4" min="1" max="64"></div>
         <div class="field"><label>value 隐层</label><input id="pf_vh" type="number" value="48" min="8" max="2048"></div>
         <div class="field"><label>SE 注意力</label><select id="pf_se"><option value="1">开</option><option value="0">关</option></select></div>
-        <button id="pf_add" title="校验通过后写入 data/profiles.json，下拉立即可选">新增配置</button>
+        <button id="pf_add" title="写入 data/profiles.json，各处下拉立即可选">新增网络</button>
       </div>
-      <div class="hint">新增后在上方「神经网络」选它开训；删除只移除配置名，磁盘上已训练的模型（权重）保留（重新添加同名网络即可接上）。</div>
     </div>
 </section>
 
