@@ -158,7 +158,7 @@ def train_stop():
     return jsonify(_r().stop(mode=mode, grace=float(data.get('grace') or 150.0)))
 
 
-# ---------------------------------------------------------------- 数据仓
+# ---------------------------------------------------------------- 经验池
 @bp.get('/api/admin/buffers')
 def buffers_list():
     """仓清单（注册表=目录现场扫描）：default@<模型> 原位仓 + buffers/ 命名仓，含元数据。"""

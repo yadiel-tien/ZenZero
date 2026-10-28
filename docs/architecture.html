@@ -108,6 +108,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 <table>
 <tr><th>术语</th><th>一句话定义</th><th>详见</th></tr>
 <tr><td>代 / 轮（iteration / round）</td><td>代 = 模型版本号（每完成一轮 +1）；轮 = 一次"自博弈→fit→守擂"循环</td><td>§4 篇 1、3 节</td></tr>
+<tr><td>经验池（buffer，旧称「仓」）</td><td>棋种级的自博弈样本库（主池+留出集成对）；不按网络分家，元数据记录最新写入的网络与代数</td><td>本篇 4.3</td></tr>
 <tr><td>神经网络（profile）</td><td>同一棋种下的<b>命名网络配置</b>：内置 s / m / l，可自定义；数据目录与引擎身份都带网络名。<b>术语定案</b>：界面与文档中 profile 称「神经网络」，「模型」专指其下每一代权重（checkpoint）；旧称「档位」</td><td>本篇 4 节</td></tr>
 <tr><td>表示版本（feature_version，文中亦称 epoch）</td><td>棋盘张量的布局版本号；不同版本互不兼容，引擎与转换必须对齐</td><td>§1 篇 §6</td></tr>
 <tr><td>引擎（InferenceEngine）</td><td>绑定一份权重 + 档位 + 表示版本的常驻推理单元</td><td>§3 篇 1 节</td></tr>
@@ -196,14 +197,14 @@ core/network/registry.py  build(arch, config) / known() / infer_arch(ckpt_config
 <ul>
 <li>档位 preset <b>只许覆写规模键</b>（通道数/块数/头宽）；in_channels、n_actions、n_cells、
 feature_version 属棋规与表示层——preset 若试图覆写直接报错。<b>档位、棋种、表示版本三件事不许互相越权</b>。</li>
-<li>同棋种不同档位数据完全隔离（各目录一套 ckpt/buffer/best_index/验证集），但<b>仓跨档通用</b>：
-表示一致时可把 s 档 buffer 拷给 m 档热身（实测可直接载入；注意仓质量上限，§4 篇 5 节）。</li>
+<li>同棋种不同网络的数据目录各自独立（一套 ckpt/best_index），但<b>经验池按棋种共享</b>：
+表示版本一致时任何网络都可直接选用同一个池继续积累（引用而非拷贝，§4 篇 5 节谈池的质量边界）。</li>
 <li>引擎与目录名：m 档保持历史格式（<code>ChineseChess_498</code>），其余带档前缀
 （<code>ChineseChess_s_34</code>，§3 篇 8 节）。</li>
 </ul>
 
-<h3>4.3　数据仓实体：命名、元数据与闸门</h3>
-<p>「仓」从隐藏文件升格为可命名实体：原位 <code>default@&lt;模型&gt;</code>（零迁移），或
+<h3>4.3　经验池（buffer）：棋种级命名、来源元数据与闸门</h3>
+<p>官方名称<b>经验池</b>（旧称「仓/buffer」）。池<b>只跟棋种挂钩，不按网络分家</b>；池元数据里的 <code>source</code> 只记录"最新内容由哪个网络的第几代产生"这一溯源信息。两种存在形式：原位 <code>default@&lt;模型&gt;</code>（历史兼容，零迁移），或
 <code>data/&lt;Game&gt;/buffers/&lt;name&gt;/</code> 命名仓——主仓与留出集成对存放，<code>meta.json</code> 记录游戏、
 表示版本、容量/已用、<code>source={模型, 代数}</code>（即"最新内容来自谁的第几代"）。
 同棋种同表示版本的仓可被任意模型<b>直接引用共享</b>（大模型用小模型的仓热身=选同一个仓名，无复制）；
@@ -242,7 +243,7 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <tr><td><code>ZZ_BATCH_LEAVES</code></td><td>虚拟损失 K</td><td>12</td><td>供给旋钮（§2 篇 6 节）</td></tr>
 <tr><td><code>ZZ_MAX_BATCH</code></td><td>引擎批上限 B_max</td><td>GPU 256 / CPU 50</td><td>耐心之外，512 是下一个杠杆（§3 篇 5 节）</td></tr>
 <tr><td><code>ZZ_INFER_WORKERS</code></td><td>CPU 前向 worker 数</td><td>核数/4 封顶 8</td><td>仅 CPU 设备生效；GPU 恒为 1（切分会摊薄批，见 §3 篇 4 节）</td></tr>
-<tr><td><code>ZZ_BUFFER</code></td><td>数据仓引用</td><td>空=当前模型原位仓</td>
+<tr><td><code>ZZ_BUFFER</code></td><td>经验池引用</td><td>空=当前模型原位池</td>
 <td>命名仓（<code>data/&lt;Game&gt;/buffers/&lt;name&gt;/</code>，不存在则当场创建）或 <code>default@&lt;模型&gt;</code>；表示版本不符拒启（仓闸门）</td></tr>
 <tr><td><code>ZZ_START_FROM</code></td><td>训练起点</td><td><code>auto</code></td>
 <td><code>auto</code>=续最强；<code>fresh</code>=随机新网络（代数接续不覆盖）；<code>&lt;N&gt;</code>=从第 N 代权重分叉（新代数从 max+1 起）</td></tr>
@@ -286,7 +287,7 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <tr><td><span class="post">POST</span> <code>/best</code></td><td><code>{iteration}</code>：一键改换守擂者（制品页"设为最强"），回滚坏模型的主路径</td></tr>
 <tr><td><span class="get">GET</span> <code>/logs?path=&amp;tail=</code> · <code>/logs/list</code> · <code>/health</code></td><td>任意日志尾读（限 log_dir 内，越界 403）；清单=白名单形态 <code>&lt;模块&gt;/latest.log*|console.log*</code>；体检</td></tr>
 <tr><td><span class="get">GET</span> <code>/buffers</code> · <span class="post">POST</span> <code>/buffers/create</code></td>
-<td>数据仓注册表（目录现场扫描：default@&lt;模型&gt; 原位仓 + 命名仓）与建仓；元数据记录棋种、表示版本、容量/已用、最新内容来自哪个模型的第几代</td></tr>
+<td>经验池注册表（目录现场扫描：命名池 + default@&lt;模型&gt; 原位池）与新建；元数据记录棋种、表示版本、容量/已用、最新内容来自哪个网络的第几代</td></tr>
 <tr><td><span class="get">GET</span> <code>/tasks</code> · <span class="post">POST</span> <code>/tasks/start</code> · <code>/tasks/stop</code> · <span class="get">GET</span> <code>/tasks/log</code></td>
 <td>「任务」页后端：注册表驱动（priskvork 常驻；arena / bench / build_cython 一次性），参数按 schema 白名单校验，once 任务退出码即时回传（exit 0 即成功），输出追加落 <code>logs/&lt;任务名&gt;/console.log</code>（统一格式，历次会话连贯），服务重启按 pid + /proc cmdline 收养</td></tr>
 </table>

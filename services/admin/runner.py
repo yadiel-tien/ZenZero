@@ -33,7 +33,7 @@ _KNOB_ENV = {
     'games_per_round': 'ZZ_GAMES_PER_ROUND',
     'batch_leaves': 'ZZ_BATCH_LEAVES',
     'max_batch': 'ZZ_MAX_BATCH',
-    'buffer': 'ZZ_BUFFER',            # 数据仓：空=原位默认；名字=命名仓；default@<模型>
+    'buffer': 'ZZ_BUFFER',            # 经验池：空=原位池；名字=棋种级命名池；default@<模型>=兼容定位
     'start_from': 'ZZ_START_FROM',    # 起点：auto|fresh|<代数N>
 }
 _STR_OK = {
