@@ -243,7 +243,7 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <tr><td><code>ZZ_BATCH_LEAVES</code></td><td>虚拟损失 K</td><td>12</td><td>供给旋钮（§2 篇 6 节）</td></tr>
 <tr><td><code>ZZ_MAX_BATCH</code></td><td>引擎批上限 B_max</td><td>GPU 256 / CPU 50</td><td>耐心之外，512 是下一个杠杆（§3 篇 5 节）</td></tr>
 <tr><td><code>ZZ_INFER_WORKERS</code></td><td>CPU 前向 worker 数</td><td>核数/4 封顶 8</td><td>仅 CPU 设备生效；GPU 恒为 1（切分会摊薄批，见 §3 篇 4 节）</td></tr>
-<tr><td><code>ZZ_BUFFER</code></td><td>经验池引用</td><td>空=当前模型原位池</td>
+<tr><td><code>ZZ_BUFFER</code></td><td>经验池引用</td><td>空=原位池（仅裸命令；控制台必选）</td>
 <td>命名仓（<code>data/&lt;Game&gt;/buffers/&lt;name&gt;/</code>，不存在则当场创建）或 <code>default@&lt;模型&gt;</code>；表示版本不符拒启（仓闸门）</td></tr>
 <tr><td><code>ZZ_START_FROM</code></td><td>训练起点</td><td><code>auto</code></td>
 <td><code>auto</code>=续最强；<code>fresh</code>=随机新网络（代数接续不覆盖）；<code>&lt;N&gt;</code>=从第 N 代权重分叉（新代数从 max+1 起）</td></tr>

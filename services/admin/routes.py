@@ -141,7 +141,8 @@ def train_start():
     err, data = _guard()
     if err:
         return err
-    return jsonify(_r().start(data))
+    res = _r().start(data)
+    return jsonify(res), (200 if res.get('ok') else 400)
 
 
 @bp.post('/api/admin/train/stop')
@@ -174,7 +175,7 @@ def buffers_create():
         return err
     from core.utils.buffers import create_named
     ok, msg, meta = create_named(str(data.get('game') or CONFIG['game_name']),
-                                 str(data.get('name') or ''), str(data.get('note') or ''))
+                                 str(data.get('name') or '').strip(), str(data.get('note') or ''))
     res = {'ok': True, 'message': msg, 'buffer': meta} if ok else {'ok': False, 'error': msg}
     return jsonify(res), (200 if ok else 400)
 

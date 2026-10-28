@@ -92,7 +92,20 @@ def update_meta(game: str, directory: Path, **updates) -> None:
         pass
 
 
-def create_named(game: str, name: str, note: str = '') -> tuple[bool, str, dict]:
+def next_pool_name(game: str) -> str:
+    """默认递增编号：扫本棋种已有池，poolN 取 max+1。"""
+    root = named_root(game)
+    hi = 0
+    if root.is_dir():
+        for d in root.iterdir():
+            m = re.fullmatch(r'pool(\d+)', d.name)
+            if m:
+                hi = max(hi, int(m.group(1)))
+    return f'pool{hi + 1}'
+
+
+def create_named(game: str, name: str = '', note: str = '') -> tuple[bool, str, dict]:
+    name = (name or '').strip().lower() or next_pool_name(game)   # 留空＝自动编号
     if not SLUG.match(name or ''):
         return False, '仓名需匹配 [a-z][a-z0-9_]{0,31}（小写字母开头）', {}
     d = named_root(game) / name

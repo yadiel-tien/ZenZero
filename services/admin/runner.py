@@ -139,6 +139,9 @@ class TrainingRunner:
         clean, err = _validate(opts)
         if err:
             return {'ok': False, 'error': err}
+        if not str(clean.get('buffer') or '').strip():
+            # 产品规则：经验池必选（棋种级命名资源）；裸命令行不经此处，仍兼容原位池
+            return {'ok': False, 'error': '必须先选择经验池（下拉选择或新建）'}
         STATE_DIR.mkdir(parents=True, exist_ok=True)
         log_path = self.log_file                      # 统一格式：<模块>/console.log（追加，历次会话连贯）
         env = os.environ.copy()

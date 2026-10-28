@@ -132,6 +132,24 @@ def test_replay_buffer_dir_roundtrip():
         tearDown()
 
 
+def test_auto_pool_numbering():
+    """新建经验池默认递增编号：空名字 → pool1、pool2……已有 pool5 则下一个 pool6。"""
+    setUp()
+    try:
+        from core.utils.buffers import create_named, next_pool_name
+        ok1, _, m1 = create_named('ChineseChess', '')
+        assert ok1 and m1['name'] == 'pool1', m1
+        ok2, _, m2 = create_named('ChineseChess', '   ')
+        assert ok2 and m2['name'] == 'pool2', m2
+        create_named('ChineseChess', 'pool5')
+        assert next_pool_name('ChineseChess') == 'pool6'
+        ok3, msg3, _ = create_named('ChineseChess', 'pool1')
+        assert not ok3 and '已存在' in msg3
+        print('   ok   自动编号：pool1/pool2 顺序、max+1、撞名仍拒')
+    finally:
+        tearDown()
+
+
 def test_routes_and_knobs():
     """HTTP 面 + 训练旋钮白名单校验。"""
     setUp()
@@ -150,8 +168,10 @@ def test_routes_and_knobs():
         assert cr.status_code == 200 and cr.get_json()['ok']
         assert 'api1' in {b['ref'] for b in c.get('/api/admin/buffers?game=ChineseChess')
                           .get_json()['buffers']}
-        bad = c.post('/api/admin/buffers/create', json={'name': 'AB'})
-        assert bad.status_code == 400
+        bad = c.post('/api/admin/buffers/create', json={'name': 'bad name!'})
+        assert bad.status_code == 400, '带空格/符号仍必须被拒'
+        ab = c.post('/api/admin/buffers/create', json={'name': 'AB'})
+        assert ab.status_code == 200 and ab.get_json()['buffer']['name'] == 'ab', '显式大写名宽容转小写'
 
         o, e = _validate({'buffer': 'api1', 'start_from': '34'})
         assert not e and o['buffer'] == 'api1' and o['start_from'] == '34', (o, e)
@@ -168,10 +188,10 @@ def test_routes_and_knobs():
 
 def main() -> None:
     for fn in (test_resolve_start_from_matrix, test_registry_and_gates,
-               test_replay_buffer_dir_roundtrip, test_routes_and_knobs):
+               test_replay_buffer_dir_roundtrip, test_auto_pool_numbering, test_routes_and_knobs):
         print(f'== {fn.__name__}')
         fn()
-    print('\nALL 4 NAMED-BUFFER/START tests PASSED')
+    print('\nALL 5 NAMED-BUFFER/START tests PASSED')
 
 
 if __name__ == '__main__':

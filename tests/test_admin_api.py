@@ -160,11 +160,13 @@ def test_runner_lifecycle():
         cmd = [sys.executable, '-c', 'import time; time.sleep(30)']
         state = Path(_tmp) / 'console' / 'trainer.json'      # 隔离：绝不写生产 logs/console
         r = TrainingRunner(cmd=cmd, marker='time.sleep(30)', state_file=state)
-        st = r.start({'game': GAME, 'profile': PROFILE, 'workers': 8})
+        nobuf = r.start({'game': GAME, 'profile': PROFILE})
+        assert (not nobuf['ok']) and '经验池' in nobuf['error'], ('缺池必须被拒', nobuf)
+        st = r.start({'game': GAME, 'profile': PROFILE, 'workers': 8, 'buffer': 'pool1'})
         assert st['ok'], st
         pid = st['status']['pid']
         assert st['status']['running'] and pid > 0
-        again = r.start({'game': GAME})
+        again = r.start({'game': GAME, 'buffer': 'pool1'})
         assert not again['ok'] and '已在运行' in again['error'], again
         time.sleep(0.3)
         assert r.status()['running'], '状态里丢了 pid'
@@ -190,7 +192,7 @@ def test_stop_modes():
                'import signal, time; signal.signal(signal.SIGUSR1, lambda *a: None); time.sleep(60)']
         r = TrainingRunner(cmd=cmd, marker='time.sleep(60)',
                            state_file=Path(_tmp) / 'console' / 'trainer.json')
-        st = r.start({'game': GAME})
+        st = r.start({'game': GAME, 'buffer': 'pool1'})
         assert st['ok'], st
         pid = st['status']['pid']
 
@@ -235,7 +237,7 @@ def test_kill_mode_is_sigkill():
                'import signal, time; signal.signal(signal.SIGINT, lambda *a: None); time.sleep(60)']
         r = TrainingRunner(cmd=cmd, marker='time.sleep(60)',
                            state_file=Path(_tmp) / 'console' / 'trainer.json')
-        assert r.start({'game': GAME})['ok']
+        assert r.start({'game': GAME, 'buffer': 'pool1'})['ok']
         pid = r.status()['pid']
         _t0 = _t.time()
         out = r.stop(mode='kill')
@@ -271,7 +273,7 @@ def test_drain_keeps_grace():
             "    time.sleep(0.4)\n")
         r = TrainingRunner(cmd=[sys.executable, '-c', code, str(hb)], marker='stopping',
                            state_file=Path(_tmp) / 'console' / 'trainer.json')
-        assert r.start({'game': GAME})['ok']
+        assert r.start({'game': GAME, 'buffer': 'pool1'})['ok']
         pid = r.status()['pid']
         _t.sleep(1.5)
         assert r._still_draining(pid) is True, '心跳新鲜且 stopping 时应判定"仍在收尾"'

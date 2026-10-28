@@ -712,7 +712,9 @@ function launchOpts(){
     if(!n){ toast('「从指定代数分叉」需要填起始代数'); return null; }
     o.start_from = String(n);
   } else if(st){ o.start_from = st; }
-  const bufv = $('f_buffer').value; if(bufv && bufv!=='__new__') o.buffer = bufv;
+  const bufv = $('f_buffer').value;
+  if(!bufv || bufv==='__new__'){ toast('经验池必须选择：选已有池或选「新建经验池」'); return null; }
+  o.buffer = bufv;
   return o;
 }
 async function startTraining(){
@@ -937,14 +939,13 @@ $('f_game').onchange = ()=>{ loadProfiles(); loadBuffers(); };
 $('f_start').onchange = ()=> $('f_startn_w').classList.toggle('hidden', $('f_start').value!=='fork');
 $('f_buffer').onchange = async (e)=>{
   if(e.target.value !== '__new__') return;
-  const name = window.prompt('新经验池名字（小写字母开头，归属于当前棋种）：');
-  if(!name){ $('f_buffer').selectedIndex = 0; return; }
   try{
     const r = await api('/api/admin/buffers/create', {method:'POST',
-      body: JSON.stringify({name: name.trim(), game: $('f_game').value})});
-    if(r.ok){ toast('已创建经验池 '+name.trim(), true); await loadBuffers(); $('f_buffer').value = name.trim().toLowerCase(); }
-    else toast('创建失败: '+r.error);
-  }catch(err){ toast('创建失败: '+err.message); }
+      body: JSON.stringify({game: $('f_game').value})});          // 不传名字：后端按 poolN 自动编号
+    if(r.ok){ toast('已新建经验池 '+(r.buffer&&r.buffer.name), true); await loadBuffers();
+              if(r.buffer) $('f_buffer').value = r.buffer.name; }
+    else toast('新建失败: '+r.error);
+  }catch(err){ toast('新建失败: '+err.message); }
   if(!$('f_buffer').value || $('f_buffer').value==='__new__') $('f_buffer').selectedIndex = 0;
 };
 async function loadBuffers(){
@@ -953,7 +954,7 @@ async function loadBuffers(){
   catch(e){ return; }
   const sel = $('f_buffer'), keep = sel.value;
   const pools = list.filter(b=>b.kind==='named');
-  let html = '<option value="">不指定——训练沿用模型原位池</option>';
+  let html = '';
   html += pools.map(b=>{
     const used = b.size ?? b.main_size ?? 0, cap = b.capacity ?? b.main_capacity;
     const src = b.source ? `最新写入：${b.source.model} 网络 · 第 ${b.source.iteration} 代` : '尚无数据';
@@ -963,9 +964,10 @@ async function loadBuffers(){
     o.title = `${b.ref} · 棋种 ${b.game} · 表示 v${b.feature_version??'?'}\n${src}\n更新：${b.updated_at||b.created_at||'—'}${b.note?('\n备注：'+b.note):''}`;
     return o.outerHTML;
   }).join('');
-  html += '<option value="__new__">＋ 新建经验池…</option>';
+  const nxt = 'pool' + (pools.reduce((m,b)=>{ const t=/^(\d+)$/.exec((b.ref||'').replace(/^pool/,'')) ? +b.ref.slice(4) : m; return Math.max(m, t||0); }, 0) + 1);
+  html += `<option value="__new__" title="自动按编号创建：${nxt}">＋ 新建经验池（${nxt}）</option>`;
   sel.innerHTML = html;
-  if(pools.some(b=>b.ref===keep)) sel.value = keep;
+  if(pools.some(b=>b.ref===keep)) sel.value = keep;               // 默认停在第一个池（下拉无"不选"）
 }
 $('l_name').onchange = loadLog;
 window.addEventListener('resize', ()=>{ if(tab==='monitor') tickSeries(); });
