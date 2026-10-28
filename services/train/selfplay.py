@@ -388,6 +388,17 @@ class SelfPlayManager:
                          'infer': self.train_server.infer_stats()}
         self.buffer.save()
         self.val_buffer.save()
+        # 命名仓元数据回写（default 原位仓自动跳过；失败静默——训练永远优先）
+        try:
+            from core.utils import buffers as _bufmod
+            from core.utils.config import CONFIG as _C, get_profile as _gp
+            _bd = _C.get('buffer_dir')
+            if _bd:
+                _bufmod.update_meta(game_name, _bd, size=int(self.buffer.size),
+                                    capacity=int(self.buffer.capacity),
+                                    source={'model': _gp(), 'iteration': int(iteration)})
+        except Exception:                              # noqa: BLE001
+            pass
         hb.write(force=True, phase=phase, iteration=iteration, round=(round_index or 0) + 1,
                  game=CONFIG['game_name'], profile=get_profile(), round_t0=round_t0,
                  games_done=completed, games_total=n_games, samples=data_count, sims=sims_count,

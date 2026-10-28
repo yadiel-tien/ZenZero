@@ -4,6 +4,18 @@
 表示版本 feature_version / 档位 profile / 模型代数 iteration）见 `docs/architecture.html`
 §5 篇「版本管理」与 `core/utils/version.py` 模块文档。
 
+## 2.2.0 — 2026-10-28
+
+- **训练起点可选**：续训（默认）/ 从头训练（随机新网络，代数接续、永不覆盖既有 checkpoint）/
+  从指定代数分叉。入口 `ZZ_START_FROM=auto|fresh|<N>`；非法代数或表示版本不兼容直接拒启并说明原因。
+- **数据仓实体化**：仓可命名（`data/<Game>/buffers/<name>/`，主仓+留出集成对），统一元数据记录
+  棋种、表示版本、容量/已用、最新内容来自哪个模型的第几代；同表示版本的仓可被多个模型直接引用共享
+  （热身不再复制）。`default@<模型>` 原位零迁移。入口 `ZZ_BUFFER`，跨表示版本仓闸门硬拒。
+  API `GET/POST /api/admin/buffers*`；训练表单新增「起点」「数据仓」选择器，每轮存盘自动回写元数据。
+- 版本号 UI 只显示 semver（构建号退到悬停与接口字段）；日志页收录训练 console 日志与轮转历史
+  （读取端点支持 log_dir 内相对路径，越界 403）；控制台「档位」文案统一改称「模型」。
+- 测试：`tests/test_named_buffers.py` 4 项（起点矩阵 / 注册表与闸门 / replay 落点往返 / 路由与旋钮）。
+
 ## 2.1.0 — 2026-10-28
 
 - **命名模型配置**：档位从固定枚举 s/m/l 扩展为用户自定义命名模板（`data/profiles.json`），

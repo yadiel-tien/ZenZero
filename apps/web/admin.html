@@ -90,7 +90,8 @@
   .barwrap i{display:block;height:100%;background:var(--blue);width:0}
   .hint{color:var(--dim);font-size:11px}
   .tab{display:none} .tab.on{display:block}
-  .crashes{border:1px solid var(--danger-line);background:var(--danger-bg);border-radius:10px;padding:10px 12px;margin-top:12px;display:none}
+  .hidden{display:none!important}
+.crashes{border:1px solid var(--danger-line);background:var(--danger-bg);border-radius:10px;padding:10px 12px;margin-top:12px;display:none}
 </style></head><body>
 <header>
   <h1>ZenZero 训练控制台</h1>
@@ -153,6 +154,15 @@
         <div class="field"><label>并行 leaf 数 K</label><input id="f_leaves" type="number" min="1" value="12"></div>
         <div class="field"><label>batch 上限</label><input id="f_maxbatch" type="number" min="1" placeholder="默认256"></div>
         <div class="field"><label>设备</label><input id="f_device" placeholder="auto / cuda:0 / cpu"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>起点</label><select id="f_start">
+          <option value="" selected>续训（从已有最强权重接续）</option>
+          <option value="fresh">从头训练（随机新网络，代数接续不覆盖）</option>
+          <option value="fork">从指定代数分叉</option></select></div>
+        <div class="field hidden" id="f_startn_w"><label>起始代数</label><input id="f_startn" type="number" min="1" placeholder="N"></div>
+        <div class="field"><label>数据仓</label><select id="f_buffer" title="主仓+留出集成对；命名仓可跨模型共享（同表示版本）"><option value="">默认（该模型原位仓）</option></select></div>
+        <div class="field"><label>&nbsp;</label><button id="f_buffer_new" class="mini" title="新建命名数据仓">＋建仓</button></div>
         <div class="field"><label>&nbsp;</label><button class="primary" id="btn-start2">启动</button></div>
       </div>
       <div class="hint" id="launch_hint" style="margin-top:8px"></div>
@@ -604,10 +614,18 @@ function launchOpts(){
   if($('f_leaves').value) o.batch_leaves = +$('f_leaves').value;
   if($('f_maxbatch').value) o.max_batch = +$('f_maxbatch').value;
   if($('f_device').value.trim()) o.device = $('f_device').value.trim();
+  const st = $('f_start').value;
+  if(st === 'fork'){
+    const n = +$('f_startn').value;
+    if(!n){ toast('「从指定代数分叉」需要填起始代数'); return null; }
+    o.start_from = String(n);
+  } else if(st){ o.start_from = st; }
+  if($('f_buffer').value) o.buffer = $('f_buffer').value;
   return o;
 }
 async function startTraining(){
   const o = launchOpts();
+  if(!o) return;
   $('launch_hint').textContent = '正在启动…';
   try{
     const r = await api('/api/admin/train/start', {method:'POST', body: JSON.stringify(o)});
@@ -745,7 +763,35 @@ $('btn-refresh-art').onclick = loadArtifacts;
 $('btn-promote').onclick = ()=>promote();
 $('btn-load-log').onclick = loadLog;
 $('a_game').onchange = $('a_profile').onchange = loadArtifacts;
-$('f_game').onchange = loadProfiles;
+$('f_game').onchange = ()=>{ loadProfiles(); loadBuffers(); };
+$('f_start').onchange = ()=> $('f_startn_w').classList.toggle('hidden', $('f_start').value!=='fork');
+$('f_buffer_new').onclick = async ()=>{
+  const name = window.prompt('新仓名字（小写字母开头，如 warm128）：');
+  if(!name) return;
+  try{
+    const r = await api('/api/admin/buffers/create', {method:'POST',
+      body: JSON.stringify({name: name.trim(), game: $('f_game').value})});
+    if(r.ok){ toast('已创建仓 '+name.trim()+'（首次训练写入数据后生效）', true); await loadBuffers(); $('f_buffer').value=name.trim(); }
+    else toast('建仓失败: '+r.error);
+  }catch(e){ toast('建仓失败: '+e.message); }
+};
+async function loadBuffers(){
+  try{
+    const d = await api('/api/admin/buffers?game='+encodeURIComponent($('f_game').value));
+    const sel = $('f_buffer'), keep = sel.value;
+    sel.innerHTML = '<option value="">默认（'+esc($('f_profile').value)+' 原位仓）</option>' +
+      (d.buffers||[]).filter(b=>b.ref!==undefined).map(b=>{
+        const src = b.source ? ` · 来自 ${b.source.model} 第${b.source.iteration}代`
+                             : (b.main_size ? ` · 已用 ${b.main_size}` : '');
+        const cap = b.capacity ? ` · 容量 ${b.capacity}` : (b.main_capacity? ` · 容量 ${b.main_capacity}`:'');
+        const o = document.createElement('option');
+        o.value = b.ref; o.textContent = b.ref + src + cap;
+        o.title = `${b.kind==='named'?'命名仓':'原位仓'} · 表示 v${b.feature_version??'?'} · ${b.updated_at||b.created_at||''}${b.note?(' · '+b.note):''}`;
+        return o.outerHTML;
+      }).join('');
+    if([...sel.options].some(o=>o.value===keep)) sel.value = keep;
+  }catch(e){ /* 列表拉不到不拦训练：留默认原位 */ }
+}
 $('l_name').onchange = loadLog;
 window.addEventListener('resize', ()=>{ if(tab==='monitor') tickSeries(); });
 
@@ -762,7 +808,7 @@ window.addEventListener('resize', ()=>{ if(tab==='monitor') tickSeries(); });
     if(env.device) $('f_device').value = env.device;
     $('launch_hint').textContent = `当前生效：${env.net.n_filters}x${env.net.n_res_blocks} · 线程 ${env.workers} · 每轮 ${env.games_per_round} 局 · K=${env.batch_leaves}`;
   }catch(e){ /* 忽略 */ }
-  loadProfiles();
+  loadProfiles(); loadBuffers();
   tick(); tickSeries();
   setInterval(tick, 2000);
   setInterval(()=>{ if(tab==='tasks') loadTasks(false); }, 5000);

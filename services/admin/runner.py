@@ -33,6 +33,13 @@ _KNOB_ENV = {
     'games_per_round': 'ZZ_GAMES_PER_ROUND',
     'batch_leaves': 'ZZ_BATCH_LEAVES',
     'max_batch': 'ZZ_MAX_BATCH',
+    'buffer': 'ZZ_BUFFER',            # 数据仓：空=原位默认；名字=命名仓；default@<模型>
+    'start_from': 'ZZ_START_FROM',    # 起点：auto|fresh|<代数N>
+}
+_STR_OK = {
+    'buffer': lambda v: v == 'default' or v.startswith('default@') or
+                        __import__('re').fullmatch(r'[a-z][a-z0-9_]{0,31}', v) is not None,
+    'start_from': lambda v: v in ('auto', 'fresh') or v.isdigit(),
 }
 _INT_KNOBS = ('workers', 'games_per_round', 'batch_leaves', 'max_batch')
 _CHOICES = {
@@ -264,6 +271,8 @@ def _validate(opts: dict) -> tuple[dict, str | None]:
             return {}, f'{key} 只能是 {_CHOICES[key]}'
         if key == 'profile' and not _known_profile(str(value)):
             return {}, f'未知档位 {value}（内置 s/m/l 或 data/profiles.json 命名配置）'
+        if key in _STR_OK and not _STR_OK[key](str(value)):
+            return {}, f'{key} 取值非法: {value}（仓=名字/default@模型；起点=auto/fresh/代数）'
         if key in _INT_KNOBS:
             try:
                 iv = int(value)

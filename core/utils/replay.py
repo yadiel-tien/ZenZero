@@ -32,6 +32,11 @@ class ReplayBuffer:
         # 在线增强群成员（get_batch 采样时随机施加，写入只存原始样本）
         self.sym_ids = tuple(self.env.symmetry_indices())
 
+    def _path(self, env_name: EnvName) -> str:
+        """仓文件落点：CONFIG['buffer_dir'] 指定目录（命名仓实体，主/验同目录成对）
+        优先于历史原位 net_dir(env)。不设置时行为与旧版逐字节一致。"""
+        return os.path.join(CONFIG.get('buffer_dir') or net_dir(env_name), self.file_name)
+
     def add(self, data: tuple[NDArray, NDArray, float]) -> None:
         """只存原始样本一份。
         旧版在此处写入全部对称复制（象棋×2/五子×8），buffer 容量被冗余稀释、
@@ -77,7 +82,7 @@ class ReplayBuffer:
 
     def save(self, env_name: EnvName = game_name) -> None:
         """保存buffer"""
-        path = os.path.join(net_dir(env_name), self.file_name)
+        path = self._path(env_name)
         data = {
             "states": self.state_buffer[:self.size],
             "pis": self.policy_buffer[:self.size],
@@ -112,7 +117,7 @@ class ReplayBuffer:
 
     def load(self, env_name: EnvName = game_name) -> None:
         """加载buffer，支持修改容量"""
-        path = os.path.join(net_dir(env_name), self.file_name)
+        path = self._path(env_name)
         if not os.path.exists(path):
             print(f"Buffer not found at '{path}', current length: {self.size}")
             return

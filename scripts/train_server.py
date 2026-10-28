@@ -88,15 +88,34 @@ def main():
     signal.signal(signal.SIGUSR1, stop_after_round)      # 等本轮结束
     signal.signal(signal.SIGTERM, hard_stop)
 
-    model_idx = read_best_index()
-    # 表示版本闸门：best 模型与当前棋盘表示版本不同时，从新网络开始训练；
-    # 旧 best 保持不动，作为新一轮评估赛的守擂对手（推理引擎按各自 in_channels 切片）
-    if model_idx != -1 and not feature_version_compatible(model_idx):
-        logger.warning(
-            f'Best model {model_idx} uses a different board representation (feature_version) '
-            f'than current config. Starting fresh network; '
-            f'{model_idx} remains the evaluation gatekeeper.')
-        model_idx = -1
+    from core.utils import buffers as bufmod
+    from core.utils.config import CONFIG, get_profile
+    from services.inference.functions import get_checkpoint_path
+    import os as _os
+
+    # ── 仓实体（⑤）：ZZ_BUFFER=<名字|default@模型>，空=当前模型原位仓（原行为零变化）──
+    buf_ref = (_os.environ.get('ZZ_BUFFER') or '').strip()
+    bdir, berr, _bm = bufmod.resolve_for_train(buf_ref, game_name) if buf_ref else (None, '', {})
+    if berr:
+        logger.error(f'训练拒绝启动（仓闸门）：{berr}')
+        logging.shutdown()
+        os._exit(2)
+    if bdir is not None:
+        CONFIG['buffer_dir'] = str(bdir)
+
+    # ── 训练起点（④）：ZZ_START_FROM=auto|fresh|<代数N>，默认 auto=续最强 ──
+    best_idx = read_best_index()
+    latest_idx = __import__('core.network.functions', fromlist=['x']).read_latest_index()
+    model_idx, note, serr = bufmod.resolve_start_from(
+        _os.environ.get('ZZ_START_FROM') or 'auto', best_idx, latest_idx,
+        exists_fn=lambda i: _os.path.exists(get_checkpoint_path(game_name, i)),
+        compat_fn=lambda i: i == -1 or feature_version_compatible(i))
+    if serr:
+        logger.error(f'训练拒绝启动（起点闸门）：{serr}')
+        logging.shutdown()
+        os._exit(2)
+    logger.info(f'起点：{note} | 仓：{buf_ref or f"default@{get_profile()}（原位）"}'
+                + (f' → {bdir}' if bdir else ''))
     # 进程内推理引擎(同时承担训练)
     server = TrainServer(model_idx, game_name)
     server.start()

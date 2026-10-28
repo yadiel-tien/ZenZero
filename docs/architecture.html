@@ -202,7 +202,14 @@ feature_version 属棋规与表示层——preset 若试图覆写直接报错。
 （<code>ChineseChess_s_34</code>，§3 篇 8 节）。</li>
 </ul>
 
-<h3>4.3　版本管理（四条轴 + 一条发布线）</h3>
+<h3>4.3　数据仓实体：命名、元数据与闸门</h3>
+<p>「仓」从隐藏文件升格为可命名实体：原位 <code>default@&lt;模型&gt;</code>（零迁移），或
+<code>data/&lt;Game&gt;/buffers/&lt;name&gt;/</code> 命名仓——主仓与留出集成对存放，<code>meta.json</code> 记录游戏、
+表示版本、容量/已用、<code>source={模型, 代数}</code>（即"最新内容来自谁的第几代"）。
+同棋种同表示版本的仓可被任意模型<b>直接引用共享</b>（大模型用小模型的仓热身=选同一个仓名，无复制）；
+跨表示版本的仓被启动闸门硬拒。每轮存盘自动回写元数据；注册表即目录现场扫描，不留第二份索引。</p>
+
+<h3>4.4　版本管理（四条轴 + 一条发布线）</h3>
 <p>项目自 <b>2.0.0</b> 起遵循语义化版本。单一事实源在 <code>core/utils/version.py</code>，
 展示位置：对弈页设置侧栏、控制台标题徽章（v2.0.0 · git 构建号）、<code>/info</code> 与
 <code>/api/admin/health</code>、启动横幅、<code>main.py --version</code>。四条版本轴职责互不重叠：</p>
@@ -235,6 +242,10 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <tr><td><code>ZZ_BATCH_LEAVES</code></td><td>虚拟损失 K</td><td>12</td><td>供给旋钮（§2 篇 6 节）</td></tr>
 <tr><td><code>ZZ_MAX_BATCH</code></td><td>引擎批上限 B_max</td><td>GPU 256 / CPU 50</td><td>耐心之外，512 是下一个杠杆（§3 篇 5 节）</td></tr>
 <tr><td><code>ZZ_INFER_WORKERS</code></td><td>CPU 前向 worker 数</td><td>核数/4 封顶 8</td><td>仅 CPU 设备生效；GPU 恒为 1（切分会摊薄批，见 §3 篇 4 节）</td></tr>
+<tr><td><code>ZZ_BUFFER</code></td><td>数据仓引用</td><td>空=当前模型原位仓</td>
+<td>命名仓（<code>data/&lt;Game&gt;/buffers/&lt;name&gt;/</code>，不存在则当场创建）或 <code>default@&lt;模型&gt;</code>；表示版本不符拒启（仓闸门）</td></tr>
+<tr><td><code>ZZ_START_FROM</code></td><td>训练起点</td><td><code>auto</code></td>
+<td><code>auto</code>=续最强；<code>fresh</code>=随机新网络（代数接续不覆盖）；<code>&lt;N&gt;</code>=从第 N 代权重分叉（新代数从 max+1 起）</td></tr>
 <tr><td><code>ZZ_ADMIN_TOKEN</code></td><td>控制台写口令</td><td>空=不鉴权</td><td>设置后写接口须带请求头 <code>X-ZZ-Token</code></td></tr>
 </table>
 
@@ -268,12 +279,14 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <tr><td><span class="get">GET</span> <code>/series</code></td><td>曲线：rounds（按<b>累计轮数</b>的 13 条衍生序列）＋ tb（TensorBoard 标量，<b>跨重启按 step 合并</b>＋抽稀）＋ hw 时间序列</td></tr>
 <tr><td><span class="get">GET</span> <code>/env</code></td><td>当前参数 + 建议目标（最新 ckpt 所在 棋种×档位）+ 白名单 knobs</td></tr>
 <tr><td><span class="get">GET</span> <code>/train/status</code></td><td>pid / running / 是否收养 / exit_code / stop_after_round / 日志尾</td></tr>
-<tr><td><span class="post">POST</span> <code>/train/start</code></td><td><code>{game, profile, workers, games_per_round, batch_leaves, max_batch?, device?}</code> → 按第 5 节环境变量拉起；1.2s 内启动即崩会把 stderr 原样带回；重复启动拒绝</td></tr>
+<tr><td><span class="post">POST</span> <code>/train/start</code></td><td><code>{game, profile, workers, games_per_round, batch_leaves, max_batch?, device?, buffer?, start_from?}</code> → 按第 5 节环境变量拉起；1.2s 内启动即崩会把 stderr 原样带回；重复启动拒绝</td></tr>
 <tr><td><span class="post">POST</span> <code>/train/stop</code></td><td><code>{mode: kill | interrupt | finish_round, grace?}</code>——语义即 §4 篇 9 节三档表；interrupt 带<b>动态宽限</b>（收尾心跳新鲜则延至 10 分钟，绝不升级杀数据）；对不支持 finish_round 的旧进程，先查心跳 <code>caps</code> 再发信号（防 SIGUSR1 默认动作误杀）</td></tr>
 <tr><td><span class="get">GET</span> <code>/artifacts</code></td><td>checkpoint / 日志 / 运行目录 / 仓清单（大小、时间、已用/容量、是否最佳）</td></tr>
 <tr><td><span class="post">POST</span> <code>/artifacts/delete</code></td><td><code>{kind, path, confirm}</code>：白名单 kind∈{checkpoint,log,run,buffer}；拒删当前 best（先回滚再删）；删仓需 <code>confirm:"delete-buffer"</code></td></tr>
 <tr><td><span class="post">POST</span> <code>/best</code></td><td><code>{iteration}</code>：一键改换守擂者（制品页"设为最强"），回滚坏模型的主路径</td></tr>
 <tr><td><span class="get">GET</span> <code>/logs?path=&amp;tail=</code> · <code>/logs/list</code> · <code>/health</code></td><td>任意日志尾读（路径穿越封堵，越界 403）；清单；体检</td></tr>
+<tr><td><span class="get">GET</span> <code>/buffers</code> · <span class="post">POST</span> <code>/buffers/create</code></td>
+<td>数据仓注册表（目录现场扫描：default@&lt;模型&gt; 原位仓 + 命名仓）与建仓；元数据记录棋种、表示版本、容量/已用、最新内容来自哪个模型的第几代</td></tr>
 <tr><td><span class="get">GET</span> <code>/tasks</code> · <span class="post">POST</span> <code>/tasks/start</code> · <code>/tasks/stop</code> · <span class="get">GET</span> <code>/tasks/log</code></td>
 <td>「任务」页后端：注册表驱动（priskvork 常驻；arena / bench / build_cython 一次性），参数按 schema 白名单校验，once 任务退出码即时回传（exit 0 即成功），输出落 <code>logs/console/task_&lt;名&gt;_&lt;时间&gt;.log</code>，服务重启按 pid + /proc cmdline 收养</td></tr>
 </table>

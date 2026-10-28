@@ -174,6 +174,7 @@ ZZ_BATCH_LEAVES=12 ZZ_DEVICE=auto python -X gil=0 -m scripts.train_server</code>
 
 <h2 id="s6">6　选档与配置速查</h2>
 <ul>
+<li><b>起点与仓</b>：训练表单可选<b>起点</b>（续训 / 从头训练：随机新网络但代数接续永不覆盖 / 从指定代数分叉）与<b>数据仓</b>（默认原位仓 / 已有命名仓直接共享引用 / ＋建仓）。命名仓落 <code>data/&lt;Game&gt;/buffers/&lt;name&gt;/</code>，元数据自动记录棋种、表示版本、最新内容来自哪个模型的第几代；跨表示版本的仓会被启动闸门拒绝（§5 篇 4.3）。</li>
 <li><b>自定义档位</b>：控制台「训练 → 模型配置」给规模组合起名字（如 <code>mini64</code>），保存后训练表单、对弈页、制品页的档位下拉即刻可选；删除只移除名字、磁盘模型原样保留（重加同名配置即接上）。</li>
 <li><b>档位怎么选</b>：s（8M）练得快、一夜可追平老 m 档（§4 篇 10.3）；m（25M）默认、老资产在这；
 l（30M）天花板实验。<b>仓跨档通用</b>（同表示版本），大档热身可拷小档 buffer。</li>
@@ -181,7 +182,7 @@ l（30M）天花板实验。<b>仓跨档通用</b>（同表示版本），大档
 ZZ_GAMES_PER_ROUND / ZZ_BATCH_LEAVES / ZZ_MAX_BATCH / ZZ_INFER_WORKERS / ZZ_ADMIN_TOKEN</code>），
 语义与默认值见 §5 篇表 4；不改仓库 config 文件。</li>
 <li><b>版本从哪看</b>：对弈页「设置」底部与控制台标题徽章（形如 <code>v2.0.0 · 60e4578</code>），
-或 <code>python main.py --version</code>；四轴版本（应用/表示/档位/代数）的分工见 §5 篇 4.3。
+或 <code>python main.py --version</code>；四轴版本（应用/表示/档位/代数）的分工见 §5 篇 4.4。
 <li><b>静态默认值</b>在 <code>core/utils/config.py</code>（c_puct、温度调度、dirichlet、阈值、sims 爬坡、presets 规模）。</li>
 </ul>
 

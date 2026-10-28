@@ -158,6 +158,27 @@ def train_stop():
     return jsonify(_r().stop(mode=mode, grace=float(data.get('grace') or 150.0)))
 
 
+# ---------------------------------------------------------------- 数据仓
+@bp.get('/api/admin/buffers')
+def buffers_list():
+    """仓清单（注册表=目录现场扫描）：default@<模型> 原位仓 + buffers/ 命名仓，含元数据。"""
+    from core.utils.buffers import list_buffers
+    game = str(request.args.get('game') or CONFIG['game_name'])
+    return jsonify({'game': game, 'buffers': list_buffers(game)})
+
+
+@bp.post('/api/admin/buffers/create')
+def buffers_create():
+    err, data = _guard()
+    if err:
+        return err
+    from core.utils.buffers import create_named
+    ok, msg, meta = create_named(str(data.get('game') or CONFIG['game_name']),
+                                 str(data.get('name') or ''), str(data.get('note') or ''))
+    res = {'ok': True, 'message': msg, 'buffer': meta} if ok else {'ok': False, 'error': msg}
+    return jsonify(res), (200 if ok else 400)
+
+
 # ---------------------------------------------------------------- 命名模型配置
 @bp.get('/api/admin/profiles')
 def profiles_list():
