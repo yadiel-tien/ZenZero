@@ -761,8 +761,8 @@ function tidySel(tid, rows){
 async function batchDel(tid){
   const items = [...selMap[tid]].map(([path,kind])=>({kind, path}));
   if(!items.length) return;
-  const a = await uiAsk({title:`删除 ${items.length} 项`, danger:true, okLabel:'全部删除',
-      body: items.map(i=>i.path.split('/').pop()).join('\n').slice(0, 900)});
+  const a = await uiAsk({title:`删除 ${items.length} 项`, danger:true, okLabel:'删除',
+      body:`确定删除选中的 ${items.length} 项？此操作不可恢复。`});
   if(!a.ok) return;
   try{
     const r = await api('/api/admin/artifacts/delete_batch', {method:'POST',
