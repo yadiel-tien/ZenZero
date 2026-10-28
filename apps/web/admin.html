@@ -112,7 +112,7 @@
 <nav>
   <a href="#monitor" class="on" data-tab="monitor">监控</a>
   <a href="#train" data-tab="train">训练</a>
-  <a href="#artifacts" data-tab="artifacts">制品</a>
+  <a href="#artifacts" data-tab="artifacts">资产</a>
   <a href="#logs" data-tab="logs">日志</a>
   <a href="#tasks" data-tab="tasks">任务</a>
 </nav>
@@ -266,10 +266,10 @@
     </div>
 </section>
 
-  <!-- ============ 制品 ============ -->
+  <!-- ============ 资产 ============ -->
   <section class="tab" id="tab-artifacts">
     <div class="panel" style="margin-bottom:12px">
-      <h2>制品概览</h2>
+      <h2>资产概览</h2>
       <div class="row">
         <div class="field"><label>棋种</label><select id="a_game"><option>ChineseChess</option><option>Gomoku</option></select></div>
         <div class="field"><label>神经网络</label><select id="a_profile"><option value="s">s</option><option value="m">m</option><option value="l">l</option></select></div>
@@ -281,8 +281,7 @@
     </div>
     <div class="grid">
       <div class="panel"><h2>Checkpoint <span class="lg">按代</span></h2><div style="overflow:auto;max-height:360px"><table id="t_ckpt"></table></div></div>
-      <div class="panel"><h2>缓冲池 <span class="lg">buffer / val_buffer</span></h2><table id="t_buf"></table>
-        <div class="hint" style="margin-top:8px">清空后需重新积累，几十分钟自博弈；界面要求二次确认。</div></div>
+      
       <div class="panel"><h2>经验池 <span class="lg">棋种级 · 可克隆</span></h2><div style="overflow:auto;max-height:300px"><table id="t_pools"></table></div>
         <div class="hint" style="margin-top:8px">重训会环形覆盖池内容；实验前先在这里克隆，再去训练表单选择副本。训练进行中不可克隆。</div></div>
       <div class="panel"><h2>TensorBoard runs</h2><div style="overflow:auto;max-height:300px"><table id="t_runs"></table></div></div>
@@ -599,7 +598,7 @@ function renderCharts(d){
   ['c_gpm','c_batch','c_mcts','c_loss_p','c_loss_v','c_kl','c_win','c_hw'].forEach(attachChart);
 }
 
-/* ---------- 制品 ---------- */
+/* ---------- 资产 ---------- */
 async function loadArtifacts(){
   const game=$('a_game').value, profile=$('a_profile').value;
   try{
@@ -611,18 +610,6 @@ async function loadArtifacts(){
           <td class="num">${gb(c.size)}</td><td class="hint">${new Date(c.mtime*1000).toLocaleString()}</td>
           <td><button class="mini" onclick="promote(${c.iteration})">设为best</button>
               <button class="mini danger" onclick="delArtifact('checkpoint','${c.path}','delete')">删</button></td></tr>`).join('');
-    $('t_buf').innerHTML = `<tr><th>池</th><th>已用 / 总容量</th><th>占用</th><th>文件</th><th>时间</th><th></th></tr>` + d.buffers.map(b=>{
-      const pct = b.capacity ? Math.min(100, 100*b.size/b.capacity) : 0;
-      const num = (v)=> v>=1000 ? (v/1000).toFixed(1)+'k' : String(v);
-      const mark = b.estimated? ' <span class="hint" title="没有侧车元数据，按文件大小反算，存盘一次后变精确">≈</span>' : '';
-      return `<tr><td>${b.label}</td>
-          <td class="num">${mark}${num(b.size)} / ${num(b.capacity)}</td>
-          <td style="min-width:90px"><div class="barwrap" title="${pct.toFixed(1)}%"><i style="width:${pct}%"></i></div>
-              <span class="hint">${pct.toFixed(1)}%</span></td>
-          <td class="num hint">${gb(b.file_size ?? 0)}</td>
-          <td class="hint">${new Date(b.mtime*1000).toLocaleString()}</td>
-          <td><button class="mini danger" onclick="delArtifact('buffer','${b.path}','delete-buffer')">清空</button></td></tr>`;
-    }).join('');
     $('t_runs').innerHTML = `<tr><th>run</th><th>大小</th><th></th></tr>` + d.runs.slice(0,20).map(r=>`
       <tr><td class="hint">${esc(r.name)}</td><td class="num">${gb(r.size)}</td>
           <td><button class="mini danger" onclick="delArtifact('run','${r.path}','delete')">删</button></td></tr>`).join('');
@@ -630,7 +617,7 @@ async function loadArtifacts(){
       <tr><td class="hint">${esc(l.name)}</td><td class="num">${gb(l.size)}</td>
           <td><button class="mini danger" onclick="delArtifact('log','${l.path}','delete')">删</button></td></tr>`).join('');
     loadPools(game);
-  }catch(e){ toast('制品读取失败: '+e.message); }
+  }catch(e){ toast('资产读取失败: '+e.message); }
 }
 async function loadPools(game){
   const t = $('t_pools');
@@ -655,8 +642,7 @@ async function clonePool(src){
   }catch(e){ toast('克隆失败: '+e.message); }
 }
 async function delArtifact(kind, path, confirm){
-  const label = kind==='buffer' ? '清空缓冲池（不可恢复，需重新积累）' : '删除';
-  if(!window.confirm(`${label}？\n${path}`)) return;
+  if(!window.confirm(`删除？\n${path}`)) return;
   try{
     const r = await api('/api/admin/artifacts/delete', {method:'POST', body: JSON.stringify({kind, path, confirm, game:$('a_game').value, profile:$('a_profile').value})});
     r.ok ? toast('已删除: '+r.deleted, true) : toast('删除失败: '+r.error);
