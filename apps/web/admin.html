@@ -291,6 +291,8 @@
       <div class="panel"><h2>Checkpoint <span class="lg">按代</span></h2><div style="overflow:auto;max-height:360px"><table id="t_ckpt"></table></div></div>
       <div class="panel"><h2>缓冲池 <span class="lg">buffer / val_buffer</span></h2><table id="t_buf"></table>
         <div class="hint" style="margin-top:8px">清空后需重新积累，几十分钟自博弈；界面要求二次确认。</div></div>
+      <div class="panel"><h2>经验池 <span class="lg">棋种级 · 可克隆</span></h2><div style="overflow:auto;max-height:300px"><table id="t_pools"></table></div>
+        <div class="hint" style="margin-top:8px">重训会环形覆盖池内容；实验前先在这里克隆，再去训练表单选择副本。训练进行中不可克隆。</div></div>
       <div class="panel"><h2>TensorBoard runs</h2><div style="overflow:auto;max-height:300px"><table id="t_runs"></table></div></div>
       <div class="panel"><h2>日志</h2><div style="overflow:auto;max-height:300px"><table id="t_logs"></table></div></div>
     </div>
@@ -635,7 +637,30 @@ async function loadArtifacts(){
     $('t_logs').innerHTML = `<tr><th>日志</th><th>大小</th><th></th></tr>` + d.logs.map(l=>`
       <tr><td class="hint">${esc(l.name)}</td><td class="num">${gb(l.size)}</td>
           <td><button class="mini danger" onclick="delArtifact('log','${l.path}','delete')">删</button></td></tr>`).join('');
+    loadPools(game);
   }catch(e){ toast('制品读取失败: '+e.message); }
+}
+async function loadPools(game){
+  const t = $('t_pools');
+  try{
+    const d = await api('/api/admin/buffers?game='+encodeURIComponent(game));
+    const pools = (d.buffers||[]).filter(b=>b.kind==='named');
+    const num = (v)=> v>=1000 ? (v/1000).toFixed(1)+'k' : String(v??0);
+    t.innerHTML = '<tr><th>池</th><th>已用 / 容量</th><th>最新写入</th><th>更新</th><th></th></tr>' + (pools.length ? pools.map(b=>`
+      <tr><td><b>${esc(b.ref)}</b>${b.note?`<div class="hint" style="max-width:220px">${esc(b.note)}</div>`:''}</td>
+          <td class="num">${num(b.size)} / ${num(b.capacity)}</td>
+          <td class="hint">${b.source ? esc(b.source.model)+' 网络 · 第'+b.source.iteration+'代' : '尚无数据'}</td>
+          <td class="hint">${esc((b.updated_at||b.created_at||'').slice(0,16))}</td>
+          <td><button class="mini" title="整体复制为自动编号的新池；原池保持不动" onclick="clonePool('${esc(b.ref)}')">⧉ 克隆</button></td></tr>`).join('')
+      : '<tr><td colspan="5" class="hint">本棋种还没有经验池——训练表单里可直接新建</td></tr>');
+  }catch(e){ t.innerHTML = `<tr><td class="hint">经验池读取失败：${esc(e.message)}</td></tr>`; }
+}
+async function clonePool(src){
+  try{
+    const r = await api('/api/admin/buffers/clone', {method:'POST', body: JSON.stringify({game: $('a_game').value, from: src})});
+    if(r.ok){ toast(`${src} 已克隆为 ${r.buffer.name}，原池不动`, true); loadPools($('a_game').value); }
+    else toast('克隆失败: '+r.error);
+  }catch(e){ toast('克隆失败: '+e.message); }
 }
 async function delArtifact(kind, path, confirm){
   const label = kind==='buffer' ? '清空缓冲池（不可恢复，需重新积累）' : '删除';
@@ -937,33 +962,19 @@ $('btn-load-log').onclick = loadLog;
 $('a_game').onchange = $('a_profile').onchange = loadArtifacts;
 $('f_game').onchange = ()=>{ loadProfiles(); loadBuffers(); };
 $('f_start').onchange = ()=> $('f_startn_w').classList.toggle('hidden', $('f_start').value!=='fork');
-let lastBuf = '';
 $('f_buffer').onchange = async (e)=>{
   const v = e.target.value;
-  if(v === '__clone__'){
-    const src = lastBuf;
-    if(!src){ toast('还没有选中过经验池，无可克隆'); sel0(); return; }
-    try{
-      const r = await api('/api/admin/buffers/clone', {method:'POST',
-        body: JSON.stringify({game: $('f_game').value, from: src})});
-      if(r.ok){ toast('已克隆 ' + src + ' → ' + r.buffer.name + '，在新池上训练，原池不动', true);
-                await loadBuffers(); $('f_buffer').value = r.buffer.name; lastBuf = r.buffer.name; }
-      else toast('克隆失败: '+r.error);
-    }catch(err){ toast('克隆失败: '+err.message); }
-    sel0(); return;
-  }
-  if(v !== '__new__'){ lastBuf = v; return; }
-  lastBuf = '';
+  if(v !== '__new__') return;
   try{
     const r = await api('/api/admin/buffers/create', {method:'POST',
       body: JSON.stringify({game: $('f_game').value})});          // 不传名字：后端按 poolN 自动编号
     if(r.ok){ toast('已新建经验池 '+(r.buffer&&r.buffer.name), true); await loadBuffers();
-              if(r.buffer){ $('f_buffer').value = r.buffer.name; lastBuf = r.buffer.name; } }
+              if(r.buffer) $('f_buffer').value = r.buffer.name; }
     else toast('新建失败: '+r.error);
   }catch(err){ toast('新建失败: '+err.message); }
   sel0();
 };
-function sel0(){ const x=$('f_buffer'); if(!x.value || x.value==='__new__' || x.value==='__clone__') x.selectedIndex = 0; }
+function sel0(){ const x=$('f_buffer'); if(!x.value || x.value==='__new__') x.selectedIndex = 0; }
 async function loadBuffers(){
   let list = [];
   try{ list = (await api('/api/admin/buffers?game='+encodeURIComponent($('f_game').value))).buffers || []; }
@@ -982,10 +993,8 @@ async function loadBuffers(){
   }).join('');
   const nxt = 'pool' + (pools.reduce((m,b)=>{ const t=/^(\d+)$/.exec((b.ref||'').replace(/^pool/,'')) ? +b.ref.slice(4) : m; return Math.max(m, t||0); }, 0) + 1);
   html += `<option value="__new__" title="自动按编号创建：${nxt}">＋ 新建经验池（${nxt}）</option>`;
-  html += '<option value="__clone__" title="把当前选中的池整体复制为一个新池：重训会覆盖写入，克隆后在新池上做，原池状态保留">⧉ 克隆所选池（保原始）</option>';
   sel.innerHTML = html;
   if(pools.some(b=>b.ref===keep)) sel.value = keep;               // 默认停在第一个池（下拉无"不选"）
-  lastBuf = sel.value || pools[0].ref;
 }
 $('l_name').onchange = loadLog;
 window.addEventListener('resize', ()=>{ if(tab==='monitor') tickSeries(); });
