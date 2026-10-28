@@ -76,6 +76,11 @@
   .dlg input{width:100%;box-sizing:border-box;margin-top:12px}
   .dlg .dfoot{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
   @keyframes zin{from{opacity:0;transform:scale(.97)}to{opacity:1}}
+  .fsec{display:flex;align-items:center;gap:10px;font-size:11px;letter-spacing:2px;color:var(--dim);margin:14px 0 6px;font-weight:600}
+  .fsec::after{content:'';flex:1;border-top:1px solid var(--line)}
+  .field .pair{display:inline-flex;align-items:center;gap:6px}
+  .field .pair input{width:84px}
+  .field .pair b{color:var(--dim);font-weight:400}
   .chint{position:absolute;right:12px;top:12px;font-size:10px;color:var(--dim);opacity:0;transition:opacity .25s;pointer-events:none}
   .panel:hover .chint{opacity:.6}
   .panel{position:relative;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);transition:background-color .18s ease, border-color .18s ease}
@@ -148,32 +153,35 @@
   <section class="tab" id="tab-train">
     <div class="panel" style="margin-bottom:12px">
       <h2>启动参数</h2>
+      <div class="fsec">训练对象</div>
       <div class="row">
         <div class="field"><label>棋种</label><select id="f_game"><option>ChineseChess</option><option>Gomoku</option></select></div>
-        <div class="field"><label>神经网络</label><select id="f_profile"><option value="s">s</option><option value="m">m</option><option value="l">l</option></select></div>
-        <div class="field"><label>自博弈线程数</label><input id="f_workers" type="number" min="1" value="32"></div>
-        <div class="field"><label>每轮局数</label><input id="f_games" type="number" min="1" value="400"></div>
-        <div class="field"><label>并行 leaf 数 K</label><input id="f_leaves" type="number" min="1" value="12"></div>
-        <div class="field"><label>batch 上限</label><input id="f_maxbatch" type="number" min="1" placeholder="默认256"></div>
-        <div class="field"><label>推理设备</label><select id="f_device" title="自博弈与 fit 的神经网络计算跑在哪个设备上"></select></div>
+        <div class="field"><label>神经网络</label><select id="f_profile" title="决定权重与经验池输入形状；新增规模去下方「神经网络配置」"><option value="s">s</option><option value="m">m</option><option value="l">l</option></select></div>
+        <div class="field"><label>经验池</label><select id="f_buffer" title="棋种级经验池：悬停看详情，末项新建"></select></div>
+        <div class="field"><label>起点</label><select id="f_start" title="续训=接最强权重；从头=随机新网络(代数接续永不覆盖)；分叉=从指定代另起">
+          <option value="" selected>续训</option>
+          <option value="fresh">从头训练</option>
+          <option value="fork">分叉</option></select></div>
+        <div class="field hidden" id="f_startn_w"><label>分叉自第几代</label><input id="f_startn" type="number" min="1" placeholder="如 48"></div>
       </div>
+      <div class="fsec">运行资源</div>
       <div class="row">
-        <div class="field"><label>起点</label><select id="f_start">
-          <option value="" selected>续训（从已有最强权重接续）</option>
-          <option value="fresh">从头训练（随机新网络，代数接续不覆盖）</option>
-          <option value="fork">从指定代数分叉</option></select></div>
-        <div class="field hidden" id="f_startn_w"><label>起始代数</label><input id="f_startn" type="number" min="1" placeholder="N"></div>
-        <div class="field"><label>经验池</label><select id="f_buffer" title="游戏级经验池：主池+留出集成对；选择已有池、悬停看详情，或选末项新建"></select></div>
-
+        <div class="field"><label>自博弈线程</label><input id="f_workers" type="number" min="1" value="32" title="同时下棋的 MCTS 进程数"></div>
+        <div class="field"><label>每轮局数</label><input id="f_games" type="number" min="1" value="400" title="一轮=自博弈→训练→守擂 的完整循环"></div>
+        <div class="field"><label>并行 leaf 数 K</label><input id="f_leaves" type="number" min="1" value="12" title="一手棋同时挂起的推理请求数，决定 batch 大小"></div>
+        <div class="field"><label>batch 上限</label><input id="f_maxbatch" type="number" min="1" placeholder="默认256" title="推理引擎单批叶子数封顶"></div>
+        <div class="field"><label>推理设备</label><select id="f_device" title="自博弈与训练的神经网络计算跑在哪块设备"></select></div>
       </div>
+      <div class="fsec">训练目标 <span style="letter-spacing:0;font-weight:400">留空即采用默认值</span></div>
       <div class="row">
-        <div class="field"><label>训练到第几代</label><input id="f_stopiter" type="number" min="1" style="width:110px" placeholder="不限" title="练到该代数完成后自动收尾退出；留空=一直练到手动停止"></div>
-        <div class="field"><label>模拟次数 起始</label><input id="f_sims0" type="number" min="10" style="width:90px" placeholder="400" title="开局每手棋的 MCTS 模拟数，随代数线性爬升至上限"></div>
-        <div class="field"><label>上限</label><input id="f_sims1" type="number" min="10" style="width:90px" placeholder="800" title="模拟次数爬到此值后不再增长"></div>
-        <div class="field"><label>守擂胜率</label><input id="f_gate" type="number" min="40" max="90" style="width:80px" placeholder="52" title="新模型对守擂者胜率须严格超过该百分比才晋升为最强；调低晋级容易（模型质量下降风险），调高近乎守死"></div>
-        <div class="field"><label>&nbsp;</label><button class="primary" id="btn-start2">启动</button></div>
+        <div class="field"><label>练到第几代</label><input id="f_stopiter" type="number" min="1" placeholder="不限" title="达标那一轮完整结束后自动退出"></div>
+        <div class="field"><label>模拟次数 起→止</label><span class="pair"><input id="f_sims0" type="number" min="10" placeholder="400" title="开局每手 MCTS 模拟数"><b>→</b><input id="f_sims1" type="number" min="10" placeholder="800" title="随代数线性爬升的上限"></span></div>
+        <div class="field"><label>守擂胜率 %</label><input id="f_gate" type="number" min="40" max="90" placeholder="52" title="新模型战胜守擂者的比例须严格超过该值才晋升为最强；默认 52%"></div>
       </div>
-      <div class="hint" id="launch_hint" style="margin-top:8px"></div>
+      <div class="row" style="align-items:center;margin-top:14px">
+        <div id="launch_hint" class="hint" style="flex:1;margin:0"></div>
+        <button class="primary" id="btn-start2">启动训练</button>
+      </div>
     </div>
     
 
