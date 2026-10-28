@@ -130,7 +130,7 @@ class Gomoku(BaseEnv):
         return []
 
     def render(self) -> None:
-        # 棋盘走专用通道 logs/board/（同象棋：独立成档、无 ANSI）
+        # 棋盘走专用通道 logs/board/（同象棋：独立成档、保留 ANSI）
         from core.utils.logger import get_logger
         get_logger('board').info('五子棋盘面 · 行棋方=%s%s',
                                  '黑' if self.player_to_move == 0 else '白',
