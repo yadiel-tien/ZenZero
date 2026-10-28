@@ -688,6 +688,25 @@ async function loadLogList(){
   loadLog();
 }
 $('l_cat').onchange = ()=>{ renderFileSel(); loadLog(); };
+/* ANSI SGR → 内联着色：棋盘等终端渲染的日志不再显示 \x1b[91m 乱码 */
+function ansiHtml(s){
+  const FG={30:'#666',31:'#c0392b',32:'#27ae60',33:'#b7950b',34:'#2471a3',35:'#8e44ad',36:'#148f77',37:'#444',
+            90:'#999',91:'#e74c3c',92:'#2ecc71',93:'#f1c40f',94:'#5dade2',95:'#c39bd3',96:'#76d7c4',97:'#eee'};
+  let out='', css='';
+  const re=/\x1b\[([0-9;]*)m/g; let m, last=0;
+  const flush=(txt)=>{ if(!txt) return; out += css ? `<span style="${css}">${esc(txt)}</span>` : esc(txt); };
+  while((m=re.exec(s))){
+    flush(s.slice(last, m.index)); last = re.lastIndex;
+    for(const raw of (m[1]||'0').split(';')){
+      const c = +raw;
+      if(c===0) css='';
+      else if(c===1) css += 'font-weight:700;';
+      else if(c===4) css += 'text-decoration:underline;';
+      else if(FG[c]) css = css.replace(/color:[^;]+;/,'') + `color:${FG[c]};`;
+    }
+  }
+  flush(s.slice(last)); return out;
+}
 async function loadLog(){
   const name=$('l_name').value, lines=$('l_lines').value||200, grep=$('l_grep').value||'';
   try{
@@ -695,7 +714,7 @@ async function loadLog(){
     const d = await api(`/api/admin/logs?${key}&lines=${lines}&grep=${encodeURIComponent(grep)}`);
     if(!d.ok){ $('log_view').textContent = d.error||'读取失败'; return; }
     const pre = $('log_view'); const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 40;
-    pre.textContent = d.lines.join('\n') || '（空）';
+    pre.innerHTML = d.lines.length ? ansiHtml(d.lines.join('\n')) : '（空）';
     if(atBottom) pre.scrollTop = pre.scrollHeight;
   }catch(e){ $('log_view').textContent = '读取失败: '+e.message; }
 }
@@ -756,7 +775,7 @@ async function taskShowLog(name){
   try{
     const d = await api(`/api/admin/tasks/log?name=${name}&tail=300`);
     $('task-log-name').textContent = `　${name}${d.running?'（运行中）':''}　${d.path||''}`;
-    $('task-log').textContent = (d.lines||[]).join('\n') || (d.note||'（空）');
+    $('task-log').innerHTML = (d.lines||[]).length ? ansiHtml(d.lines.join('\n')) : (d.note||'（空）');
   }catch(e){ $('task-log').textContent = '日志读取失败: '+e.message; }
 }
 

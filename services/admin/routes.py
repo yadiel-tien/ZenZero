@@ -328,12 +328,8 @@ def logs_list():
                     st = f.stat()
                     out.append({'name': entry.name if f.name == 'latest.log' else f'{entry.name}/{f.name}',
                                 'path': str(f.relative_to(base)), 'size': st.st_size, 'mtime': st.st_mtime})
-        cdir = base / 'console'
-        if cdir.is_dir():
-            for f in sorted(cdir.glob('*.log')):
-                st = f.stat()
-                out.append({'name': f'console/{f.stem}', 'path': str(f.relative_to(base)),
-                            'size': st.st_size, 'mtime': st.st_mtime})
+        # console/ 不再进清单：内容多为各模块日志的 stdout 重复（历史滚存太吵）；
+        # 正在跑的进程输出仍经「● 实时」(name=current) 跟随，任务页自带各自日志。
     out.sort(key=lambda x: x['mtime'], reverse=True)
     for x in out:
         x['cat'] = str(x['path']).split('/', 1)[0]
