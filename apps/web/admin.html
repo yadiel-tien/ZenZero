@@ -141,13 +141,6 @@
   <section class="tab" id="tab-train">
     <div class="panel" style="margin-bottom:12px">
       <h2>启动参数 <span class="lg">以环境变量传给训练进程，不改仓库里的 config</span></h2>
-      <div class="row" style="margin-bottom:10px">
-        <button id="btn-stop-round2">等本轮结束</button>
-        <button class="danger" id="btn-stop2">立即结束</button>
-        <span class="hint"><b>立即结束</b> = kill -9，硬杀，不存盘（本轮已下完的局全丢）；
-          <b>等本轮结束</b> = 发 SIGINT，取消没开跑的局、把手上正在下的几十局收完入池、存盘后退出。
-          （还想"连 fit+评估都做完再退"的话：API 用 <code>mode=finish_round</code>）</span>
-      </div>
       <div class="row">
         <div class="field"><label>棋种</label><select id="f_game"><option>ChineseChess</option><option>Gomoku</option></select></div>
         <div class="field"><label>神经网络</label><select id="f_profile"><option value="s">s</option><option value="m">m</option><option value="l">l</option></select></div>
@@ -572,8 +565,8 @@ function renderSnapshot(s){
   $('btn-start').disabled = running; $('btn-stop').disabled = !running;
   $('btn-start2').disabled = running;
   const pending = !!tr.stop_after_round;
-  ['btn-stop-round','btn-stop-round2'].forEach(id => { $(id).disabled = !running || pending; });
-  ['btn-stop','btn-stop2'].forEach(id => { $(id).disabled = !running; });
+  $('btn-stop-round').disabled = !running || pending;
+  $('btn-stop').disabled = !running;
   $('pending-stop').style.display = pending? 'inline-block' : 'none';
   if(pending) $('phase').textContent = '待退出 · ' + $('phase').textContent;
   TRAIN_RUNNING = running;
@@ -953,9 +946,7 @@ applyTheme(themeMode(), false);      // 同步按钮文案 + 图表配色（不�
 $('btn-start').onclick = startTraining;
 $('btn-start2').onclick = startTraining;
 $('btn-stop').onclick = () => stopTraining('kill');
-$('btn-stop2').onclick = () => stopTraining('kill');
 $('btn-stop-round').onclick = () => stopTraining('interrupt');
-$('btn-stop-round2').onclick = () => stopTraining('interrupt');
 $('btn-refresh-art').onclick = loadArtifacts;
 $('btn-promote').onclick = ()=>promote();
 $('btn-load-log').onclick = loadLog;
