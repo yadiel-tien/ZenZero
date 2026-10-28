@@ -555,7 +555,9 @@ function renderSnapshot(s){
   $('phase').className = chip; $('phase').textContent = txt;
   document.body.classList.toggle('stalled', !running);
   // 训练进程
-  $('trainer').textContent = running? `训练中 pid ${tr.pid} · ${secs(tr.uptime_s)}` : '训练未运行';
+  // 未运行时「阶段」pill 已说明一切，进程 pill 说同一句话纯属重复——只在运行中现身
+  $('trainer').style.display = running ? 'inline-block' : 'none';
+  $('trainer').textContent = running? `训练中 pid ${tr.pid} · ${secs(tr.uptime_s)}` : '';
   $('trainer').className = 'pill ' + (running?'run':'stop');
   $('btn-stop').disabled = !running;
   $('btn-start2').disabled = running;
