@@ -710,7 +710,7 @@ function ansiHtml(s){
 async function loadLog(){
   const name=$('l_name').value, lines=$('l_lines').value||200, grep=$('l_grep').value||'';
   try{
-    const key = name.includes('/') ? `path=${encodeURIComponent(name)}` : `name=${encodeURIComponent(name)}`;
+    const key = name === 'current' ? 'name=current' : `path=${encodeURIComponent(name)}`;
     const d = await api(`/api/admin/logs?${key}&lines=${lines}&grep=${encodeURIComponent(grep)}`);
     if(!d.ok){ $('log_view').textContent = d.error||'读取失败'; return; }
     const pre = $('log_view'); const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 40;

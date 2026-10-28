@@ -312,34 +312,28 @@ def logs():
 
 @bp.get('/api/admin/logs/list')
 def logs_list():
-    """日志清单：各模块 latest.log（含轮转历史）+ console 全部原始输出，不做过滤。
+    """日志清单：递归 logs/ 全树，文件名含 log 的一律入列，零过滤（用户拍板）。
 
-    console/train_*.log 是训练子进程 stdout+stderr 的全量落盘（启动横幅、崩溃栈都在），
-    与 logs/train/latest.log（logger 格式化流）互补；日志查看器的「当前训练进程」实时跟随前者。
-    分类即 logs/ 下的目录名（train、selfplay、console、hub……），不做人工归类映射。"""
+    分类 = 相对路径首段目录名（顶层散文件归 root）；清单按 mtime 倒序，
+    前端两级下拉：类型（目录）→ 文件（该类内倒序，默认最新）。
+    console/train_*.log 是训练子进程 stdout+stderr 全量落盘（启动横幅、崩溃栈都在），
+    与 <模块>/latest.log（logger 格式化流）互补；正在写的那份额外由「● 实时」跟随。"""
     base = Path(CONFIG['log_dir'])
     out = []
     if base.is_dir():
-        for entry in sorted(base.iterdir()):
-            if not entry.is_dir():
+        for f in base.rglob('*'):
+            if not (f.is_file() and 'log' in f.name.lower()):
                 continue
-            for f in sorted(entry.glob('latest.log*')):        # 含 latest.log.2026-10-27 轮转
-                if f.is_file():
-                    st = f.stat()
-                    out.append({'name': entry.name if f.name == 'latest.log' else f'{entry.name}/{f.name}',
-                                'path': str(f.relative_to(base)), 'size': st.st_size, 'mtime': st.st_mtime})
-        # console/ 全量入列（用户拍板：清单不做过滤，历史滚存也都在）；
-        # 「● 实时」(name=current) 依旧置顶跟随正在写的那份。
-        cdir = base / 'console'
-        if cdir.is_dir():
-            for f in sorted(cdir.glob('*.log')):
+            try:
                 st = f.stat()
-                out.append({'name': f.stem, 'path': str(f.relative_to(base)),
-                            'size': st.st_size, 'mtime': st.st_mtime})
+            except OSError:
+                continue
+            rel = f.relative_to(base)
+            out.append({'name': str(rel), 'path': str(rel),
+                        'cat': rel.parts[0] if len(rel.parts) > 1 else 'root',
+                        'size': st.st_size, 'mtime': st.st_mtime})
     out.sort(key=lambda x: x['mtime'], reverse=True)
-    for x in out:
-        x['cat'] = str(x['path']).split('/', 1)[0]
-    return jsonify({'logs': out[:200]})
+    return jsonify({'logs': out})
 
 
 # ---------------------------------------------------------------- 一键体检
