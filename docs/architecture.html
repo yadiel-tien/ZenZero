@@ -77,7 +77,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 
 <header>
   <h1>架构、部署与接口</h1>
-  <div class="sub">两个进程装满整个 AlphaZero —— 系统视图、模型档位、配置面与 HTTP 接口契约</div>
+  <div class="sub">两个进程装满整个 AlphaZero —— 系统视图、神经网络体系、配置面与 HTTP 接口契约</div>
   <div class="crumbs">ZenZero 文档集 · 第 5 篇｜<a href="index.html">目录</a> ·
     <a href="xiangqi-env.html">§1 环境</a> · <a href="mcts.html">§2 MCTS</a> ·
     <a href="inference-engine.html">§3 推理引擎</a> · <a href="training.html">§4 训练管线</a> · <a href="usage.html">§6 如何使用</a></div>
@@ -85,7 +85,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 
 <nav>
   <a href="#ab">摘要</a><a href="#s1">1 术语</a><a href="#s2">2 进程拓扑</a><a href="#s3">3 目录</a>
-  <a href="#s4">4 模型与档位</a><a href="#s5">5 配置面</a><a href="#s6">6 对战 API</a>
+  <a href="#s4">4 模型与神经网络</a><a href="#s5">5 配置面</a><a href="#s6">6 对战 API</a>
   <a href="#s7">7 控制台 API</a><a href="#s8">8 前端与入口</a><a href="#s9">9 运维手册</a>
 
   <a href="usage.html">如何使用</a>
@@ -98,7 +98,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 <div class="abstract" id="ab">
   <b class="t">摘　要</b>
   <p>本篇是系统层参考：先立术语（1 节），再给进程拓扑与其间的契约（2 节）、目录导读（3 节）、
-  "架构注册表 + 档位制"的模型管理（4 节）、环境变量配置面（5 节），最后是两套 HTTP 接口的
+  "架构注册表 + 神经网络制"的模型管理（4 节）、环境变量配置面（5 节），最后是两套 HTTP 接口的
   完整契约表（6、7 节）与日常运维手册（9 节）。工程原则只有一句：<b>一切重状态都在磁盘上有唯一真源，
   一切控制路径都能经 HTTP 完成</b>——训练启停、回滚与模型选择均可经接口完成，无需终端操作。</p>
 </div>
@@ -111,7 +111,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 <tr><td>经验池（buffer，旧称「仓」）</td><td>棋种级的自博弈样本库（主池+留出集成对）；不按网络分家，元数据记录最新写入的网络与代数</td><td>本篇 4.3</td></tr>
 <tr><td>神经网络（profile）</td><td>同一棋种下的<b>命名网络配置</b>：内置 s / m / l，可自定义；数据目录与引擎身份都带网络名。<b>术语定案</b>：界面与文档中 profile 称「神经网络」，「模型」专指其下每一代权重（checkpoint）；旧称「档位」</td><td>本篇 4 节</td></tr>
 <tr><td>表示版本（feature_version，文中亦称 epoch；<b>界面名「输入特征编码」</b>）</td><td>棋盘张量的布局版本号；不同版本互不兼容，引擎与转换必须对齐</td><td>§1 篇 §6</td></tr>
-<tr><td>引擎（InferenceEngine）</td><td>绑定一份权重 + 档位 + 表示版本的常驻推理单元</td><td>§3 篇 1 节</td></tr>
+<tr><td>引擎（InferenceEngine）</td><td>绑定一份权重 + 神经网络 + 表示版本的常驻推理单元</td><td>§3 篇 1 节</td></tr>
 <tr><td>登记簿（ServerHub）</td><td>进程内的引擎目录与引用计数；不是网络组件</td><td>§3 篇 8 节</td></tr>
 <tr><td>守擂 / 晋升（gatekeeper / promotion）</td><td>现任最强模型与新模型的裁决赛，得分率 &gt; 52% 换王</td><td>§4 篇 8 节</td></tr>
 <tr><td>心跳（heartbeat）</td><td>训练进程每 2s 原子写的状态快照 <code>logs/_state/runtime.json</code>，面板的实时真源</td><td>§4 篇 9 节</td></tr>
@@ -156,7 +156,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 </figure>
 <div class="callout"><b>一个进程族的由来：</b>训练进程的 TrainServer <i>继承</i>推理引擎（§3 篇 10.2），
 自博弈与 fit 同进程共享权重与仓；服务进程则按会话动态养引擎。所以"训练在跑时打不开对战"不会发生——
-两套引擎实例互不相干，共享的只有磁盘上的 checkpoint。代价是两进程各占显存，GPU 档位多时要错峰（本篇 9 节"GPU 被占满时的对战"行）。</div>
+两套引擎实例互不相干，共享的只有磁盘上的 checkpoint。代价是两进程各占显存，常驻引擎多时要错峰（本篇 9 节"GPU 被占满时的对战"行）。</div>
 
 <h2 id="s3">3　目录导读</h2>
 <div class="tbl-cap"><b>仓库地图</b>（tests/ 下 13 套回归与度量工具见各篇附录；tests/ 随仓库分发）。</div>
@@ -184,19 +184,19 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 core/network/registry.py  build(arch, config) / known() / infer_arch(ckpt_config)
 新架构：在 archs/ 放一个文件、@register('my_arch_v1')，自动导入生效——引擎与训练侧零改动</code></pre>
 <p>checkpoint 文件里存 <code>config</code>（含 arch 名与全部规模键）、权重、optimizer/scheduler 状态与
-训练步数。<b>加载按 ckpt 内 config 重建网络</b>，与当前进程档位无关——这是跨档对局（§4 篇 10.2 drill）
+训练步数。<b>加载按 ckpt 内 config 重建网络</b>，与当前进程的网络配置无关——这是跨神经网络对局（§4 篇 10.2 drill）
 和"对弈页选任意代"能成立的根基。</p>
 <h3>4.2　神经网络配置（profile，旧称档位）</h3>
-<div class="tbl-cap"><b>档位表</b>（参数量实测；m 为历史默认档 = 根目录零迁移）。</div>
+<div class="tbl-cap"><b>内置神经网络表</b>（参数量实测；m 为历史默认网络 = 根目录零迁移）。</div>
 <table>
-<tr><th>档位</th><th>规模（s 档棋类实测）</th><th>参数量</th><th>数据目录</th><th>定位</th></tr>
+<tr><th>网络</th><th>规模（s 网络棋类实测）</th><th>参数量</th><th>数据目录</th><th>定位</th></tr>
 <tr><td><code>s</code></td><td>128 通道 × 6 残差块</td><td>8.06M</td><td><code>data/&lt;Game&gt;/s/</code></td><td>快迭代主力（一夜 50 代，§4 篇 10.3）</td></tr>
 <tr><td><code>m</code></td><td>256 × 15</td><td>24.67M</td><td><code>data/&lt;Game&gt;/</code></td><td>默认档；老 498 在此</td></tr>
 <tr><td><code>l</code></td><td>256 × 19</td><td>29.89M</td><td><code>data/&lt;Game&gt;/l/</code></td><td>天花板实验</td></tr>
 </table>
 <ul>
-<li>档位 preset <b>只许覆写规模键</b>（通道数/块数/头宽）；in_channels、n_actions、n_cells、
-feature_version 属棋规与表示层——preset 若试图覆写直接报错。<b>档位、棋种、表示版本三件事不许互相越权</b>。</li>
+<li>网络 preset <b>只许覆写规模键</b>（通道数/块数/头宽）；in_channels、n_actions、n_cells、
+feature_version 属棋规与表示层——preset 若试图覆写直接报错。<b>网络、棋种、表示版本三件事不许互相越权</b>。</li>
 <li>同棋种不同网络的数据目录各自独立（一套 ckpt/best_index），但<b>经验池按棋种共享</b>：
 表示版本一致时任何网络都可直接选用同一个池继续积累（引用而非拷贝，§4 篇 5 节谈池的质量边界）。</li>
 <li>引擎与目录名：m 档保持历史格式（<code>ChineseChess_498</code>），其余带档前缀
@@ -222,12 +222,12 @@ feature_version 属棋规与表示层——preset 若试图覆写直接报错。
 CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release（附权重文件）。</td></tr>
 <tr><td>表示版本 feature_version</td><td><code>1</code> / <code>2</code></td>
 <td>棋盘张量布局 epoch，烧进 checkpoint；决定特征转换与网络通道数，跨 epoch 不兼容（§1 篇 §6）。</td></tr>
-<tr><td>档位 profile</td><td><code>s</code> / <code>m</code> / <code>l</code></td>
+<tr><td>神经网络 profile</td><td><code>s</code> / <code>m</code> / <code>l</code></td>
 <td>神经网络配置（内置 s/m/l ∪ profiles.json 自定义）；只影响体量与数据目录，不影响兼容性（4.2 节）。</td></tr>
 <tr><td>模型代数 iteration</td><td><code>34</code></td>
-<td>档位内自博弈世代（checkpoint_N.pt），守擂晋升推进（§4 篇 8 节）。</td></tr>
+<td>网络内自博弈世代（checkpoint_N.pt），守擂晋升推进（§4 篇 8 节）。</td></tr>
 </table>
-<p class="note">排查问题请附「应用版本 + 表示版本 + 档位 + 代数」四个值——控制台 meta 行与资产页已一并展示。</p>
+<p class="note">排查问题请附「应用版本 + 表示版本 + 神经网络 + 代数」四个值——控制台 meta 行与资产页已一并展示。</p>
 
 <h2 id="s5">5　配置面：仓库 config + 环境变量</h2>
 <p>静态默认值全在 <code>core/utils/config.py</code>（唯一事实源）；运行期覆盖一律走环境变量，
@@ -236,7 +236,7 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <table>
 <tr><th>变量</th><th>覆盖项</th><th>默认</th><th>备注</th></tr>
 <tr><td><code>ZZ_GAME</code></td><td>棋种</td><td>配置 <code>game_name</code></td><td>ChineseChess / Gomoku</td></tr>
-<tr><td><code>ZZ_PROFILE</code></td><td>档位</td><td>m</td><td>s/m/l；m=历史行为</td></tr>
+<tr><td><code>ZZ_PROFILE</code></td><td>神经网络</td><td>m</td><td>s/m/l；m=历史行为</td></tr>
 <tr><td><code>ZZ_DEVICE</code></td><td>推理设备</td><td>auto</td><td>显式指定不可用会<b>报错拒绝启动</b>，防静默降速（§3 篇 7 节）</td></tr>
 <tr><td><code>ZZ_WORKERS</code></td><td>自博弈线程数 G</td><td>32</td><td>实测拐点 24–32（§2 篇 9.1）</td></tr>
 <tr><td><code>ZZ_GAMES_PER_ROUND</code></td><td>每轮局数</td><td>400</td><td>轮尾摊薄（§4 篇 3 节）</td></tr>
@@ -262,16 +262,16 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <tr><td><span class="get">GET</span> <code>/info</code></td><td>—</td><td><code>{device, device_note, vram{free,total}}</code></td><td>device_note 提示当前是否处于降级（如 GPU 被占满后的 CPU 兜底）</td></tr>
 <tr><td><span class="get">GET</span> <code>/devices</code></td><td>—</td><td><code>{current, devices:[{…status}]}</code></td><td>可用设备清单（探测，不含占用状态）</td></tr>
 <tr><td><span class="post">POST</span> <code>/device</code></td><td><code>{device}</code></td><td><code>{device}</code></td><td>在线搬迁全部已加载引擎；失败 400（不可用）/409（搬迁失败已回滚）</td></tr>
-<tr><td><span class="post">POST</span> <code>/models</code></td><td><code>{env_name}</code></td><td><code>{indices, best_index, profile, profiles:{s:…,m:…}}</code></td><td>跨档位枚举；<code>profile</code>=最近有产出的档（默认档，按 .pt mtime）</td></tr>
-<tr><td><span class="post">POST</span> <code>/setup</code></td><td><code>{model_id, env_class, profile?}</code></td><td><code>{pid, model_id, profile, device, device_note}</code></td><td>开局。model_id=0 → 该档最新；CPU 自动降模拟数保可玩</td></tr>
+<tr><td><span class="post">POST</span> <code>/models</code></td><td><code>{env_name}</code></td><td><code>{indices, best_index, profile, profiles:{s:…,m:…}}</code></td><td>跨网络枚举；<code>profile</code>=最近有产出的档（默认档，按 .pt mtime）</td></tr>
+<tr><td><span class="post">POST</span> <code>/setup</code></td><td><code>{model_id, env_class, profile?, n_sim?, temp?}</code></td><td><code>{pid, model_id, profile, device, device_note}</code></td><td>开局。model_id=0 → 该档最新；n_sim 缺省按设备定（CPU 更低保可玩），temp=0 走确定性强手</td></tr>
 <tr><td><span class="post">POST</span> <code>/update</code></td><td><code>{pid, array, action, player_to_move}</code></td><td><code>{win_rate}</code></td><td>同步盘面：AI 做树复用（§2 篇 8.1），返回其视角胜率</td></tr>
 <tr><td><span class="post">POST</span> <code>/get_action</code></td><td><code>{pid}</code></td><td><code>{action, win_rate, model_id}</code></td><td>AI 落一子（阻塞至搜索完成）</td></tr>
 <tr><td><span class="post">POST</span> <code>/reset</code></td><td><code>{pid}</code></td><td><code>{win_rate}</code></td><td>重开：AI 树与状态清空</td></tr>
 <tr><td><span class="post">POST</span> <code>/heartbeat</code></td><td><code>{pid}</code></td><td><code>{win_rate}</code></td><td>续会话</td></tr>
 <tr><td><span class="get">GET</span> <code>/ · /docs/ · /admin</code></td><td>—</td><td>HTML</td><td>对弈页 / 本文档集 / 管理台；静态资源 <code>/css /js /assets/*</code></td></tr>
 </table>
-<p class="note">错误约定：参数不合法 400；会话不存在 404；引擎异常 500 带 <code>{error}</code>（含堆栈）。
-浏览器端对 4xx/5xx 统一以 toast 提示，对慢响应有每步超时保护（细节以 <code>apps/web/js/api.js</code> 实现为准）。</p>
+<p class="note">错误约定：参数不合法 400；会话不存在/已销毁 404；引擎异常 500 带 <code>{error}</code>（含堆栈）。
+浏览器端对 404 会话静默重建并重放局面，其余错误 toast 提示；对慢响应有每步超时保护（细节以 <code>apps/web/js/api.js</code> 实现为准）。</p>
 
 <h2 id="s7">7　控制台 HTTP 接口（<code>/api/admin/</code>）</h2>
 <p>读接口免鉴权（内网工具定位），写接口在 <code>ZZ_ADMIN_TOKEN</code> 非空时校验 <code>X-ZZ-Token</code>，
@@ -279,9 +279,9 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <div class="tbl-cap"><b>控制台 API 契约</b>（实现 <code>services/admin/routes.py</code>；心跳契约见 §4 篇 9 节，统计口径见 §3 篇 9 节）。</div>
 <table>
 <tr><th>接口</th><th>要点</th></tr>
-<tr><td><span class="get">GET</span> <code>/snapshot</code></td><td>一屏全量：meta（实际在跑的档位与网络规模）、live（心跳权威态：阶段/进度/实时 buffer/瞬时吞吐/gpm…）、hardware（1s 环）、rounds（上一轮 perf 行）、heartbeat 原文、trainer 状态、crashes。<b>判"数据是活的还是缓存"</b>看 <code>live.source</code> 与各 <code>age</code> 字段</td></tr>
+<tr><td><span class="get">GET</span> <code>/snapshot</code></td><td>一屏全量：meta（实际在跑的神经网络与规模）、live（心跳权威态：阶段/进度/实时 buffer/瞬时吞吐/gpm…）、hardware（1s 环）、rounds（上一轮 perf 行）、heartbeat 原文、trainer 状态、crashes。<b>判"数据是活的还是缓存"</b>看 <code>live.source</code> 与各 <code>age</code> 字段</td></tr>
 <tr><td><span class="get">GET</span> <code>/series</code></td><td>曲线：rounds（按<b>累计轮数</b>的 13 条衍生序列）＋ tb（TensorBoard 标量，<b>跨重启按 step 合并</b>＋抽稀）＋ hw 时间序列</td></tr>
-<tr><td><span class="get">GET</span> <code>/env</code></td><td>当前参数 + 建议目标（最新 ckpt 所在 棋种×档位）+ 白名单 knobs</td></tr>
+<tr><td><span class="get">GET</span> <code>/env</code></td><td>当前参数 + 建议目标（最新 ckpt 所在 棋种×网络）+ 白名单 knobs</td></tr>
 <tr><td><span class="get">GET</span> <code>/train/status</code></td><td>pid / running / 是否收养 / exit_code / stop_after_round / 日志尾</td></tr>
 <tr><td><span class="post">POST</span> <code>/train/start</code></td><td><code>{game, profile, workers, games_per_round, batch_leaves, max_batch?, device?, buffer?, start_from?}</code> → 按第 5 节环境变量拉起；1.2s 内启动即崩会把 stderr 原样带回；重复启动拒绝</td></tr>
 <tr><td><span class="post">POST</span> <code>/train/stop</code></td><td><code>{mode: kill | interrupt | finish_round, grace?}</code>——语义即 §4 篇 9 节三档表；interrupt 带<b>动态宽限</b>（收尾心跳新鲜则延至 10 分钟，绝不升级杀数据）；对不支持 finish_round 的旧进程，先查心跳 <code>caps</code> 再发信号（防 SIGUSR1 默认动作误杀）</td></tr>
@@ -298,7 +298,8 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <h2 id="s8">8　前端与其它入口</h2>
 <h3>8.1　Web 前端（apps/web，零构建）</h3>
 <ul>
-<li><b>对弈页 <code>/</code></b>：SVG 棋盘、中文记谱、双胜率条、每步计时、悔棋、音效、移动端自适应。
+<li><b>对弈页 <code>/</code></b>：三步开局（棋种→模式→级联选网络/代数），每步超时与每 AI 模拟次数/温度开局前可调（localStorage 记忆），
+SVG 棋盘、中文记谱、双胜率条、思考计时、⋯ 菜单（悔棋/认输）、音效、移动端自适应。
 核心工程是浏览器端棋规引擎（<code>js/env-chess.js</code>）：与服务端 <code>core/env</code> 的
 <b>动作编码逐位对齐</b>，随机对局做快照级对拍——否则前后端对合法着法的判定将出现分歧。
 人机模式下，前端即时验证着法合法性，后端专注搜索计算，两侧互不等待。</li>
@@ -319,12 +320,12 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <h2 id="s9">9　运维手册</h2>
 <table>
 <tr><th>要做</th><th>路径</th></tr>
-<tr><td>开一夜训练</td><td><code>/admin</code> → 训练 → 核对棋种/档位/参数 → 启动。监控页看：局/分、均批、KL。关浏览器不影响</td></tr>
+<tr><td>开一夜训练</td><td><code>/admin</code> → 训练 → 核对棋种/神经网络/参数 → 启动。监控页看：局/分、均批、KL。关浏览器不影响</td></tr>
 <tr><td>收工</td><td>「收尾后停」（成果完整）；急用机器「优雅停止」；「立即结束」= kill（会丢当轮，确认框写明丢几局）</td></tr>
 <tr><td>终止时机</td><td>§4 篇第 7 节判据：KL 连续 10 代不降 + Val/value 平台 + 晋升胜率均值 &lt; 54% + 跨代对局 &lt; 60%，四项同时满足方可终止</td></tr>
 <tr><td>回滚坏模型</td><td>资产页「设为最强」，或 <code>POST /api/admin/best {iteration}</code></td></tr>
-<tr><td>GPU 被占满时的对战</td><td>ZenZero 设计为<b>显式失败不静默</b>：auto 探测失败会降级并在 <code>/info.device_note</code> 与前端标注；如需 GPU 推理请先释放 GPU（本机经换班调度台 baton 协调），或手动 <code>POST /device</code></td></tr>
-<tr><td>新旧模型同台</td><td>对弈页模型下拉先选种类（档位）再选序号，跨档直接对局</td></tr>
+<tr><td>GPU 被占满时的对战</td><td>ZenZero 设计为<b>显式失败不静默</b>：auto 探测失败会降级并在 <code>/info.device_note</code> 与前端标注；如需 GPU 推理请先释放 GPU，或手动 <code>POST /device</code></td></tr>
+<tr><td>新旧模型同台</td><td>对弈页模型下拉先选神经网络（s/m/l/自定义）再选代数，跨网络直接对局</td></tr>
 </table>
 
 <footer>ZenZero 文档集 · §5 架构、部署与接口 · 2026-10 · 代码为准：scripts/ · services/{admin,monitor,inference}/ · apps/web/</footer>

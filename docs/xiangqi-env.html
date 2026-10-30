@@ -301,7 +301,7 @@ mirror_lr_actions / mirror_ud_actions : 2086 维置换表，用于数据增强�
 <tr><td>replay buffer</td><td colspan="2">buffer 文件带 feature_version 标记，跨版本 <b>拒载</b>（旧 20 面对新模型是语义污染）</td></tr>
 <tr><td>训练启动</td><td colspan="2">闸门：best 与当前 config 的 feature_version 不符 → 自动从新网络开训，498 留任守擂者</td></tr>
 </table>
-<p class="small">这套机制就是多模型 RFC 的第一块地基：以后 WDL 头、分解 policy、杂交主干、大中小档位，都是"注册表 + 身份字段"的存量扩展，不再需要改动任何一条旧链路。</p>
+<p class="small">这套机制就是多模型 RFC 的第一块地基：以后 WDL 头、分解 policy、杂交主干、大中小网络，都是"注册表 + 身份字段"的存量扩展，不再需要改动任何一条旧链路。</p>
 
 <h2 id="flow">7　selfplay 一回合里 env 的全部出场</h2>
 <div class="flow">
@@ -341,7 +341,7 @@ mirror_lr_actions / mirror_ud_actions : 2086 维置换表，用于数据增强�
 <tr><td>叶子 env 侧合计</td><td>—</td><td>26 µs</td><td>相对推理（ms 级）为次要成本；100 线程并行下通常不卡训练</td></tr>
 </table>
 <h2 id="test">9　验证体系（改这里之前先跑）</h2>
-<pre><code>.venv/bin/python tests/test_chess_rules.py        # 17 项，全 CPU
+<pre><code>.venv/bin/python tests/test_chess_rules.py        # 21 项，全 CPU
 .venv/bin/python tests/test_engine_device_consistency.py   # 引擎线程/设备回归</code></pre>
 <table>
 <tr><th>组</th><th>钉死什么</th></tr>

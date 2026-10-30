@@ -123,7 +123,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 <li><b>一手一请求，攒批归引擎。</b>调用方可以只提交单个局面（批量提交也存在，§10），
 要不要等、等多久、凑多大由引擎按实时负载决定（第 5 节）。这样 §2 篇流水线的
 "发一条补一条"才写得直白。</li>
-<li><b>引擎三身份：架构、表示版本、档位。</b>权重文件里存着完整 config；引擎加载时读出
+<li><b>引擎三身份：架构、表示版本、神经网络。</b>权重文件里存着完整 config；引擎加载时读出
 <code>arch / feature_version / profile</code>，此后一切——特征转换的面数校验（§1 篇 §6）、
 命名、线程名、面板展示——以这三者为准。全局配置只是缺省值，<b>不是真相</b>（7.1 节）。</li>
 </ol>
@@ -143,7 +143,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 </table>
 
 <h2 id="s3">3　成本模型：一切策略的地基</h2>
-<p>s 档网络（§5 篇 4.2 档位表）在 RTX 5090 D 上扫批实测，线性拟合良好（fp16 autocast，含 H2D）：</p>
+<p>s 网络（§5 篇 4.2 神经网络表）在 RTX 5090 D 上扫批实测，线性拟合良好（fp16 autocast，含 H2D）：</p>
 <div class="eq"><div class="f">
   <span class="v">t</span><sub>fwd</sub>(<span class="v">b</span>) ≈ <span class="v">t</span><sub>0</sub> + κ·<span class="v">b</span>
   　　,　　<span class="v">t</span><sub>0</sub> ≈ 1.21 ms，κ ≈ 4.5 µs</div><span class="no"></span></div>
@@ -262,8 +262,8 @@ NVIDIA 上训好的权重可直接在 Mac/CPU 上对战）。</p>
 <pre><code>engine, loaded_id = hub.get_engine(env_name, model_id, profile)    # model_id=0 → 该档最新
 # 命中：引用 +1 直接复用；未命中：InferenceEngine(index, env, profile) 新建并 start()
 # AIServer.shutdown()/会话超时 → 引用 −1 → 归零才关线程、释放显存</code></pre>
-<p>引擎按三元组 <code>(棋种, 档位, 序号)</code> 命名登记：<code>ChineseChess_498</code>（m 档保持历史格式）/
-<code>ChineseChess_s_34</code>（其余带档位前缀）。线程名、日志、面板、统计四处同一个键——
+<p>引擎按三元组 <code>(棋种, 网络, 序号)</code> 命名登记：<code>ChineseChess_498</code>（m 网络保持历史格式）/
+<code>ChineseChess_s_34</code>（其余带网络前缀）。线程名、日志、面板、统计四处同一个键——
 "两个档的同代模型"不会被当成同一个引擎。晋升评估赛（§4 篇第 8 节）的两位选手就是两个这样的实例。</p>
 
 <h2 id="s9">9　统计与失败纪律</h2>

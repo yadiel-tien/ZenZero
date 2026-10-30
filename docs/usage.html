@@ -122,12 +122,18 @@ uv pip install -r requirements-backend.txt --extra-index-url https://download.py
 </ul>
 
 <h2 id="s2">2　对战</h2>
-<p>服务起后（第 0 步②），对弈页支持：<b>人机</b>（可选神经网络与模型代数、执红执黑）· <b>双人同屏</b> · <b>AI 观战</b>；
-悔棋、100s 每步、中文记谱、双胜率条、音效；手机/平板同网段直接访问。选模型下拉是两层的：先神经网络（s/m/l/…），再该网络下的模型代数。</p>
+<p>服务起后（第 0 步②），对弈页三步开局：<b>选棋种 → 选模式 → 选模型</b>。模式含<b>人机</b>（可执红执黑）· <b>双人同屏</b> · <b>AI 观战</b>；
+模型为两级级联——先神经网络（s/m/l/自定义），再该网络下的模型代数。开局前还有一行可调配<b>每步超时</b>（30–300s，默认 100s，人类超时判负、AI 不计时）；
+含 AI 的模式另有「AI 设置」浮层，为<b>每个 AI 玩家独立</b>配置模拟次数（MCTS 搜索深度）与采样温度（着法随机性，0 = 总走最强）。</p>
+<figure style="margin:14px 0"><img src="assets/launcher-model.png" alt="启动器：级联选模型与开局设置" style="max-width:100%;border:1px solid var(--line);border-radius:10px">
+<figcaption class="note">图：模型选择步——AI 双方各自级联选网络与代数，下方为每步超时与 AI 设置入口。</figcaption></figure>
+<figure style="margin:14px 0"><img src="assets/playing.png" alt="AI 观战对局中" style="max-width:100%;border:1px solid var(--line);border-radius:10px">
+<figcaption class="note">图：对局中——水墨风棋盘、中文记谱（炮八平五式）、双方胜率条与思考计时；⋯ 菜单提供悔棋（人机成对回退）与认输。</figcaption></figure>
+<p>手机/平板同网段直接访问，窄屏自动底部抽屉。双人同屏纯本地运行，不开 AI 服务也能玩。</p>
 <table>
 <tr><th>要点</th><th>行为</th></tr>
 <tr><td>未放置任何模型</td><td>可双人玩；人机/观战会提示模型列表为空（错误框给出放置路径）</td></tr>
-<tr><td>GPU 被别的程序占满</td><td>开局自动降 CPU（界面有"当前 CPU 推理，较慢"提示条）；释放 GPU 后可在设置中一键切回（在线搬迁引擎，不打断对局）</td></tr>
+<tr><td>GPU 被别的程序占满</td><td>开局自动降 CPU（侧栏设备信息条显示 cpu）；释放 GPU 后可在设置中一键切回（在线搬迁引擎，不打断对局）</td></tr>
 <tr><td>服务被重启</td><td>正在下的人机局会话过期，重开一局即可；前端对失效会话自动重建并重放局面（多数情况无感续战）</td></tr>
 <tr><td>命令行对战 / Gomocup 协议</td><td>第 5 节</td></tr>
 </table>
@@ -152,6 +158,8 @@ ZZ_BATCH_LEAVES=12 ZZ_DEVICE=auto python -X gil=0 -m scripts.train_server</code>
 
 <h2 id="s4">4　监控台速览（<code>/admin</code>）</h2>
 <p class="note"><b>平台定位</b>：控制台以<b>桌面浏览器</b>为主要形态（滚轮缩放 / 拖动平移 / 双击复位）；<b>触屏同样可用</b>——图上单指拖动平移、双指捏合缩放、双击复位，窄屏自动单列。对弈页手机平板一贯支持。</p>
+<figure style="margin:14px 0"><img src="assets/admin-monitor.png" alt="训练控制台监控页" style="max-width:100%;border:1px solid var(--line);border-radius:10px">
+<figcaption class="note">图：监控页——顶部状态徽章（版本/主题/运行态/训练配置），卡片为实时指标（副标题标数据口径），下方吞吐/损耗/胜率/硬件曲线。</figcaption></figure>
 <table>
 <tr><th>页</th><th>能做什么</th></tr>
 <tr><td>任务</td><td>scripts/ 其余功能的 Web 启停：priskvork / arena / bench / build_cython（参数白名单校验、日志在线看、服务重启自动收养）</td></tr>
