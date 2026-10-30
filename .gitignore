@@ -18,3 +18,6 @@ runs
 # Cython 安全构建的暂存目录（scripts/build_cython.py）
 core/env/.build_stage_*/
 ._*
+
+# 会话过程产物（验证截图/代码快照）
+.audit/
