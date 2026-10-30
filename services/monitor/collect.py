@@ -9,7 +9,11 @@
 设计要点：
 - 全部只读，不做任何写入（除了自己的内存 ring buffer）；
 - TensorBoard 事件文件解析较慢，按 mtime + TTL 缓存并增量 Reload；
-- 日志只读文件尾部若干 KB，不整文件扫描（latest.log 可能几百 MB）。
+- 日志只读文件尾部若干 KB，不整文件扫描（latest.log 可能几百 MB）；
+- **按训练批次（run）切分曲线**：每启动一次训练进程就新建 runs/<Game>_<启动时间>/，
+  目录名里的时间戳是进程启动时间，是划分批次的权威依据。perf.jsonl 是跨批次追加的
+  共享档案（行内没有批次标记），按"行时间 ≥ 批次启动时间、取最近一个"归属到批次。
+  series() 按批次返回曲线，前端每批次一色 + 可筛选，新开的训练不再和旧批次糊在一起。
 """
 from __future__ import annotations
 
@@ -62,6 +66,40 @@ def _tail(path: str, max_bytes: int = 120_000) -> list[str]:
             return fp.read().decode('utf-8', 'replace').splitlines()
     except OSError:
         return []
+
+
+# ------------------------------------------------------------------ 训练批次（run）
+_RUN_NAME_RE = re.compile(r'^(?P<game>[A-Za-z]\w*)_(?P<date>\d{8})_(?P<time>\d{6})$')
+
+
+def list_runs(game: str | None = None) -> list[dict]:
+    """训练批次清单：runs/<Game>_<启动时间>/，一个目录 = 一次训练进程的启动。
+
+    目录在训练一启动时就创建（事件文件起初只有 88 字节头），目录名里的时间戳即
+    进程启动时间——用它划分批次，比从 perf.jsonl 里猜"iteration 重置"可靠得多
+    （从 checkpoint 续训时 iteration 并不重置）。空目录也列入（可作时间边界锚点）。
+    按启动时间升序返回：[{name, game, start(epoch), start_iso}]。
+    """
+    from datetime import datetime
+    base = CONFIG['runs_dir']
+    try:
+        names = os.listdir(base)
+    except OSError:
+        return []
+    out: list[dict] = []
+    for name in names:
+        m = _RUN_NAME_RE.match(name)
+        if not m or (game and m['game'] != game):
+            continue
+        try:
+            start = datetime.strptime(m['date'] + m['time'], '%Y%m%d%H%M%S').timestamp()
+        except ValueError:
+            continue
+        d, t = m['date'], m['time']
+        out.append({'name': name, 'game': m['game'], 'start': start,
+                    'start_iso': f'{d[:4]}-{d[4:6]}-{d[6:]} {t[:2]}:{t[2:4]}:{t[4:]}'})
+    out.sort(key=lambda r: r['start'])
+    return out
 
 
 # ------------------------------------------------------------------ 硬件采样
@@ -189,6 +227,8 @@ class TensorBoardReader:
         self._path = None
         self._loaded_at = 0.0
         self._cache: dict[str, list] = {}
+        self._br_cache: dict | None = None      # series_by_run 的结果（带 TTL）
+        self._br_loaded_at = 0.0
 
     def _candidates(self) -> list[str]:
         """按事件文件 mtime 从新到旧；**过滤掉只有 88 字节表头的空 run**
@@ -236,11 +276,12 @@ class TensorBoardReader:
                 out[tag] = [(int(e.step), round(float(e.value), 6)) for e in acc.Scalars(tag)]
         return out
 
-    def _downsample(self, pts: list[tuple[int, float]]) -> list[list]:
-        """按步长抽稀到 max_points（保留最后一个点），避免把几十万个数塞给浏览器。"""
-        if len(pts) <= self._max_points:
+    def _downsample(self, pts: list[tuple[int, float]], limit: int | None = None) -> list[list]:
+        """按步长抽稀到 limit 点（保留最后一个点），避免把几十万个数塞给浏览器。"""
+        limit = limit or self._max_points
+        if len(pts) <= limit:
             return [[s, v] for s, v in pts]
-        stride = max(1, len(pts) // self._max_points)
+        stride = max(1, len(pts) // limit)
         thin = pts[::stride]
         if thin[-1][0] != pts[-1][0]:
             thin.append(pts[-1])
@@ -274,6 +315,44 @@ class TensorBoardReader:
             self._cache = out
             return self._cache
 
+    def series_by_run(self, game: str | None = None, max_runs: int = 6,
+                      max_points: int = 300, force: bool = False) -> dict:
+        """**按训练批次**的标量曲线（不跨 run 合并，各批次保留自己的 step 序列）。
+
+        返回 {'runs': [批次元信息，新→旧], 'tb': {run_name: {tag: [[step, val]]}}}。
+        面板用它把每个训练进程的曲线画成独立的一条（不同色），新开的训练不再
+        和旧批次糊在同一条线上。只取最近 max_runs 个"有标量"的批次，每个
+        (批次, tag) 抽稀到 max_points 点控制体积。
+        """
+        with self._lock:
+            if (not force and self._br_cache is not None
+                    and time.time() - self._br_loaded_at < self._ttl):
+                return self._br_cache
+            self._br_loaded_at = time.time()
+            metas = {r['name']: r for r in list_runs(game)}
+            tb: dict[str, dict] = {}
+            run_list: list[dict] = []
+            for d in self._candidates()[:self._max_probe]:
+                name = os.path.basename(d)
+                meta = metas.get(name)
+                if meta is None:
+                    continue                    # 别的棋种 / 名字不合规范
+                try:
+                    data = self._load_from(d, newest=(not tb))
+                except Exception:               # noqa: BLE001 某个 run 坏了就跳过
+                    continue
+                per = {tag: self._downsample(sorted(pts), max_points)
+                       for tag, pts in data.items() if pts}
+                if not per:
+                    continue
+                tb[name] = per
+                run_list.append({**meta, 'n_tb': sum(len(v) for v in per.values())})
+                if len(tb) >= max_runs:
+                    break
+            run_list.reverse()                  # 新→旧（展示序）
+            self._br_cache = {'runs': run_list, 'tb': tb}
+            return self._br_cache
+
 
 # ------------------------------------------------------------------ 主采集器
 def _parse_ts(text: str) -> float | None:
@@ -281,6 +360,15 @@ def _parse_ts(text: str) -> float | None:
     try:
         from datetime import datetime
         return datetime.strptime(text.strip(), '%Y-%m-%d %H:%M:%S,%f').timestamp()
+    except (ValueError, TypeError):
+        return None
+
+
+def _parse_iso_ts(text: str | None) -> float | None:
+    """perf.jsonl 的 '2026-10-29T06:21:08' → epoch 秒"""
+    try:
+        from datetime import datetime
+        return datetime.fromisoformat(text).timestamp()
     except (ValueError, TypeError):
         return None
 
@@ -295,24 +383,77 @@ class Monitor:
         self._infer_prev: tuple[float, float] | None = None   # (ts, total) 上一行，算瞬时吞吐
         self._infer_instant: float | None = None
         self._sims_cache: float | None = None                 # 模拟次数：fit/eval 阶段沿用自博弈的值
+        self._perf_cache: tuple[tuple[str, float], list[dict]] | None = None  # ((path, mtime), 行)
 
     # ---------- 各段解析 ----------
-    def _rounds(self, limit: int = 400) -> list[dict]:
-        rows: list[dict] = []
+    def _rounds(self, limit: int | None = 400) -> list[dict]:
+        """perf.jsonl 的行（只读 + 按 mtime 缓存：每轮才追加一行，mtime 不变即内容不变）。"""
+        p = PERF_JSONL if os.path.exists(PERF_JSONL) else PERF_JSONL_OLD
         try:
-            p = PERF_JSONL if os.path.exists(PERF_JSONL) else PERF_JSONL_OLD
-            with open(p, encoding='utf-8') as fp:
-                for line in fp:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        rows.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        continue
+            mtime = os.path.getmtime(p)
         except OSError:
             return []
-        return rows[-limit:]
+        if self._perf_cache and self._perf_cache[0] == (p, mtime):
+            rows = self._perf_cache[1]
+        else:
+            rows = []
+            try:
+                with open(p, encoding='utf-8') as fp:
+                    for line in fp:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            rows.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            continue
+            except OSError:
+                return []
+            self._perf_cache = ((p, mtime), rows)
+        if limit:
+            rows = rows[-limit:]
+        return rows
+
+    def _rounds_by_run(self, runs: list[dict]) -> tuple[dict[str, list[dict]], dict[str, str]]:
+        """把 perf.jsonl 的行归属到训练批次。
+
+        perf.jsonl 是跨批次追加的共享档案，行内没有批次标记；按"行时间 ≥ 批次启动
+        时间、取最近的一个批次"归属（一个进程一次启动 = 一个批次，启动时间来自
+        runs/ 目录名）。返回 ({run_name: [行]}, {run_name: profile})。
+        """
+        import bisect
+        rows = self._rounds(limit=None)
+        if not runs:
+            return {}, {}
+        starts = [r['start'] for r in runs]
+        groups: dict[str, list[dict]] = {r['name']: [] for r in runs}
+        profiles: dict[str, str] = {}
+        for row in rows:
+            ts = _parse_iso_ts(row.get('ts'))
+            if ts is None:
+                continue
+            i = bisect.bisect_right(starts, ts) - 1
+            if i < 0:
+                i = 0                    # 比最早批次目录还早（如 runs/ 被清理过）→ 归最早
+            groups[runs[i]['name']].append(row)
+            if row.get('profile'):
+                profiles.setdefault(runs[i]['name'], row['profile'])
+        return groups, profiles
+
+    def _trainer_started_ts(self) -> float | None:
+        """当前**活着**的训练进程的启动 epoch（trainer.json），用于标出哪个批次在跑。
+
+        进程已退出时 trainer.json 是上一次会话的残留，不能拿它把旧批次标成"运行中"。
+        """
+        try:
+            from datetime import datetime
+            from services.admin.runner import TrainingRunner
+            st = TrainingRunner().status()
+            if not st.get('running') or not st.get('started_at'):
+                return None
+            return datetime.fromisoformat(st['started_at']).timestamp()
+        except Exception:                            # noqa: BLE001 面板独立性优先
+            return None
 
     def _live_infer(self) -> dict | None:
         """最近一条 [infer] 行 + **瞬时吞吐**。
@@ -562,8 +703,29 @@ class Monitor:
             'crashes': self._crashes(),
         }
 
-    def series(self) -> dict:
-        rounds = self._rounds(400)
+    def series(self, max_runs: int = 6) -> dict:
+        """按训练批次返回曲线（每个批次一个自己的横轴，互不粘连）。
+
+        返回：
+          runs:   [{name, start, start_iso, profile, n_rounds, running}]，新→旧
+          rounds: {run_name: {metric: [[轮次, 值]]}}   轮次 = 该批次内第几轮（1 起）
+          tb:     {run_name: {tag: [[step, 值]]}}      step = 该批次 fit 自己的步数
+          hw:     硬件历史（与批次无关，照旧）
+
+        旧版把全部批次沿"累计轮次/全局 step"糊成一条线，新开的训练曲线直接接在
+        旧批次后面、分不出哪段是哪次训练；现在前端按批次分色绘制并可筛选。
+        """
+        rt = self._heartbeat()
+        game = self._running_profile(rt)[0]
+        runs = list_runs(game)
+        groups, profiles = self._rounds_by_run(runs)
+
+        tb_out = self.tb.series_by_run(game, max_runs=max_runs)
+        tb_runs = {r['name'] for r in tb_out['runs']}
+
+        # 有数据的批次（轮次记录或 TB 标量），取最近 max_runs 个
+        kept = [r for r in runs if groups.get(r['name']) or r['name'] in tb_runs][-max_runs:]
+
         keys = {
             'iteration': lambda r: r.get('iteration'),
             'games_per_min': lambda r: r.get('selfplay', {}).get('games_per_min'),
@@ -579,16 +741,34 @@ class Monitor:
             'round_wall_s': lambda r: r.get('round_wall_s'),
             'buffer_size': lambda r: r.get('buffer_size'),
         }
-        series = {}
-        # 横轴必须跨重启唯一：`round` 是"本次启动内第几轮"，每次重启都从 1 重数，
-        # 直接拿来当 x 会把多轮叠在同一个位置（图上出现竖直多条线的"同一位置多个值"）。
-        # 用 perf.jsonl 的累计序号：天然唯一且按时间单调。
-        xs = list(range(1, len(rounds) + 1))
-        for name, getter in keys.items():
-            series[name] = [[x, getter(r)] for x, r in zip(xs, rounds) if getter(r) is not None]
-        return {'rounds': series, 'tb': self.tb.series(),
-                'hw': [{'t': s['t'], 'cpu': s['cpu'], 'mem': s['mem']['pct'],
-                        'gpu': (s['gpu'] or {}).get('util')} for s in self.hw.history()]}
+        rounds_out: dict[str, dict] = {}
+        for run in kept:
+            rws = (groups.get(run['name']) or [])[-400:]
+            if not rws:
+                continue
+            # 横轴 = 该批次内第几轮（round 就是进程内轮次号；缺失时用序号兜底）。
+            # 每个批次各画各的 x 轴，天然不会"同一位置多个值"。
+            xs = [r.get('round') or i for i, r in enumerate(rws, 1)]
+            rounds_out[run['name']] = {
+                name: [[x, g(r)] for x, r in zip(xs, rws) if g(r) is not None]
+                for name, g in keys.items()
+            }
+
+        started_ts = self._trainer_started_ts()
+        runs_out = [{
+            'name': run['name'], 'start': run['start'], 'start_iso': run['start_iso'],
+            'profile': profiles.get(run['name']),
+            'n_rounds': len(groups.get(run['name']) or []),
+            'running': bool(started_ts is not None and abs(run['start'] - started_ts) <= 30),
+        } for run in reversed(kept)]
+
+        return {
+            'runs': runs_out,
+            'rounds': rounds_out,
+            'tb': {r['name']: tb_out['tb'].get(r['name'], {}) for r in kept},
+            'hw': [{'t': s['t'], 'cpu': s['cpu'], 'mem': s['mem']['pct'],
+                    'gpu': (s['gpu'] or {}).get('util')} for s in self.hw.history()],
+        }
 
     def stop(self) -> None:
         self.hw.stop()

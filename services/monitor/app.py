@@ -46,6 +46,17 @@ PAGE = r"""<!DOCTYPE html>
   .panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px 6px}
   .panel h2{font-size:12px;margin:0 0 6px;font-weight:600;color:var(--fg);display:flex;gap:10px;align-items:center}
   .panel h2 .lg{font-weight:400;font-size:11px;color:var(--dim)}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--dim);margin:-2px 0 5px}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .legend i{width:11px;height:3px;border-radius:2px;display:inline-block}
+  .legend b{color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums}
+  .runfilter{display:flex;gap:4px 14px;align-items:center;flex-wrap:wrap;margin:2px 0 10px;font-size:12px;color:var(--dim)}
+  .runfilter .rf-lb{font-weight:600;color:var(--fg)}
+  .runfilter label{display:inline-flex;align-items:center;gap:5px;cursor:pointer;user-select:none}
+  .runfilter input{accent-color:var(--blue);margin:0;cursor:pointer}
+  .runfilter .sw{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
+  .runfilter .rf-now{color:var(--green);font-weight:600;font-size:10px}
+  .runfilter .rf-all{color:var(--blue);cursor:pointer;font-size:11px;text-decoration:underline}
   canvas{width:100%;height:170px;display:block}
   .barwrap{height:6px;background:#0b0e12;border-radius:99px;overflow:hidden;margin-top:6px}
   .barwrap i{display:block;height:100%;background:var(--blue);width:0}
@@ -62,6 +73,7 @@ PAGE = r"""<!DOCTYPE html>
 </header>
 <main>
   <div class="cards" id="cards"></div>
+  <div class="runfilter" id="runfilter"></div>
   <div class="grid">
     <div class="panel"><h2>对弈吞吐 <span class="lg">局/分钟（每轮）</span></h2><canvas id="c_gpm"></canvas></div>
     <div class="panel"><h2>引擎批大小 <span class="lg">每轮均值</span></h2><canvas id="c_batch"></canvas></div>
@@ -76,6 +88,44 @@ PAGE = r"""<!DOCTYPE html>
 const $ = id => document.getElementById(id);
 const fmt = (v, d=1) => (v===null||v===undefined||isNaN(v)) ? '—' : (+v).toFixed(d);
 let seriesCache = null;
+/* 训练批次（run）：一个进程一次启动 = 一个批次。新后端 /api/series 按批次嵌套返回；
+   每个批次一种颜色 + 图例，筛选条可只看某一个批次。旧后端（扁平结构）合成"累计"伪批次。 */
+let RUN_STATE = {vis: null};      // null = 显示全部批次；否则为要显示的批次名集合
+let RUN_COLOR = {};               // 批次名 → 颜色
+function runColors(){ return ['#4aa8ff','#3ddc84','#ffb454','#ff6b6b','#b48cff','#ffd166','#2dd4bf','#f472b6']; }
+function normSeries(d){
+  if (d && Array.isArray(d.runs)) return d;
+  const name = '__legacy__';
+  return {runs: [{name, start: 0, running: false, legacy: true}],
+          rounds: {[name]: (d || {}).rounds || {}}, tb: {[name]: (d || {}).tb || {}}};
+}
+function runLabel(r){
+  if (r.legacy) return '累计';
+  const dte = new Date(r.start * 1000), p = n => String(n).padStart(2, '0');
+  return `${p(dte.getMonth()+1)}-${p(dte.getDate())} ${p(dte.getHours())}:${p(dte.getMinutes())}`;
+}
+function renderRunFilter(runs){
+  const el = $('runfilter'); if(!el) return;
+  if(!runs || runs.length < 2){ el.innerHTML = ''; return; }
+  const vis = RUN_STATE.vis;
+  const boxes = runs.map(r => {
+    const on = !vis || vis.has(r.name);
+    return `<label><input type="checkbox" ${on?'checked':''} data-run="${r.name}">
+      <span class="sw" style="background:${RUN_COLOR[r.name]||'#4aa8ff'}"></span>${runLabel(r)}
+      ${r.running?'<b class="rf-now">运行中</b>':''}</label>`;
+  }).join('');
+  el.innerHTML = `<span class="rf-lb">批次</span>${boxes}
+    ${vis!==null?'<a class="rf-all" href="javascript:void(0)">全部</a>':''}`;
+  el.querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
+    const all = new Set(runs.map(r => r.name));
+    const names = new Set([...el.querySelectorAll('input[data-run]')]
+      .filter(i => i.dataset.run !== '__all__' && i.checked).map(i => i.dataset.run));
+    RUN_STATE.vis = names.size === all.size ? null : names;
+    tickSeries();
+  }));
+  const allA = el.querySelector('.rf-all');
+  if(allA) allA.addEventListener('click', () => { RUN_STATE.vis = null; tickSeries(); });
+}
 
 function card(k, v, s){ return `<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s||''}</div></div>`; }
 
@@ -112,12 +162,26 @@ function draw(id, cfg){
   const xe = String(Math.round(x1)); g.fillText(xe, w-P.r-g.measureText(xe).width, h-5);
   // 线
   series.forEach(s => {
-    g.strokeStyle = s.color; g.lineWidth = 1.6; g.beginPath();
+    g.strokeStyle = s.color; g.lineWidth = 1.6; g.setLineDash(s.dash||[]); g.beginPath();
     s.pts.forEach((p,i) => { const x=X(+p[0]), y=Y(+p[1]); i? g.lineTo(x,y) : g.moveTo(x,y); });
     g.stroke();
     const last = s.pts[s.pts.length-1];
     g.fillStyle = s.color; g.beginPath(); g.arc(X(+last[0]), Y(+last[1]), 2.6, 0, 7); g.fill();
   });
+  g.setLineDash([]);
+  // 图例（≥2 条线才显示；批次/指标都在名字里）
+  const lg = document.getElementById(id + '-legend');
+  if(series.length >= 2){
+    let el = lg;
+    if(!el){ el = document.createElement('div'); el.id = id + '-legend'; el.className = 'legend';
+             cv.parentNode.insertBefore(el, cv); }
+    el.style.display = 'flex';
+    el.innerHTML = series.map(s => {
+      const last = s.pts[s.pts.length-1];
+      const sw = s.dash ? `border:1px dashed ${s.color};background:transparent` : `background:${s.color}`;
+      return `<span><i style="${sw}"></i>${s.name||''}<b>${fmt(last[1])}</b></span>`;
+    }).join('');
+  } else if(lg){ lg.style.display = 'none'; }
   if(cfg.hline!==undefined){
     g.strokeStyle='#3a4352'; g.setLineDash([4,4]); g.beginPath();
     g.moveTo(P.l, Y(cfg.hline)); g.lineTo(w-P.r, Y(cfg.hline)); g.stroke(); g.setLineDash([]);
@@ -161,15 +225,29 @@ function renderCards(s){
 }
 
 function renderCharts(d){
-  const R = d.rounds, tb = d.tb||{}, hw = d.hw||[];
-  draw('c_gpm', {series:[{pts:R.games_per_min, color:'#4aa8ff'}], fmtY:v=>v.toFixed(0)});
-  draw('c_batch', {series:[{pts:R.batch_mean, color:'#3ddc84'}], ymin:0, fmtY:v=>v.toFixed(0)});
-  draw('c_mcts', {series:[{pts:R.select_ms, color:'#ffb454'},{pts:R.wait_ms, color:'#b48cff'}], ymin:0, fmtY:v=>v.toFixed(1)});
-  const lossPts = t => (tb[t]||[]).map(([s,v])=>[s,v]);
-  draw('c_loss', {series:[{pts:lossPts('Loss/total'), color:'#4aa8ff'},{pts:lossPts('Val/total'), color:'#ff6b6b'}], fmtY:v=>v.toFixed(2)});
-  draw('c_win', {series:[{pts:R.eval_win_rate, color:'#3ddc84'}], ymin:0, ymax:1, hline:0.52, fmtY:v=>(v*100).toFixed(0)+'%'});
-  const hwPts = k => hw.filter(s=>s[k]!==null&&s[k]!==undefined).map(s=>[s.t, s[k]]);
-  draw('c_hw', {series:[{pts:hwPts('cpu'), color:'#4aa8ff'},{pts:hwPts('gpu'), color:'#3ddc84'},{pts:hwPts('mem'), color:'#ffb454'}],
+  const d0 = normSeries(d);
+  const runs0 = d0.runs || [];                    // 后端顺序：新 → 旧
+  RUN_COLOR = {};
+  const pal = runColors();
+  runs0.forEach((r, i) => RUN_COLOR[r.name] = pal[i % pal.length]);
+  renderRunFilter(runs0);
+  const vis = runs0.filter(r => !RUN_STATE.vis || RUN_STATE.vis.has(r.name))
+                   .sort((a, b) => a.start - b.start);   // 旧批次在下、最新批次压在上面
+  const colorOf = r => RUN_COLOR[r.name];
+  const ptsR = (r, m) => ((d0.rounds[r.name]) || {})[m] || [];
+  const ptsT = (r, m) => ((d0.tb[r.name]) || {})[m] || [];
+  const perRun = (kind, m) => vis.map(r =>
+    ({name: runLabel(r) + (r.running ? '（运行中）' : ''), pts: kind === 'r' ? ptsR(r, m) : ptsT(r, m), color: colorOf(r)}));
+  const perRun2 = (kind, m1, m2, n1, n2) => vis.flatMap(r => [
+    {name: `${runLabel(r)} · ${n1}`, pts: kind === 'r' ? ptsR(r, m1) : ptsT(r, m1), color: colorOf(r)},
+    {name: `${runLabel(r)} · ${n2}`, pts: kind === 'r' ? ptsR(r, m2) : ptsT(r, m2), color: colorOf(r), dash: [5,4]}]);
+  draw('c_gpm', {series:perRun('r','games_per_min'), fmtY:v=>v.toFixed(0)});
+  draw('c_batch', {series:perRun('r','batch_mean'), ymin:0, fmtY:v=>v.toFixed(0)});
+  draw('c_mcts', {series:perRun2('r','select_ms','wait_ms','选叶子','等引擎'), ymin:0, fmtY:v=>v.toFixed(1)});
+  draw('c_loss', {series:perRun2('t','Loss/total','Val/total','train','val'), fmtY:v=>v.toFixed(2)});
+  draw('c_win', {series:perRun('r','eval_win_rate'), ymin:0, ymax:1, hline:0.52, fmtY:v=>(v*100).toFixed(0)+'%'});
+  const hwPts = k => (d0.hw||[]).filter(s=>s[k]!==null&&s[k]!==undefined).map(s=>[s.t, s[k]]);
+  draw('c_hw', {series:[{name:'CPU',pts:hwPts('cpu'), color:'#4aa8ff'},{name:'GPU',pts:hwPts('gpu'), color:'#3ddc84'},{name:'内存',pts:hwPts('mem'), color:'#ffb454'}],
                 ymin:0, ymax:100, fmtY:v=>v.toFixed(0)});
 }
 
@@ -266,8 +344,9 @@ def _selftest() -> None:
             assert key in snap, f'snapshot 缺 {key}'
         assert isinstance(snap['rounds'], list)
         ser = json.loads(urllib.request.urlopen(base + '/api/series', timeout=20).read())
-        for key in ('rounds', 'tb', 'hw'):
+        for key in ('runs', 'rounds', 'tb', 'hw'):
             assert key in ser, f'series 缺 {key}'
+        assert isinstance(ser['runs'], list)
         print(f'selftest OK: rounds={len(snap["rounds"])} hw={snap["hardware"] is not None} '
               f'tb_tags={len(ser["tb"])} 端口={port}')
     finally:
