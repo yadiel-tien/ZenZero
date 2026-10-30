@@ -1,5 +1,7 @@
 from typing import Self, cast
 
+import threading
+
 import numpy as np
 from numpy.typing import NDArray
 from core.mcts.deepMcts import NeuronMCTS
@@ -16,18 +18,23 @@ class AIServer(Player):
     """服务器端AI玩家。通过进程内hub获取共享的推理引擎，MCTS走队列请求推理。"""
 
     def __init__(self, env_name: EnvName, model_id: int, n_simulation=500, verbose=True,
-                 hub: ServerHub = None, profile: str | None = None) -> None:
+                 hub: ServerHub = None, profile: str | None = None, temperature: float = 0.0) -> None:
         super().__init__(env_name)
         self.model_id = model_id
         # 档位：不传就用进程档位。对弈页要能开到 s 档（新训练）而不是只有 m 档老模型
         self.profile = profile
         self._n_simulation = n_simulation
+        # 采样温度：0=纯 argmax（原行为：首步 get_pi(3) 随机、其余 argmax）；
+        # >0 时每步按访问次数分布 get_pi(temp) 采样（越大越随机）
+        self.temperature = max(0.0, float(temperature))
         self.mcts: NeuronMCTS | None = None
         self.verbose = verbose  # verbose=True打印日志信息
         self.win_rate = -1.0  # -1代表无数据
         self.hub = hub if hub is not None else ServerHub()
         self._own_hub = hub is None  # 自己创建的hub随玩家一起清理
         self._engine_name: str | None = None  # 已占用引擎名称，shutdown时释放
+        self._dead = False  # reset() 后置位，在途 /update 据此快速失败
+        self._op_lock = threading.Lock()  # update 与 reset 互斥（防在途请求撞销毁）
 
     def _print_verbose(self, msg: str) -> None:
         """只在verbose 模式下打印"""
@@ -39,7 +46,13 @@ class AIServer(Player):
         return f'Server {self.model_id}'
 
     def update_state(self, state: NDArray, last_action: int, player_to_move: int) -> None:
-        """同步当前棋盘，如果是root的子节点就扩展，否则新建.然后进行mcts模拟走子"""
+        """同步当前棋盘。与 reset 互斥：已销毁则直接返回（/update 据此回 404）"""
+        with self._op_lock:
+            if self._dead:
+                return
+            self._update_locked(state, last_action, player_to_move)
+
+    def _update_locked(self, state: NDArray, last_action: int, player_to_move: int) -> None:
         self._print_verbose(f'Thinking... (Model: {self.model_id})')
         if self.mcts is None:  # 新建
             # 向hub获取(或复用)推理引擎，引用计数+1
@@ -65,14 +78,21 @@ class AIServer(Player):
                 self.mcts.set_root(state, last_action, player_to_move)
 
         self.mcts.run(self._n_simulation)
-        self.pending_action = self.mcts.choose_action()
+        if self.temperature > 0:
+            pi = self.mcts.get_pi(self.temperature)
+            self.pending_action = int(np.random.choice(len(pi), p=pi))
+            self.mcts.apply_action(self.pending_action)
+        else:
+            self.pending_action = self.mcts.choose_action()
         self.win_rate = self.mcts.root.win_rate
         self.is_thinking = False
 
     def reset(self) -> None:
-        super().reset()
-        self.shutdown()
-        self.win_rate = -1.0
+        with self._op_lock:
+            super().reset()
+            self._dead = True   # 已销毁：后续在途 /update 返回 404，避免 500
+            self.shutdown()
+            self.win_rate = -1.0
 
     def shutdown(self) -> None:
         if self.mcts:

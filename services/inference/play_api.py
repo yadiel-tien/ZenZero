@@ -24,6 +24,67 @@ DOCS_DIR = ROOT_DIR / 'docs'   # 项目文档集（静态 HTML，/docs/ 只读�
 GRAPHICS_DIR = ROOT_DIR / 'apps' / 'assets' / 'graphics'
 SOUND_DIR = ROOT_DIR / 'apps' / 'assets' / 'sound'
 
+# ============ 显存需求估算（/devices 空间判定）============
+# 2026-10-30：前端按「实际要加载的模型集合」（1 个 AI 或 2 个 AI、各多大）判断 GPU 空间；
+# 不够则设备标记 unavailable（无切换按钮）。估算口径与 Net._fit_device 一致：
+# 参数量×4字节×1.3（CUDA context/cuDNN/碎片余量）+ 600MiB 固定预留。
+_MODEL_PARAM_CACHE: dict = {}   # checkpoint 路径 -> (mtime, 参数量)
+
+
+def _model_param_count(path: str):
+    """用 meta 设备读取 checkpoint 参数量（不占显存/内存），按 mtime 缓存；失败返回 None。"""
+    import torch
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        return None
+    hit = _MODEL_PARAM_CACHE.get(path)
+    if hit and hit[0] == mtime:
+        return hit[1]
+
+    def count_tensors(obj) -> int:
+        n = 0
+        for v in (obj.values() if isinstance(obj, dict) else []):
+            if torch.is_tensor(v):
+                n += v.numel()
+            elif isinstance(v, dict):
+                n += sum(t.numel() for t in v.values() if torch.is_tensor(t))
+        return n
+
+    for kw in (dict(map_location='meta', weights_only=True), dict(map_location='meta')):
+        try:
+            n = count_tensors(torch.load(path, **kw))
+            if n:
+                _MODEL_PARAM_CACHE[path] = (mtime, n)
+                return n
+        except Exception:
+            continue
+    return None
+
+
+def _vram_need_bytes(env_name: str, model_specs: list, default_best: str | None = None):
+    """同一 GPU 上加载指定模型集合的预估显存需求（bytes）；无法估算返回 None（前端保持原显示，不误禁）。"""
+    specs = [s for s in model_specs if str(s).strip()]
+    if not specs and default_best:
+        specs = [default_best]
+    if not specs:
+        return None
+    from services.inference.functions import get_checkpoint_path
+    total = 0
+    for spec in specs:
+        prof, _, idx_s = str(spec).partition(':')
+        try:
+            idx = int(idx_s)
+        except ValueError:
+            return None
+        n = _model_param_count(get_checkpoint_path(env_name, idx, (prof or None)))
+        if not n:
+            return None
+        total += n
+    if not total:
+        return None
+    return int(total * 4 * 1.3 + 600 * 1024 * 1024)
+
 
 class PlayApiServer:
     def __init__(self):
@@ -123,7 +184,35 @@ class PlayApiServer:
         @self.app.route('/devices', methods=['GET'])
         def devices_list():
             from core.utils.config import enumerate_devices
+            # 可选 ?env=ChineseChess&models=mini:50,m:12 —— 按「实际要加载的模型集合」判定显存空间
+            env = (request.args.get('env') or '').strip() or None
+            models_arg = (request.args.get('models') or '').strip()
+            need, n_models = None, 0
+            if env:
+                specs = [p.strip() for p in models_arg.split(',') if p.strip()]
+                default_best = None
+                if not specs:
+                    # 未指定模型（页面加载期）：按默认档位 best_index 估算
+                    try:
+                        prof = _default_profile(env)
+                        cur = (_profile_models(env) or {}).get(prof) or {}
+                        best = int(cur.get('best_index', -1))
+                        if best >= 0:
+                            default_best = f'{prof}:{best}'
+                    except Exception:
+                        pass
+                need = _vram_need_bytes(env, specs, default_best)
+                n_models = len(specs) or (1 if default_best else 0)
             devices = [d for d in enumerate_devices() if d['status'] != 'absent']
+            if need:
+                for d in devices:
+                    # 空间不够 -> 直接 unavailable（前端不显示切换按钮）；active 不受影响
+                    if str(d['id']).startswith('cuda') and d.get('vram') and d['status'] != 'active':
+                        d['fits'] = d['vram']['free'] * 2 ** 30 >= need
+                        if not d['fits']:
+                            d['status'] = 'unavailable'
+                            d['reason'] = (f'显存不足：空闲 {d["vram"]["free"]:.1f}G '
+                                           f'< 加载 {n_models} 个模型需 ~{need / 2 ** 30:.1f}G，暂不可切换')
             return jsonify({'current': app_config.CONFIG['device'],
                             'device_note': app_config.DEVICE_NOTE,
                             'devices': devices})
@@ -208,13 +297,25 @@ class PlayApiServer:
                 model_id = data['model_id']
                 env_name = data['env_class']
                 profile = (data.get('profile') or _default_profile(env_name)).strip().lower()
+                # 可选 AI 参数（前端"AI 设置"，2026-10-30）：n_sim 模拟次数 / temp 采样温度；
+                # 缺省用按设备档位与纯 argmax（原行为）
+                try:
+                    n_sim_req = int(data.get('n_sim') or 0)
+                except (TypeError, ValueError):
+                    n_sim_req = 0
+                try:
+                    temp_req = float(data.get('temp') or 0)
+                except (TypeError, ValueError):
+                    temp_req = 0.0
                 pid = str(uuid.uuid4())
                 with self.lock:
                     self.clients_live_time[pid] = time.time()
                     # CPU 推理单批 ~15s，1000 模拟要 5 分钟；降档保持可玩（GPU 保持原值）
-                    n_sim = 1000 if app_config.CONFIG['device'] != 'cpu' else 60
+                    n_sim = n_sim_req if 10 <= n_sim_req <= 20000 else (
+                        1000 if app_config.CONFIG['device'] != 'cpu' else 60)
+                    temp = min(max(temp_req, 0.0), 10.0)
                     player = AIServer(env_name, model_id, n_sim, verbose=False, hub=self.hub,
-                                      profile=profile)
+                                      profile=profile, temperature=temp)
                     self.ai_players[pid] = player
                 device = app_config.CONFIG['device']
                 note = app_config.DEVICE_NOTE
@@ -222,7 +323,7 @@ class PlayApiServer:
                     self.logger.warning(f'Session {pid[:8]} running on {device}: {note}')
                 else:
                     self.logger.info(f"New session created: {pid[:8]}... (Game: {env_name}, Model: {model_id}, "
-                                 f"Device: {device}, Simulations: {n_sim})")
+                                 f"Device: {device}, Simulations: {n_sim}, Temperature: {temp})")
                 return jsonify({'pid': pid, 'model_id': player.model_id, 'profile': profile,
                                 'device': device, 'device_note': note})
             except Exception as e:
@@ -240,9 +341,13 @@ class PlayApiServer:
                         return jsonify({"error": "Player not found"}), 404
                     self.clients_live_time[pid] = time.time()
                     player = self.ai_players[pid]
+                    if getattr(player, '_dead', False):   # 已 reset（退局竞态下的在途请求）
+                        return jsonify({"error": "Player not found"}), 404
 
                 state = np.array(data['array'], dtype=np.int32)
                 player.update_state(state, data['action'], data['player_to_move'])
+                if getattr(player, '_dead', False):   # 跑完的瞬间被退局（reset）
+                    return jsonify({"error": "Player not found"}), 404
                 return jsonify({'win_rate': float(player.win_rate)})
             except Exception as e:
                 self.logger.error(f"Error during state update for {pid[:8]}: {e}", exc_info=True)
@@ -259,6 +364,8 @@ class PlayApiServer:
                         return jsonify({"error": "Player not found"}), 404
                     self.clients_live_time[pid] = time.time()
                     player = self.ai_players[pid]
+                    if getattr(player, '_dead', False):
+                        return jsonify({"error": "Player not found"}), 404
                 
                 action = player.get_action()
                 self.logger.info(f"Session {pid[:8]} moved: {action} (WR: {player.win_rate:.2%})")
