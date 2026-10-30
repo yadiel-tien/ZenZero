@@ -17,8 +17,11 @@
 
       <!-- 顶部：返回 / 投降 -->
       <button id="btn-back" class="zz-btn mini black hidden">返回</button>
-      <button id="btn-resign" class="zz-btn mini red hidden">认输</button>
-      <button id="btn-undo" class="zz-btn mini grey hidden">悔棋</button>
+      <button id="btn-more" class="more-btn hidden" title="对局操作">⋯</button>
+      <div id="more-menu" class="stage-menu hidden">
+        <button id="btn-undo" class="mm-item hidden">悔棋</button>
+        <button id="btn-resign" class="mm-item">认输</button>
+      </div>
 
       <!-- Logo -->
       <div id="logo" class="hidden">
@@ -41,7 +44,7 @@
 
       <!-- 底部控制 -->
       <button id="btn-start" class="zz-btn big green hidden">开始对弈</button>
-      <button id="btn-reverse" class="zz-btn big grey hidden">先手：玩家</button>
+      <button id="btn-reverse" class="hidden" title="交换位置">⇅</button>
 
       <!-- 退出确认 -->
       <div id="dlg-quit" class="scrim hidden">
@@ -71,18 +74,7 @@
       <div id="p-subtitle">棋道 · 心境</div>
     </div>
 
-    <div class="p-sec">
-      <div class="p-label">对局</div>
-      <div id="p-mode">—</div>
-    </div>
-
     <div class="p-sec servers">
-      <div class="p-label">推理服务</div>
-      <div class="srv-row">
-        <span id="srv-dot" class="srv-ind"></span>
-        <span id="srv-url">同源</span>
-        <button id="btn-settings" class="link-btn">设置</button>
-      </div>
       <div id="p-device" class="p-device hidden"></div>
     </div>
 
@@ -106,7 +98,9 @@
 
     <div class="p-sec p-foot">
       <button id="btn-sfx" class="chip on" title="音效">🔔 音效</button>
+      <input id="vol-sfx" class="vol" type="range" min="0" max="100" title="音效音量" aria-label="音效音量">
       <button id="btn-bgm" class="chip" title="背景音乐">🎵 音乐</button>
+      <input id="vol-bgm" class="vol" type="range" min="0" max="100" title="音乐音量" aria-label="音乐音量">
     </div>
   </aside>
 </div>
@@ -150,11 +144,49 @@
           <div id="dd2" class="dropdown"><button class="dd-btn">选择代数</button><ul class="dd-list"></ul></div>
         </div>
       </div>
+      <div id="l-set">
+        <div class="l-set-row">
+          <span class="l-set-label">每步超时</span>
+          <select id="sel-move-time" class="l-set-sel"></select>
+          <button id="btn-ai-set" class="l-set-toggle hidden">AI 设置 <span class="l-set-caret">▾</span></button>
+        </div>
+        <p class="l-set-note">人类每步限时，超时判负（AI 不计时）</p>
+        <div id="ai-set" class="l-ai-panel hidden">
+          <div id="aiset-0" class="ai-block hidden">
+            <div class="ai-block-title" id="aiset-0-title">AI 1（执先手）</div>
+            <div class="l-set-row">
+              <span class="l-set-label">模拟次数</span>
+              <select id="sel-n-sim-0" class="l-set-sel"></select>
+            </div>
+            <p class="l-set-note">MCTS 模拟次数，越高搜索越深，但越慢</p>
+            <div class="l-set-row">
+              <span class="l-set-label">采样温度</span>
+              <select id="sel-temp-0" class="l-set-sel"></select>
+            </div>
+            <p class="l-set-note">着法选择随机性，越高越随机，0 = 总走最强</p>
+          </div>
+          <div id="aiset-1" class="ai-block hidden">
+            <div class="ai-block-title" id="aiset-1-title">AI 2（执后手）</div>
+            <div class="l-set-row">
+              <span class="l-set-label">模拟次数</span>
+              <select id="sel-n-sim-1" class="l-set-sel"></select>
+            </div>
+            <p class="l-set-note">MCTS 模拟次数，越高搜索越深，但越慢</p>
+            <div class="l-set-row">
+              <span class="l-set-label">采样温度</span>
+              <select id="sel-temp-1" class="l-set-sel"></select>
+            </div>
+            <p class="l-set-note">着法选择随机性，越高越随机，0 = 总走最强</p>
+          </div>
+          <p class="l-set-hint">各 AI 玩家设置独立生效</p>
+          <button id="btn-ai-done" class="l-ai-done">完成</button>
+          </div>
+        </div>
       <button id="btn-launch" class="row-btn red">开始对局</button>
       <button class="row-btn black tiny" data-back="mode">返回</button>
+      </div>
     </div>
   </div>
-</div>
 
 <!-- ======= 设置 ======= -->
 <div id="dlg-settings" class="scrim full hidden">

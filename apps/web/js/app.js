@@ -49,12 +49,20 @@
       pieceSize: 33
     }
   };
-  const TURN_LIMIT = 100; // 每步 100 秒（对应 Timer(limit=100000ms)）
+  const TIME_OPTIONS = [30, 60, 100, 180, 300];   // 每步超时可选值（秒），开局前可设置
+  let TURN_LIMIT = (() => {
+    const v = parseInt(localStorage.getItem('zz_move_limit'), 10);
+    return TIME_OPTIONS.includes(v) ? v : 100;     // 默认 100 秒
+  })();
 
-  /* ================= 音效 ================= */
+  /* ================= 音效（2026-10-30：音量即选中态——0=未选中/关，非0=选中/开） ================= */
+  const _vol01 = (key, dflt) => {
+    const v = parseInt(localStorage.getItem(key));
+    return (Number.isFinite(v) && v >= 0 && v <= 100) ? v / 100 : dflt / 100;
+  };
   const Sound = {
-    sfxOn: localStorage.getItem('zz_sfx') !== '0',
-    bgmOn: localStorage.getItem('zz_bgm') === '1',
+    sfxVol: _vol01('zz_sfx_vol', 80),   // 音效音量 0-1（0=关）
+    bgmVol: _vol01('zz_bgm_vol', 35),   // 音乐音量 0-1（0=关）
     unlocked: false,
     clips: {},
     bgmEl: null, bgmName: '',
@@ -66,27 +74,28 @@
       for (const [k, f] of Object.entries(files)) {
         const a = new Audio('assets/sound/' + f);
         a.preload = 'none';  // 懒加载：首次播放时才拉数据，首屏省 ~1MB
+        a.volume = this.sfxVol;
         this.clips[k] = a;
       }
     },
     play(name) {
-      if (!this.sfxOn || !this.unlocked) return;
+      if (this.sfxVol <= 0 || !this.unlocked) return;
       const a = this.clips[name];
       if (!a) return;
+      a.volume = this.sfxVol;
       try { a.currentTime = 0; a.play().catch(() => {}); } catch (e) { /* noop */ }
     },
-    setBgm(name) { // null 停止
+    setBgm(name) { // null 或音量为 0 → 停止
+      if (!name || this.bgmVol <= 0) { this.stopBgm(); return; }
       if (!this.bgmEl || this.bgmName !== name) {
         this.stopBgm();
-        if (name) {
-          this.bgmEl = new Audio('assets/sound/' + name);
-          this.bgmEl.preload = 'none';
-          this.bgmEl.loop = true;
-          this.bgmEl.volume = 0.35;
-          this.bgmName = name;
-        }
+        this.bgmEl = new Audio('assets/sound/' + name);
+        this.bgmEl.preload = 'none';
+        this.bgmEl.loop = true;
+        this.bgmName = name;
       }
-      if (this.bgmEl && this.bgmOn && this.unlocked) this.bgmEl.play().catch(() => {});
+      this.bgmEl.volume = this.bgmVol;
+      if (this.unlocked) this.bgmEl.play().catch(() => {});
     },
     stopBgm() {
       if (this.bgmEl) { this.bgmEl.pause(); this.bgmEl.src = ''; }
@@ -95,7 +104,7 @@
     unlock() {
       if (this.unlocked) return;
       this.unlocked = true;
-      if (this.bgmName && this.bgmOn) this.bgmEl.play().catch(() => {});
+      if (this.bgmName && this.bgmVol > 0) this.bgmEl.play().catch(() => {});
     }
   };
 
@@ -254,6 +263,59 @@
         Sound.play('click');
         this.start();
       }));
+      // ---- 开局前设置（2026-10-30：每步超时 / AI 模拟次数·温度，AI 项默认收起）----
+      const selTime = $('sel-move-time');
+      for (const s of TIME_OPTIONS) {
+        const o = document.createElement('option');
+        o.value = String(s); o.textContent = s === 60 ? '1 分钟' : s + ' 秒';
+        selTime.appendChild(o);
+      }
+      selTime.value = String(TURN_LIMIT);
+      selTime.addEventListener('change', () => {
+        TURN_LIMIT = parseInt(selTime.value, 10) || 100;
+        localStorage.setItem('zz_move_limit', String(TURN_LIMIT));
+      });
+      const selSim = []; const selTemp = [];
+      const simOpts = [[ '', '自动（按设备）' ], [60, '60' ], [100, '100' ], [300, '300' ],
+                        [500, '500' ], [1000, '1000' ], [3000, '3000' ]];
+      const tempOpts = [[0, '0 · 纯最强' ], [0.5, '0.5' ], [1, '1.0' ], [2, '2.0' ], [3, '3.0' ]];
+      for (const i of [0, 1]) {   // 每 AI 玩家独立（AIvAI 双块；HvAI 仅用下标 1）
+        const ss = $('sel-n-sim-' + i);
+        for (const [v, l] of simOpts) {
+          const o = document.createElement('option');
+          o.value = String(v); o.textContent = l;
+          ss.appendChild(o);
+        }
+        // 旧版单键 zz_n_sim 迁移到新键
+        ss.value = localStorage.getItem('zz_n_sim_' + i)
+          ?? (localStorage.getItem('zz_n_sim') || '');
+        ss.addEventListener('change', () => localStorage.setItem('zz_n_sim_' + i, ss.value));
+        const tp = $('sel-temp-' + i);
+        for (const [v, l] of tempOpts) {
+          const o = document.createElement('option');
+          o.value = String(v); o.textContent = l;
+          tp.appendChild(o);
+        }
+        tp.value = localStorage.getItem('zz_temp_' + i)
+          ?? (localStorage.getItem('zz_temp') || '0');
+        tp.addEventListener('change', () => localStorage.setItem('zz_temp_' + i, tp.value));
+        selSim[i] = ss; selTemp[i] = tp;
+      }
+      const setAiPanel = (open) => {
+        $('ai-set').classList.toggle('hidden', !open);
+        $('btn-ai-set').classList.toggle('open', open);
+      };
+      $('btn-ai-set').addEventListener('click', (e) => {
+        e.stopPropagation();
+        Sound.play('click');
+        setAiPanel($('ai-set').classList.contains('hidden'));
+      });
+      $('btn-ai-done').addEventListener('click', () => { Sound.play('click'); setAiPanel(false); });
+      document.addEventListener('click', (e) => {
+        if (!$('ai-set').classList.contains('hidden')
+            && !e.target.closest('#ai-set')) setAiPanel(false);   // 点面板外（含压暗背景）收起
+      });
+      this.selSim = selSim; this.selTemp = selTemp;
       Sound.setBgm('launcher_bgm.wav');
       this.showStep('game');
     },
@@ -272,6 +334,13 @@
       $('btn-launch').disabled = true;
       $('model-hint').classList.add('hidden');
       $('dd2-box').classList.toggle('hidden', this.mode !== 'AIvAI');
+      // AI 设置按玩家分块：AIvAI 双块（AI1/AI2）；HvAI 仅下标 1（对手 AI 执后手）
+      const hasAI = this.mode !== 'HvH';
+      $('btn-ai-set').classList.toggle('hidden', !hasAI);
+      $('aiset-0').classList.toggle('hidden', this.mode !== 'AIvAI');
+      $('aiset-1').classList.toggle('hidden', !hasAI);
+      $('aiset-0-title').textContent = this.mode === 'AIvAI' ? 'AI 1（执先手）' : '你的对手（AI 执后手）';
+      $('aiset-1-title').textContent = this.mode === 'AIvAI' ? 'AI 2（执后手）' : '你的对手（AI 执后手）';
       $('dd1-label').textContent = this.mode === 'AIvAI' ? 'AI 1（执先手）' : '你的对手（AI 执后手）';
       let data = this.modelsCache[envName];
       try {
@@ -315,6 +384,8 @@
       fillGens(this.dd2, order[0]);
       this.dd1k.setOptions(kindOpts, 0);
       this.dd2k.setOptions(kindOpts, 0);
+      // 级联选择接线完成，恢复「开始对局」（562cd46 重构时曾丢失本行）
+      $('btn-launch').disabled = false;
     },
     start() {
       const mode = this.mode;
@@ -326,13 +397,18 @@
         if (mode === 'HvAI' && this.dd1.value == null) { toast('请先选择 AI 模型', true); return; }
         if (mode === 'AIvAI' && (this.dd1.value == null || this.dd2.value == null)) { toast('请为双方选择 AI 模型', true); return; }
       }
-      deviceNoted = false;
       if ($('p-device')) { $('p-device').classList.add('hidden'); $('p-device').innerHTML = ''; }
       G = {
         name: this.game, mode, players, serverDevice: null, expose: location.search.includes('expose=1'),
         ptm: 0, lastAction: -1, steps: 0, winner: 2,
         status: 'new', history: [], selected: null, safeCache: new Map(),
         timers: { 0: TURN_LIMIT, 1: TURN_LIMIT }, undoStack: [],
+        aiOpts: [
+          { n_sim: this.selSim[0].value !== '' ? parseInt(this.selSim[0].value, 10) : undefined,
+            temp: parseFloat(this.selTemp[0].value) || 0 },
+          { n_sim: this.selSim[1].value !== '' ? parseInt(this.selSim[1].value, 10) : undefined,
+            temp: parseFloat(this.selTemp[1].value) || 0 }
+        ],
         aiBusy: false, token: 0, scale: 1,
         hover: null, winStones: []
       };
@@ -343,7 +419,7 @@
       $('panel').classList.remove('hidden');
       fitStage();
       setupGameScreen();
-      renderDeviceInfo();
+      probeServer(true);   // 按已选模型集合刷新设备空间判定
       Sound.setBgm('bgm.mp3');
       render();
       renderControls();
@@ -362,8 +438,9 @@
   /* ================= 服务器状态 ================= */
   function setServerDot(state) {
     const d = $('srv-dot');
-    d.className = 'srv-ind ' + (state === 'ok' ? 'ok' : state === 'err' ? 'err' : 'mid');
-    $('srv-url').textContent = (location.protocol === 'file:' || state === 'err')
+    if (d) d.className = 'srv-ind ' + (state === 'ok' ? 'ok' : state === 'err' ? 'err' : 'mid');
+    const u = $('srv-url');
+    if (u) u.textContent = (location.protocol === 'file:' || state === 'err')
       ? (API.baseUrl()) : (location.origin + API.baseUrl());
   }
 
@@ -372,31 +449,48 @@
     const cfg = GAMES[G.name];
     $('info-top').classList.remove('hidden');
     $('info-bottom').classList.remove('hidden');
-    $('p-mode').textContent = cfg.label + ' · ' +
+    // 对局信息并入面板副标题（独立的「对局」小节已删，2026-10-30）
+    $('p-subtitle').textContent = cfg.label + ' · ' +
       ({ HvH: '双人同屏 · 无需后端', HvAI: '人机对战', AIvAI: 'AI 观战' })[G.mode];
     $('board-wrap').classList.toggle('gomoku', G.name === 'Gomoku');
     $('board-img').src = G.name === 'ChineseChess' ? 'assets/graphics/chess/board.svg' : 'assets/graphics/gomoku/board.jpeg';
-    $('p-subtitle').textContent = cfg.label + ' · ' +
-      ({ HvH: '双人同屏', HvAI: '人机对战', AIvAI: 'AI 观战' })[G.mode];
     $('wr-label-0').textContent = cfg.sides[0];
     $('wr-label-1').textContent = cfg.sides[1];
   }
 
   function renderControls() {
     const playing = G.status === 'playing';
+    $('stage').classList.toggle('playing', playing);   // 对局中下方选手条拉开
     $('btn-back').classList.remove('hidden');
     const humanTurn = playing && currentIsHuman() && !G.aiBusy && G.mode !== 'AIvAI';
-    $('btn-resign').classList.toggle('hidden', !humanTurn);
+    // ⋯ 菜单入口（含悔棋/认输）；菜单项各自按条件显隐
+    $('btn-more').classList.toggle('hidden', !humanTurn);
     $('btn-undo').classList.toggle('hidden', !(humanTurn && G.undoStack.length > 0));
-    $('logo').classList.toggle('hidden', playing);
+    if (!humanTurn) $('more-menu').classList.add('hidden');
+    // logo 常驻上方选手条之上（全模式，统一舞台布局）
+    $('logo').classList.remove('hidden');
     const showNew = !playing;
     $('btn-start').classList.toggle('hidden', !showNew);
-    $('btn-reverse').classList.toggle('hidden', !showNew || G.mode === 'AIvAI');
     $('btn-start').textContent = G.status === 'finished' ? '再来一局' : '开始对弈';
-    const first = G.players[0];
-    $('btn-reverse').textContent = '先手：' + (first.type === 'human' ? '玩家' : first.desc);
-    $('btn-reverse').classList.toggle('ai-first', first.type === 'ai');
-    $('stage').classList.toggle('playing', playing);
+    // 交换位置（HvAI/AIvAI）：棋盘右留白垂直居中的 ⇅ 圆钮，下方永远红方先手；HvH 无此钮；五子棋右留白不足 46px 时自动隐藏
+    const revBtn = $('btn-reverse');
+    const showRev = showNew && G.mode !== 'HvH';
+    revBtn.classList.toggle('hidden', !showRev);
+    if (showRev) {
+      revBtn.textContent = '⇅';
+      revBtn.title = '交换位置';
+      const st = $('stage').getBoundingClientRect();
+      const bw = $('board-img').getBoundingClientRect();
+      const scale = st.width / 600;
+      const boardRight = (bw.right - st.left) / scale;
+      const margin = 600 - boardRight;
+      if (margin >= 46) {
+        revBtn.style.left = (boardRight + margin / 2 - 19) + 'px';
+        revBtn.style.top = (((bw.top + bw.bottom) / 2 - st.top) / scale - 19) + 'px';
+      } else {
+        revBtn.classList.add('hidden');
+      }
+    }
   }
 
   function infoHtml(sideIdx) {
@@ -409,22 +503,32 @@
       timeStr = String(G.timers[sideIdx]);
     }
     const wr = p.type === 'ai' && p.winRate !== -1 ? (p.winRate * 100).toFixed(1) + '%' : '--';
+    // 选手名 + 版本徽标：desc 形如 "AI·miniv50" → 名字 "AI·mini" + 徽标 "v50"（v-1=原生）
+    let nameHtml;
+    if (p.type === 'ai') {
+      const m = p.desc.match(/^(.*?)(v-?\d+)$/i);
+      nameHtml = m ? `${m[1]}<span class="si-ver">${m[2].slice(1) === '-1' ? '原生' : m[2].slice(1) + ' 代'}</span>` : p.desc;
+    } else {
+      nameHtml = p.desc;
+    }
     return `
-      <div class="si-line ${isTurn ? 'si-turn' : ''}" style="padding:2px 14px">
-        <span class="${cfg.sideCls[sideIdx]}">${p.desc} · ${cfg.sides[sideIdx]}</span>
-        ${isTurn && p.type === 'ai' ? '<span class="si-thinking"><i></i>AI 思考中<span id="think-sec"></span></span>' : ''}
-        ${timeStr !== '' ? `<span class="si-timer ${isTurn && G.timers[sideIdx] <= 10 && G.status === 'playing' ? 'danger' : ''}" id="timer-${sideIdx}">${timeStr}s</span>` : ''}
+      <div class="si-card ${isTurn ? 'si-turn' : ''}">
+        <div class="si-name ${cfg.sideCls[sideIdx]}">${nameHtml}<span class="si-side">· ${cfg.sides[sideIdx]}</span></div>
+        <div class="si-wr">胜率 ${wr}</div>
       </div>
-      <div class="si-wr">胜率 ${wr}</div>`;
+      <span class="si-thinking ${isTurn && p.type === 'ai' ? 'on' : ''}" title="AI 思考中"><i></i></span>
+      <span class="si-timer ${isTurn && G.timers[sideIdx] <= 10 && G.status === 'playing' ? 'danger' : ''}" id="timer-${sideIdx}">${timeStr !== '' ? timeStr + 's' : ''}</span>`;
   }
 
   function updateInfos() {
     if (!G) return;
     const top = $('info-top'), bottom = $('info-bottom');
-    const show = G.status === 'playing';
-    top.classList.toggle('hidden', !show);
-    bottom.classList.toggle('hidden', !show);
-    if (show) { top.innerHTML = infoHtml(1); bottom.innerHTML = infoHtml(0); }
+    // 选手条全模式常驻（对局前/对局中/结算）
+    // 选手条常驻（全模式：对局前/对局中/结算）
+    top.classList.remove('hidden');
+    bottom.classList.remove('hidden');
+    top.innerHTML = infoHtml(1);
+    bottom.innerHTML = infoHtml(0);
     renderControls();
     updateWr();
   }
@@ -638,7 +742,8 @@ function render() {
     const cfg = GAMES[G.name];
     $('result-badge').src = `assets/graphics/${G.name === 'ChineseChess' ? 'chess' : 'gomoku'}/` +
       cfg.winImgs[winner === -1 ? 2 : winner];
-    $('result-text').textContent = winner === -1 ? '和棋 · ' + reason
+    $('result-text').textContent = winner === -1
+      ? (reason && reason !== '和棋' ? '和棋 · ' + reason : '和棋')
       : `${cfg.sides[winner]} ${G.players[winner].desc} 获胜 · ${reason}`;
     $('dlg-result').classList.remove('hidden');
     render(); renderControls(); updateInfos();
@@ -675,9 +780,9 @@ function render() {
   }
 
   /* ================= AI 会话 ================= */
-  let deviceNoted = false;
   let lastDeviceInfo = null;   // {current, device_note, devices:[...]}
   let deviceBusy = false;
+  let devMenuOpen = false;     // 设备下拉是否展开
 
   function applyDeviceInfo(device, note) {
     if (!device) return;
@@ -685,54 +790,64 @@ function render() {
     lastDeviceInfo = { current: device, device_note: note || '', devices: lastDeviceInfo?.devices };
     if (G) G.serverDevice = device;
     renderDeviceInfo();
-    if (note && !deviceNoted && G) {
-      deviceNoted = true;
-      toast('后端已降级 CPU 推理：' + note, true, 6000);
-    }
   }
 
   function renderDeviceInfo() {
     const el = $('p-device');
-    if (!el || !G || !lastDeviceInfo) { if (el && !G) return; if (el) el.classList.add('hidden'); return; }
+    if (!el || !G || !lastDeviceInfo) { if (el) el.classList.add('hidden'); return; }
     el.classList.remove('hidden');
+    const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
     const { current, device_note, devices } = lastDeviceInfo;
-    let html;
-    if (!devices || !devices.length) {
-      html = '推理设备：<b>' + current + '</b>';
+    const list = (devices || []).filter(d => d.status !== 'absent');
+    const cur = list.find(d => d.id === current || (d.id === 'cuda' && String(current).startsWith('cuda')))
+      || { id: current, name: '' };
+    let html = '';
+    if (!list.length) {
+      html += `<div class="dev-cur-wrap"><span class="p-label" style="margin:0">推理设备</span><b style="font-size:12px;color:var(--blue)">${esc(current)}</b></div>`;
     } else {
-      html = '<div class="p-label">推理设备' + (deviceSwitchEnabled ? '（点击切换）' : '') + '</div>';
-      for (const d of devices) {
+      const items = list.map(d => {
         const isActive = d.id === current || (d.id === 'cuda' && String(current).startsWith('cuda'));
         const usable = d.status === 'available' || d.status === 'active';
         const vramTxt = d.vram ? `<i>${d.vram.free}/${d.vram.total}G</i>` : '';
-        let mark, cls = 'dev-row';
+        let mark, cls = 'item';
         if (isActive) { mark = '使用中'; cls += ' active'; }
-        else if (d.status === 'available') { mark = '切换'; cls += ' jump'; }
-        else if (d.status === 'unavailable') { mark = '不可用'; cls += ' off'; }
+        else if (usable) { mark = '切换'; cls += ' jump'; }
         else { mark = '不可用'; cls += ' off'; }
-        const why = d.reason || (d.status === 'available' && device_note && current === 'cpu' ? '降级：' + device_note : '');
-        html += `<button class="${cls}" data-dev="${d.id}" ${isActive || !usable || !deviceSwitchEnabled ? 'disabled' : ''}>` +
-          `<b>${d.id}</b><span class="dr-name">${d.name}</span>${vramTxt}<em>${mark}</em>` +
-          (why && !isActive ? `<span class="dr-why" title="${why.replace(/"/g, '&quot;')}">${why}</span>` : '') +
-          `</button>`;
-      }
-    }
-    if (device_note && current === 'cpu' && devices) {
-      const brief = device_note.length > 42 ? device_note.slice(0, 42) + '…' : device_note;
-      html = `<div class="warn dr-note" title="${device_note.replace(/"/g, '&quot;')}">⚠ ${brief}</div>` + html;
+        const title = d.reason ? ` title="${esc(d.reason)}"` : '';
+        return `<button class="${cls}" data-dev="${esc(d.id)}"${title}>` +
+          `<b>${esc(d.id)}</b><span class="dc-name">${esc(d.name || '')}</span>${vramTxt}<em>${mark}</em></button>`;
+      }).join('');
+      html += `<div class="dev-cur-wrap ${devMenuOpen ? 'open' : ''}">` +
+        `<span class="p-label" style="margin:0">推理设备</span>` +
+        `<button class="dev-cur" id="dev-cur-btn" type="button" title="${esc(cur.id + ' ' + (cur.name || ''))}">` +
+        `<b>${esc(cur.id)}</b><span class="dc-name">${esc(cur.name || '')}</span><i>▾</i></button>` +
+        `<div class="dev-menu">${items}</div></div>`;
     }
     el.innerHTML = html;
   }
   const deviceSwitchEnabled = true;
 
-  // 点击切换设备（委托，列表可反复重绘）
+  // 设备下拉：开关 + 点击外部关闭 + 切换（委托，列表可反复重绘）
   document.addEventListener('click', async (ev) => {
+    if (ev.target.closest('#dev-cur-btn')) {
+      if (deviceBusy) return;
+      devMenuOpen = !devMenuOpen;
+      renderDeviceInfo();
+      return;
+    }
+    if (devMenuOpen && !ev.target.closest('#p-device .dev-cur-wrap')) {
+      devMenuOpen = false;
+      renderDeviceInfo();
+      return;
+    }
     const btn = ev.target.closest('#p-device .jump');
     if (!btn || deviceBusy) return;
     if (G && G.aiBusy) { toast('AI 正在思考，稍后再切换', true); return; }
     const id = btn.dataset.dev;
     deviceBusy = true;
-    btn.querySelector('em').textContent = '迁移中…';
+    devMenuOpen = false;
+    renderDeviceInfo();   // 关菜单（重绘后「迁移中」状态由 probeServer 刷新）
+    toast('正在切换推理设备：' + id + ' …');
     try {
       const r = await API.setDevice(id);
       toast('推理设备已切换：' + r.device);
@@ -743,20 +858,24 @@ function render() {
     } finally {
       deviceBusy = false;
     }
-  });
+  }, true);
 
   // 服务信息与推理设备：打开页面即探测
+  // 空间判定上下文：按「实际要加载的模型集合」传给服务端（AIvAI=2 个，HvAI=1 个）
+  function deviceModelsCtx() {
+    if (!G || !G.players) return '';
+    const specs = G.players.filter(p => p.type === 'ai' && p.modelId != null)
+      .map(p => `${p.profile || 'm'}:${p.modelId}`);
+    return specs.length ? `env=${encodeURIComponent(G.name)}&models=${encodeURIComponent(specs.join(','))}` : '';
+  }
+
   async function probeServer(force) {
     try {
-      const r = await API.devices();
+      const r = await API.devices(deviceModelsCtx());
       setServerDot('ok');
       lastDeviceInfo = { current: r.current, device_note: r.device_note, devices: r.devices };
       if (G) G.serverDevice = r.current;
       renderDeviceInfo();
-      if (r.device_note && !deviceNoted && G) {
-        deviceNoted = true;
-        toast('后端已降级 CPU 推理：' + r.device_note, true, 6000);
-      }
     } catch (e) {
       if (e.status === 404) {   // 旧版后端无 /devices：退回 /info
         try {
@@ -792,17 +911,17 @@ function render() {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         if (p.pid == null) {
-          const r = await API.setup(p.modelId, G.name, p.profile);
+          const r = await API.setup(p.modelId, G.name, p.profile, G.aiOpts[G.ptm]);
           p.pid = r.pid;
           if (r.model_id != null) p.modelId = r.model_id;
           if (r.device) applyDeviceInfo(r.device, r.device_note);
         }
         const ru = await API.update(p.pid, stateArrayForAPI(), G.lastAction, G.ptm);
-        if (token !== G.token) return;
+        if (!G || token !== G.token) return;   // 等待期间可能已退局（G=null）
         if (ru.win_rate != null) p.winRate = ru.win_rate;
         updateInfos();
         const ra = await API.getAction(p.pid);
-        if (token !== G.token) return;
+        if (!G || token !== G.token) return;
         p.winRate = ra.win_rate != null ? ra.win_rate : p.winRate;
         if (ra.model_id != null) p.modelId = ra.model_id;
         G.aiBusy = false;
@@ -810,7 +929,7 @@ function render() {
         applyAction(ra.action);
         return;
       } catch (e) {
-        if (token !== G.token) return;
+        if (!G || token !== G.token) return;
         if (e.status === 404 && attempt === 0) {
           p.pid = null;
           toast('AI 会话已失效（后端重启过？），正在自动重建…', false, 3000);
@@ -826,7 +945,7 @@ function render() {
   }
 
   function advance() {
-    if (G.status !== 'playing') return;
+    if (!G || G.status !== 'playing') return;
     if (G.players[G.ptm].type === 'ai') {
       setTimeout(aiTurn, G.mode === 'AIvAI' ? 420 : 120);
     } else {
@@ -945,8 +1064,14 @@ function render() {
     if (G.status === 'playing') $('dlg-quit').classList.remove('hidden');
     else backToLauncher();
   });
-  $('btn-resign').addEventListener('click', () => { Sound.play('click'); resign(); });
-  $('btn-undo').addEventListener('click', () => { Sound.play('click'); undo(); });
+  const closeMore = () => $('more-menu').classList.add('hidden');
+  $('btn-more').addEventListener('click', e => {
+    e.stopPropagation(); Sound.play('click');
+    $('more-menu').classList.toggle('hidden');
+  });
+  document.addEventListener('click', closeMore);
+  $('btn-resign').addEventListener('click', () => { Sound.play('click'); closeMore(); resign(); });
+  $('btn-undo').addEventListener('click', () => { Sound.play('click'); closeMore(); undo(); });
   $('btn-start').addEventListener('click', () => {
     Sound.unlock(); Sound.play('click');
     if (G.status === 'finished') { // 重开一局：本地重置 + 通知服务端 reset
@@ -960,7 +1085,7 @@ function render() {
       render(); renderMoves();
     }
     G.status = 'playing';
-    resetTimer();
+    G.timers = { 0: TURN_LIMIT, 1: TURN_LIMIT };   // 开局时应用当前每步超时设置（含开局前改过）
     $('dlg-result').classList.add('hidden');
     Sound.setBgm('bgm.mp3');
     renderControls(); updateInfos();
@@ -995,16 +1120,11 @@ function render() {
     render();
   }
 
-  /* ---- 设置 ---- */
-  $('btn-settings').addEventListener('click', () => {
-    $('in-url').value = localStorage.getItem('zz_server_url') || '';
-    $('dlg-settings').classList.remove('hidden');
-  });
+  /* ---- 设置 ----（2026-10-30：入口按钮已移除，仅保留弹窗内部逻辑） */
   $('btn-close-settings').addEventListener('click', () => $('dlg-settings').classList.add('hidden'));
   $('btn-save-url').addEventListener('click', () => {
     API.setBaseUrl($('in-url').value.trim());
     launcher.modelsCache = {};
-    deviceNoted = false;
     lastDeviceInfo = null;
     setServerDot('mid');
     probeServer();
@@ -1012,19 +1132,34 @@ function render() {
     toast('已保存服务地址');
   });
 
-  $('btn-sfx').addEventListener('click', (e) => {
-    Sound.unlock();
-    Sound.sfxOn = !Sound.sfxOn;
-    localStorage.setItem('zz_sfx', Sound.sfxOn ? '1' : '0');
-    e.currentTarget.classList.toggle('on', Sound.sfxOn);
+  /* 音效/音乐：音量即选中态（0=未选中/关，非0=选中/开）——按钮与滑条双向同步 */
+  const volSfx = $('vol-sfx'), volBgm = $('vol-bgm');
+  volSfx.value = Math.round(Sound.sfxVol * 100);
+  volBgm.value = Math.round(Sound.bgmVol * 100);
+  const syncVolUI = () => {
+    $('btn-sfx').classList.toggle('on', Sound.sfxVol > 0);
+    $('btn-bgm').classList.toggle('on', Sound.bgmVol > 0);
+  };
+  volSfx.addEventListener('input', () => {
+    Sound.sfxVol = volSfx.value / 100;
+    localStorage.setItem('zz_sfx_vol', volSfx.value);
+    syncVolUI();
   });
-  $('btn-bgm').addEventListener('click', (e) => {
+  volBgm.addEventListener('input', () => {
+    Sound.bgmVol = volBgm.value / 100;
+    localStorage.setItem('zz_bgm_vol', volBgm.value);
+    Sound.setBgm(G ? 'bgm.mp3' : 'launcher_bgm.wav'); // 0→停止，非0→开始
+    syncVolUI();
+  });
+  $('btn-sfx').addEventListener('click', () => {
     Sound.unlock();
-    Sound.bgmOn = !Sound.bgmOn;
-    localStorage.setItem('zz_bgm', Sound.bgmOn ? '1' : '0');
-    e.currentTarget.classList.toggle('on', Sound.bgmOn);
-    if (Sound.bgmOn && Sound.bgmName) Sound.bgmEl && Sound.bgmEl.play().catch(() => {});
-    else Sound.stopBgm() , Sound.setBgm(G ? 'bgm.mp3' : 'launcher_bgm.wav');
+    volSfx.value = Sound.sfxVol > 0 ? 0 : 80;
+    volSfx.dispatchEvent(new Event('input'));
+  });
+  $('btn-bgm').addEventListener('click', () => {
+    Sound.unlock();
+    volBgm.value = Sound.bgmVol > 0 ? 0 : 35;
+    volBgm.dispatchEvent(new Event('input'));
   });
 
   document.addEventListener('keydown', (e) => {
@@ -1044,8 +1179,8 @@ function render() {
 
   /* ================= 启动 ================= */
   Sound.init();
-  $('btn-sfx').classList.toggle('on', Sound.sfxOn);
-  $('btn-bgm').classList.toggle('on', Sound.bgmOn);
+  $('btn-sfx').classList.toggle('on', Sound.sfxVol > 0);
+  $('btn-bgm').classList.toggle('on', Sound.bgmVol > 0);
   setServerDot('mid');
   probeServer();
   API.getModels('Gomoku').then((d) => { launcher.modelsCache['Gomoku'] = d; }).catch(() => {});

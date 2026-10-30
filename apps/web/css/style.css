@@ -98,22 +98,15 @@ body {
 #gomoku-ghost { z-index: 6; }
 .mark { position: absolute; width: 65px; height: 65px; pointer-events: none; }
 .mark.sm { width: 33px; height: 33px; }
-/* 可走点：纯 CSS 圆点，不依赖素材、不与任何其他类名冲突 */
+/* 可走点：纯 CSS 圆点，不依赖素材、不与任何其他类名冲突
+   （2026-10-30 去掉 dot-breathe 闪烁动画：一直呼吸缩放影响观感、象棋手感差，改为常亮静态点） */
 .move-dot {
   position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px;
   border-radius: 50%; pointer-events: none;
   box-shadow: 0 0 3px rgba(0, 0, 0, .3), inset 0 0 2px rgba(255, 255, 255, .5);
-  animation: dot-breathe 1.4s ease-in-out infinite;
 }
 .move-dot.safe { background: rgba(58, 190, 70, .9); }
 .move-dot.danger { background: rgba(224, 58, 63, .9); }
-@keyframes dot-breathe {
-  0%   { transform: scale(.45); opacity: .35; }
-  14%  { transform: scale(1.08); opacity: .95; }
-  55%  { transform: scale(1); opacity: .9; }
-  78%  { transform: scale(1.32); opacity: .45; }
-  100% { transform: scale(1); opacity: .9; }
-}
 .shadow-big { width: 104px; height: 104px; }
 .step-no {
   position: absolute; width: 33px; height: 33px;
@@ -143,14 +136,40 @@ body {
 .zz-btn.orange { background: linear-gradient(180deg, #c99a1e, var(--orange)); }
 
 #btn-back { left: 20px; top: 20px; }
-#btn-resign { left: 504px; top: 20px; }
-#btn-undo { left: 418px; top: 20px; }
-#btn-start { left: 110px; top: 712px; }
-#btn-reverse { left: 310px; top: 712px; }
-#btn-reverse.ai-first { box-shadow: 0 0 0 2px var(--gold), 0 4px 10px rgba(30,20,10,.3); }
+/* ⋯ 收缩菜单（2026-10-30：悔棋/认收入菜单） */
+#btn-more {
+  position: absolute; z-index: 30; left: 548px; top: 20px; width: 32px; height: 32px;
+  padding: 0; border: 0; border-radius: 8px; cursor: pointer;
+  background: linear-gradient(180deg, #3a3a3a, var(--black)); color: #f8f4ea;
+  font-family: inherit; font-size: 18px; line-height: 1;
+  box-shadow: 0 3px 8px rgba(30, 20, 10, .3);
+}
+#btn-more:hover { filter: brightness(1.15); }
+.stage-menu {
+  position: absolute; z-index: 40; background: #f9f4e8;
+  border: 1px solid rgba(90, 70, 40, .3); border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(30, 20, 10, .25); padding: 6px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+#more-menu { left: 484px; top: 58px; width: 96px; }
+.mm-item {
+  height: 32px; padding: 0; border: 0; border-radius: 7px; cursor: pointer;
+  font-family: inherit; font-size: 15px; letter-spacing: 3px; text-indent: 3px;
+  color: #f8f4ea;
+}
+#btn-undo.mm-item { background: linear-gradient(180deg, #8a8a8a, var(--grey)); }
+#btn-resign.mm-item { background: linear-gradient(180deg, var(--red-2), var(--red)); }
+.tt-item {
+  height: 30px; padding: 0 10px; border: 0; border-radius: 6px; cursor: pointer;
+  font-family: inherit; font-size: 13px; letter-spacing: 1px; color: #45453c;
+  background: transparent; text-align: left;
+}
+.tt-item:hover { background: rgba(90, 70, 40, .08); }
+.tt-item.on { background: rgba(90, 70, 40, .14); font-weight: 600; }
+#btn-start { left: 210px; top: 740px; } /* 居中：(600-180)/2，下方选手条(676-721)之下 */
 
 /* ============ Logo / 双方信息 ============ */
-#logo { position: absolute; left: 0; top: 26px; width: 100%; text-align: center; pointer-events: none; }
+#logo { position: absolute; left: 0; top: 16px; width: 100%; text-align: center; pointer-events: none; }
 .logo-text { font-size: 46px; font-weight: 700; color: #2b2b26; letter-spacing: 2px;
   text-shadow: 2px 2px 0 rgba(200, 190, 170, .8); }
 .logo-seal {
@@ -165,22 +184,108 @@ body {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   pointer-events: none;
 }
-#info-top { top: 52px; }
-#info-bottom { top: 712px; }
-#stage.playing #info-top { top: 12px; }
-#stage.playing #info-bottom { top: 748px; }
-.si-line { display: flex; align-items: baseline; gap: 10px; font-size: 22px; font-weight: 700; }
-.si-line .si-red { color: #a02020; }
-.si-line .si-black { color: #1e1e1e; }
-.si-line .si-white { color: #4a4a4a; text-shadow: 0 0 2px #fff; }
-.si-timer { font-family: "Menlo", "Consolas", monospace; font-size: 18px; color: var(--ink-soft); letter-spacing: 1px; }
+/* 2026-10-30：统一舞台几何（原 AIvAI 观战布局，现全模式生效）——上/下选手条离棋盘各 6px（条高 45，棋盘 130–670），
+   选手信息常驻（上=players[1] 黑方、下=players[0] 红方），logo 在上方选手条之上（16–70，离条 9px） */
+#info-top { top: 79px; }
+#info-bottom { top: 676px; }
+/* 2026-10-30：交换位置按钮（HvAI/AIvAI 通用）——棋盘右留白悬浮小圆钮（⇅），位置由 JS 按棋盘实测居中 */
+#stage #btn-reverse {
+  position: absolute; z-index: 30;
+  width: 38px; height: 38px; padding: 0;
+  border-radius: 50%;
+  background: #f6f1e3; color: #45453c; border: 1px solid rgba(90, 70, 40, .25);
+  box-shadow: 0 2px 6px rgba(30, 20, 10, .18);
+  font-size: 20px; letter-spacing: 0; text-indent: 0; line-height: 1;
+}
+#stage #btn-reverse:hover { background: #fbf7ec; }
+/* 对局中：下方选手条离棋盘拉开（开局前保持 676，给开始按钮留位） */
+#stage.playing #info-bottom { top: 690px; }
+/* 启动器·开局前设置：每步超时 + AI 设置 */
+#l-set { margin: 12px 0 2px; }
+.l-set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 7px 0; }
+.l-set-label { font-size: 13px; letter-spacing: 2px; opacity: .8; }
+.l-set-sel {
+  font-family: inherit; font-size: 13px; color: #45453c;
+  background: #f6f1e3; border: 1px solid rgba(90, 70, 40, .3); border-radius: 7px;
+  padding: 4px 8px; max-width: 150px; cursor: pointer;
+}
+.l-set-toggle {
+  margin-top: 9px; width: 100%; padding: 6px 0;
+  border: 1px dashed rgba(90, 70, 40, .35); border-radius: 7px; background: transparent;
+  font-family: inherit; font-size: 12.5px; letter-spacing: 2px; color: #45453c; opacity: .85;
+  cursor: pointer; text-align: left; padding-left: 10px;
+}
+.l-set-toggle:hover { background: rgba(90, 70, 40, .06); }
+.l-set-caret { float: right; margin-right: 10px; transition: transform .15s; }
+.l-set-toggle.open .l-set-caret { transform: rotate(180deg); }
+.l-set-hint { font-size: 11px; opacity: .55; margin: 6px 0 0; letter-spacing: .5px; }
+.l-set-note { font-size: 10px; color: var(--ink-soft); margin: 3px 0 6px; letter-spacing: .5px; text-align: left; }
+/* AI 设置按玩家分组（AIvAI 双块；HvAI 仅后手 AI 一块） */
+.ai-block { padding: 6px 0 2px; }
+.ai-block + .ai-block { border-top: 1px dashed rgba(90, 70, 40, .25); margin-top: 8px; }
+.ai-block-title { font-size: 12px; letter-spacing: 1.5px; opacity: .6; margin-bottom: 4px; }
+/* AI 设置浮层：屏幕正中弹出（配色完全同 .dlg 弹窗） */
+.l-ai-panel {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 332px; max-width: 92vw; max-height: 76vh; overflow-y: auto;
+  background: #faf6ee;
+  border: 1px solid #cbbfa4; border-radius: 14px;
+  box-shadow: 0 0 0 100vmax rgba(58, 48, 32, .25), 0 18px 50px rgba(0, 0, 0, .30);
+  padding: 20px 26px; z-index: 60;
+  animation: l-ai-up .18s ease-out;
+}
+@keyframes l-ai-up {
+  from { opacity: 0; transform: translate(-50%, -44%) scale(.98); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+/* AI 设置按钮（与每步超时同行） */
+.l-set-row .l-set-toggle { width: auto; margin-top: 0; padding: 5px 13px; letter-spacing: 1.5px; }
+.l-ai-done {
+  margin-top: 10px; width: 100%; padding: 7px 0;
+  border: none; border-radius: 8px;
+  background: linear-gradient(180deg, #383838, var(--black)); color: #f8f4ea;
+  font-family: inherit; font-size: 13px; letter-spacing: 5px; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(20, 14, 6, .25);
+}
+.l-ai-done:hover { filter: brightness(1.25); }
+#dlg-result.scrim { align-items: center; padding-bottom: 0; } /* 结算居中 */
+/* ============ 双方信息条（2026-10-30 v2）============
+   选手名居中钉死；版本号做小徽标；思考=纯图形动画（左角落转环，无文字）；
+   读秒绝对定位贴右、等宽槽位——任何状态变化都不移动选手文字。 */
+.si-card {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 3px 18px;   /* 高亮框只包名字块；思考环/读秒在容器固定位，中间留间隔 */
+}
+.si-name { font-size: 22px; font-weight: 700; line-height: 1.15; white-space: nowrap; }
+.si-side { font-size: 17px; font-weight: 400; margin-left: 2px; }
+.si-ver {
+  display: inline-block; margin-left: 7px; padding: 0 7px; vertical-align: 2px;
+  border-radius: 9px; font-size: 13px; font-weight: 700; line-height: 17px;
+  color: #faf0d2; background: linear-gradient(180deg, #c99a1e, var(--seal));
+  border: 1px solid rgba(200, 160, 40, .9); box-shadow: 0 1px 3px rgba(60, 45, 20, .35);
+}
+.si-wr { font-size: 13px; color: #8a8272; line-height: 1; }
+/* 思考环/读秒：相对 .side-info（stage 全宽）定位 → 上下两条完全对齐，且独立于高亮卡片 */
+.si-thinking {
+  position: absolute; left: 20px; top: 50%; transform: translateY(-50%);
+  width: 16px; height: 16px; visibility: hidden;
+}
+.si-thinking.on { visibility: visible; }
+.si-thinking i { display: block; width: 16px; height: 16px; border-radius: 50%;
+  border: 3px solid var(--blue); border-top-color: transparent; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.si-timer {
+  position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+  font-family: "Menlo", "Consolas", monospace; font-size: 15px; color: var(--ink-soft);
+  width: 4ch; text-align: left;   /* 固定「100s」槽宽，数字变化不漂移 */
+}
 .si-timer.danger { color: #c0392b; animation: blink 1s infinite; }
 @keyframes blink { 50% { opacity: .35; } }
-.si-wr { font-size: 13px; color: #8a8272; }
-.si-thinking { display: inline-flex; align-items: center; gap: 6px; color: var(--blue); font-size: 13px; }
-.si-thinking i { width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--blue); border-top-color: transparent; display: inline-block; animation: spin .8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.si-turn { box-shadow: 0 0 0 2px rgba(184, 134, 11, .5); border-radius: 8px; background: rgba(250, 246, 238, .55); }
+.si-turn { box-shadow: 0 0 0 2px rgba(184, 134, 11, .5); border-radius: 10px; background: rgba(250, 246, 238, .55); }
+.si-red { color: #a02020; }
+.si-black { color: #1e1e1e; }
+.si-white { color: #4a4a4a; text-shadow: 0 0 2px #fff; }
 
 /* ============ 弹窗 ============ */
 .scrim {
@@ -318,6 +423,8 @@ body {
 .link-btn { border: 0; background: none; color: var(--blue); cursor: pointer; font-family: inherit; font-size: 13px; text-decoration: underline; }
 .p-device { margin-top: 6px; font-size: 12.5px; color: var(--ink-soft); letter-spacing: 1px; }
 .p-device.warn { color: var(--red); }
+/* 2026-10-30：推理服务两行信息移除，「设置」小链接移到设备行右侧 */
+.p-sec.servers { position: relative; }
 .dr-note { font-size: 12px; margin-bottom: 4px; }
 .dev-row {
   display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 8px;
@@ -341,6 +448,44 @@ body {
 }
 .dev-row.off .dr-why { color: var(--ink-soft); }
 
+/* ============ 推理设备紧凑版（2026-10-30）============
+   单行「推理设备 [当前设备 ▾]」，点击展开下拉；不再整列表常驻占空间 */
+.dev-cur-wrap { position: relative; display: flex; align-items: center; gap: 8px; }
+.dev-cur {
+  display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0;
+  margin: 0; padding: 4px 8px; text-align: left; cursor: pointer;
+  border: 1px solid #d5c9ab; border-radius: 8px; background: #fffdf4;
+  font-family: inherit; font-size: 12px; color: var(--ink);
+}
+.dev-cur:hover { border-color: var(--orange); background: #fbf3dd; }
+.dev-cur b { font-size: 11.5px; color: var(--blue); flex: none; }
+.dev-cur .dc-name { flex: 1; min-width: 0; font-size: 11.5px; color: var(--ink-soft);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dev-cur i { font-style: normal; font-size: 10px; color: var(--ink-soft); flex: none; }
+.dev-menu {
+  display: none; position: absolute; top: calc(100% + 4px); right: 0; z-index: 40;
+  min-width: 250px; max-width: 300px; padding: 4px;
+  border: 1px solid #d5c9ab; border-radius: 10px; background: #fffdf4;
+  box-shadow: 0 6px 18px rgba(58, 48, 32, .18);
+}
+.dev-cur-wrap.open .dev-menu { display: block; }
+.dev-menu .item {
+  display: flex; align-items: baseline; gap: 6px; width: 100%;
+  padding: 6px 8px; border: 0; border-radius: 7px; background: transparent;
+  font-family: inherit; font-size: 12px; color: var(--ink); text-align: left; cursor: default;
+}
+.dev-menu .item b { font-size: 11px; color: var(--blue); flex: none; }
+.dev-menu .item .dc-name { flex: 1; min-width: 0; font-size: 11.5px; color: var(--ink-soft);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dev-menu .item i { font-style: normal; font-family: monospace; font-size: 10.5px; color: var(--ink-soft); flex: none; }
+.dev-menu .item em { font-style: normal; font-size: 11px; color: var(--blue); flex: none; }
+.dev-menu .item.jump { cursor: pointer; }
+.dev-menu .item.jump:hover { background: #fbf3dd; }
+.dev-menu .item.active { background: #f3f4e8; }
+.dev-menu .item.active b, .dev-menu .item.active em { color: var(--green); }
+.dev-menu .item.off { opacity: .55; }
+.dev-menu .item.off em { color: #999; }
+
 .wr-sec { display: flex; flex-direction: column; gap: 8px; }
 .wr-block { display: grid; grid-template-columns: 56px 1fr 52px; align-items: center; gap: 8px; }
 .wr-block .p-label { margin: 0; }
@@ -359,12 +504,15 @@ body {
 #moves li.black-move { color: #232323; }
 #moves li em { font-style: normal; color: #a99c7e; margin-left: 6px; font-size: 12px; }
 
-.p-foot { display: flex; gap: 10px; }
+.p-foot { display: flex; gap: 10px; align-items: center; }
 .chip {
   border: 1px solid #c9bb9c; background: #f6efdd; color: var(--ink-soft);
   border-radius: 999px; padding: 7px 14px; font-family: inherit; font-size: 13px; cursor: pointer;
+  flex: none;
 }
 .chip.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+/* 音量滑条（2026-10-30）：紧跟对应开关 */
+.vol { flex: 1; min-width: 48px; max-width: 90px; margin: 0; accent-color: var(--blue); cursor: pointer; }
 
 /* ============ Toast ============ */
 #toast {
@@ -399,6 +547,7 @@ button, .dd-btn, .dd-list li { touch-action: manipulation; }
   #panel.hidden { display: none; }
   #panel.open { transform: translateY(0); }
   #panel .p-head {
+    display: block; text-align: center;
     position: sticky; top: 0; cursor: pointer; padding: 12px 0 8px;
     background: linear-gradient(180deg, rgba(255, 253, 244, .98), rgba(255, 253, 244, .9));
   }

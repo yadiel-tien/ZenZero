@@ -53,11 +53,13 @@
   global.API = {
     baseUrl,
     info: () => get('info'),
-    devices: () => get('devices'),
+    devices: (ctx) => get('devices' + (ctx ? '?' + ctx : '')),
     setDevice: (device) => post('device', { device }, 15000),
     setBaseUrl(u) { localStorage.setItem('zz_server_url', u || ''); },
     getModels: (envName) => post('models', { env_name: envName }, 8000),
-    setup: (modelId, envClass, profile) => post('setup', { model_id: modelId, env_class: envClass, profile }, 180000),
+    // opts = { n_sim, temp }（AI 设置：模拟次数/采样温度；不传走后端默认）
+    setup: (modelId, envClass, profile, opts) => post('setup',
+      { model_id: modelId, env_class: envClass, profile, ...(opts || {}) }, 180000),
     // 单步 MCTS 在 CPU 上可能需要几分钟，超时放宽避免误报"服务异常"
     update: (pid, array, action, playerToMove) => post('update', { pid, array, action, player_to_move: playerToMove }, 900000),
     getAction: (pid) => post('get_action', { pid }, 60000),
