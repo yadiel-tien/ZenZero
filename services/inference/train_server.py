@@ -30,7 +30,19 @@ class TrainServer(InferenceEngine):
         cfg = self.eval_model.config
         arch = getattr(self.eval_model, 'arch_name', None) or (
             cfg.get('arch') if isinstance(cfg, dict) else None) or DEFAULT_ARCH
-        self.fit_model = build_arch(arch, cfg, eval_model=False)
+        # 架构升级闸门：训练目标架构 = 当前棋种 default_net.arch（preset 只覆写规模键）。
+        # 与旧 ckpt 架构不同 → value 头半迁移：同名同形权重（trunk/policy）照用，
+        # shape 不符的头重初始化，优化器/调度器从头开始；旧 checkpoint 原样不动。
+        target = CONFIG.get(env_name, {}).get('default_net', {}).get('arch', arch) or arch
+        self._arch_from = arch if target != arch else None
+        if self._arch_from:
+            cfg2 = dict(cfg) if isinstance(cfg, dict) else cfg
+            cfg2['arch'] = target
+            self.fit_model = build_arch(target, cfg2, eval_model=False)
+            self.fit_logger.info(f'Arch migration training: {arch} → {target}'
+                                 f'（value 头半迁移：不匹配的头重初始化，其余权重继承）')
+        else:
+            self.fit_model = build_arch(arch, cfg, eval_model=False)
         # 优化器和学习率调解器
         self.optimizer = torch.optim.Adam(self.fit_model.parameters(),
                                           lr=1e-3,
@@ -53,13 +65,21 @@ class TrainServer(InferenceEngine):
         path = get_checkpoint_path(self.env_name, iteration, self.profile)
         if os.path.exists(path):
             checkpoint = torch.load(path, map_location='cpu')
-            self.fit_model.load_state_dict(checkpoint['model'])
-            if 'optimizer' in checkpoint:
-                self.optimizer.load_state_dict(checkpoint['optimizer'])
-            if 'scheduler' in checkpoint:
-                self.scheduler.load_state_dict(checkpoint['scheduler'])
-            if 'total_steps_trained' in checkpoint:
-                self.total_steps_trained = checkpoint['total_steps_trained']
+            if self._arch_from:
+                from core.network.registry import migrated_load
+                used, reinit = migrated_load(self.fit_model, checkpoint['model'])
+                self.fit_logger.info(
+                    f'Migrated load: reused {used}/{len(self.fit_model.state_dict())} tensors, '
+                    f're-init {reinit[:4]}{" …" if len(reinit) > 4 else ""}; '
+                    f'optimizer/scheduler fresh start.')
+            else:
+                self.fit_model.load_state_dict(checkpoint['model'])
+                if 'optimizer' in checkpoint:
+                    self.optimizer.load_state_dict(checkpoint['optimizer'])
+                if 'scheduler' in checkpoint:
+                    self.scheduler.load_state_dict(checkpoint['scheduler'])
+                if 'total_steps_trained' in checkpoint:
+                    self.total_steps_trained = checkpoint['total_steps_trained']
             self.fit_logger.info(
                 f'Load checkpoint successfully. Iteration: {iteration}, Step: {self.total_steps_trained}.')
         else:
@@ -106,7 +126,15 @@ class TrainServer(InferenceEngine):
         # load_state_dict 是写操作：必须持 exclusive 写锁（旧代码 with self.model_lock
         # 会直接 AttributeError——_ModelAccess 只提供 shared()/exclusive() 上下文方法）
         with self.model_lock.exclusive():
-            self.eval_model.load_state_dict(self.fit_model.state_dict())
+            if getattr(self.fit_model, 'arch_name', None) != getattr(self.eval_model, 'arch_name', None):
+                # 架构迁移后首次晋升：按训练架构重建评估实例（engine 每请求读属性，独占锁内换引用安全）
+                self.fit_logger.info(f'Eval model rebuilt: '
+                                     f'{self.eval_model.arch_name} → {self.fit_model.arch_name}')
+                self.eval_model = build_arch(self.fit_model.arch_name, self.fit_model.config,
+                                             eval_model=True, device=self.eval_model.device)
+                self.arch_name = self.fit_model.arch_name
+            else:
+                self.eval_model.load_state_dict(self.fit_model.state_dict())
             self.model_index = iteration
         self.fit_logger.info(f"Evaluation model updated to {iteration}.")
 
@@ -142,8 +170,14 @@ class TrainServer(InferenceEngine):
                 f" std:{torch.std(zs).item():>7.4f},"
                 f" v[:3]: {','.join(f'{i.item():>8.4f}' for i in zs[:3])}"
             )
-            # 模型前向推理
-            policy_logits, values = self.fit_model(states)
+            # 模型前向推理：WDL 架构取三头 logits，期望分 = p_win - p_loss
+            from core.network.archs.resnet_wdl import expected_score, zld_to_class
+            is_wdl = getattr(self.fit_model, 'is_wdl', False)
+            if is_wdl:
+                policy_logits, wdl_logits = self.fit_model.forward_wdl(states)
+                values = expected_score(wdl_logits)
+            else:
+                policy_logits, values = self.fit_model(states)
             self.fit_logger.info(
                 f"pred v mean: {torch.mean(values).item():>7.4f},"
                 f" std:{torch.std(values).item():>7.4f},"
@@ -152,8 +186,12 @@ class TrainServer(InferenceEngine):
 
             # 交叉熵损失，使policy的结果趋近mcts模拟出来的pi，[B,H*W]->scalar
             policy_loss = - torch.sum(pis * torch.log_softmax(policy_logits, dim=1), dim=1).mean()
-            # 均方差损失，使value趋近mcts模拟出来的混合目标 v，[B]
-            value_loss = torch.nn.functional.mse_loss(values, zs)
+            # value loss：WDL 向胜/和/负结局分类做交叉熵（z∈{-1,0,1} 即类标）；
+            # 老架构对期望分做 MSE 回归
+            if is_wdl:
+                value_loss = torch.nn.functional.cross_entropy(wdl_logits, zld_to_class(zs))
+            else:
+                value_loss = torch.nn.functional.mse_loss(values, zs)
 
             # 用总的损失进行反向梯度更新
             loss = policy_loss + value_loss
@@ -219,10 +257,16 @@ class TrainServer(InferenceEngine):
                 states = torch.from_numpy(val_buffer.state_buffer[sl]).float().to(fit_device)
                 pis = torch.from_numpy(val_buffer.policy_buffer[sl]).float().to(fit_device)
                 zs = torch.from_numpy(val_buffer.value_buffer[sl]).float().to(fit_device)
-                policy_logits, values = self.fit_model(states)
+                from core.network.archs.resnet_wdl import zld_to_class
+                if getattr(self.fit_model, 'is_wdl', False):
+                    policy_logits, wdl_logits = self.fit_model.forward_wdl(states)
+                else:
+                    policy_logits, values = self.fit_model(states)
                 log_p = torch.log_softmax(policy_logits, dim=1)
                 policy_loss = - torch.sum(pis * log_p, dim=1).mean()
-                value_loss = torch.nn.functional.mse_loss(values, zs)
+                value_loss = (torch.nn.functional.cross_entropy(wdl_logits, zld_to_class(zs))
+                              if getattr(self.fit_model, 'is_wdl', False)
+                              else torch.nn.functional.mse_loss(values, zs))
                 # 策略交叉熵有硬地板：CE >= H(pi)。目标越软（sims 越少）地板越高，
                 # 于是 CE 会"看起来降不动"。真正能学的是 KL(pi_target || pi_model)，
                 # 两者分开记，进度才有意义。

@@ -123,9 +123,9 @@ CONFIG: AppConfig = {
         # 大中小档位（ZZ_PROFILE=s/m/l 或 set_profile 切换；m=历史行为=根目录）：
         # 只允许覆写"规模键"；in_channels/n_actions/n_cells/feature_version 属棋规/表示层，preset 出现即报错
         'presets': {
-            's': {'arch': 'resnet_v1', 'n_filters': 128, 'n_res_blocks': 6, 'n_value_hidden_channels': 64},
+            's': {'arch': 'resnet_wdl_v1', 'n_filters': 128, 'n_res_blocks': 6, 'n_value_hidden_channels': 64},
             'm': {},
-            'l': {'arch': 'resnet_v1', 'n_res_blocks': 19, 'n_value_hidden_channels': 256},
+            'l': {'arch': 'resnet_wdl_v1', 'n_res_blocks': 19, 'n_value_hidden_channels': 256},
         },
         'selfplay': {
             'tau_decay_rate': 0.96,
@@ -139,7 +139,7 @@ CONFIG: AppConfig = {
             'exploration_steps': 10
         },
         'default_net': {
-            'arch': 'resnet_v1',
+            'arch': 'resnet_wdl_v1',
             'in_channels': 26,  # 输入通道数（v1=20；旧模型加载使用其 checkpoint 内 config）
             'n_filters': 256,  # 卷积层filter数量
             'n_cells': 10 * 9,  # 输入H*W

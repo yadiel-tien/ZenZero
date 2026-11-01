@@ -1,9 +1,7 @@
 import logging
 import os
 import signal
-import sys
 
-from core.utils.functions import register_sigint
 from core.utils.logger import install_thread_excepthook
 from core.utils.config import game_name
 from services.inference.train_server import TrainServer

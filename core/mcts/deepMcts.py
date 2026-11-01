@@ -163,6 +163,7 @@ class NeuronNode:
             policy = policy / scale
         # 给孩子赋予先验概率
         self.child_p = policy
+        self.v_net = float(value)   # 本节点网络原始评估（轮走方视角），供更稳的胜率口径混合
         # 在根节点添加噪声，增加对弈的随机性
         if is_self_play and isinstance(self.parent, DummyNode):
             self.inject_noise()

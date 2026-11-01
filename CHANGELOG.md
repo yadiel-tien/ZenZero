@@ -6,6 +6,17 @@
 
 ## Unreleased
 
+- **WDL value 三头（`resnet_wdl_v1`）**：value 头从标量回归（tanh+MSE）改为胜/和/负三分类
+  （交叉熵），推理折成期望分 `p_win − p_loss ∈ (-1,1)` 供 MCTS/胜率条，与终局奖励同尺度——
+  解决和棋多的棋类"官和与五五开无法区分"的校准问题。象棋 `default_net` 与 s/l preset 切至新架构，
+  五子棋暂留 `resnet_v1`。**半迁移续训**：旧 checkpoint 启动训练时同名同形权重（trunk/policy）
+  继承、value 头重初始化、优化器从头开始（日志 `Migrated load: reused N/M tensors`）；
+  旧 ckpt 存档原样不动，envelope 按各自 arch 分发，新老模型可同台对局。
+  registry 新增公共 `migrated_load`；engine 无档新建按 `default_net.arch` 分发。
+  测试 `tests/test_wdl_value.py` 7 项。
+- **胜率显示口径**：根节点取 MCTS 访问均值与网络原始评估的混合（浅树网络先验比重高，
+  访问数上来后统计接管，权重 n/(n+60) 上限 0.85），前端每 tick EMA 平滑、突变（终局/悔棋）
+  直接跟随——消除逐手乱跳。
 - **对局操作收进 ⋯ 菜单**：悔棋、认输并入舞台右上 ⋯ 菜单；棋盘右侧 ⇅ 交换双方位置。
 - **启动器开局设置**：每步超时（30–300s，默认 100s；人类超时判负，AI 不计时）与「AI 设置」浮层
   （每个 AI 独立配置 MCTS 模拟次数与采样温度）改在开局前三步流里设置，浏览器本地记忆。

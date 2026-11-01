@@ -70,6 +70,16 @@ def build(arch: str, config: dict, eval_model: bool = True, device=None) -> nn.M
     return cls(config, eval_model=eval_model, **kwargs)
 
 
+def migrated_load(model: nn.Module, state_dict: dict) -> tuple[int, list[str]]:
+    """跨架构半迁移加载：只搬**同名且同形**的参数张量，其余保持新初始化
+    （典型场景：resnet_v1 → resnet_wdl_v1，trunk/policy 继承，value.fc2 重初始化）。
+    :return (继承的张量数, 重初始化的参数名)"""
+    tgt = model.state_dict()
+    usable = {k: v for k, v in state_dict.items() if k in tgt and v.shape == tgt[k].shape}
+    model.load_state_dict(usable, strict=False)
+    return len(usable), sorted(set(tgt) - set(usable))
+
+
 def load_model(path: str, eval_model: bool = True, device=None):
     """读 envelope 并重建模型。
 

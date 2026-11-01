@@ -502,7 +502,7 @@
     if (G.status === 'playing' || G.status === 'finished') {
       timeStr = String(G.timers[sideIdx]);
     }
-    const wr = p.type === 'ai' && p.winRate !== -1 ? (p.winRate * 100).toFixed(1) + '%' : '--';
+    const wr = p.type === 'ai' && p.winRate !== -1 ? (p._wrShown * 100).toFixed(1) + '%' : '--';
     // 选手名 + 版本徽标：desc 形如 "AI·miniv50" → 名字 "AI·mini" + 徽标 "v50"（v-1=原生）
     let nameHtml;
     if (p.type === 'ai') {
@@ -522,6 +522,12 @@
 
   function updateInfos() {
     if (!G) return;
+    // 胜率显示平滑：每 tick 向真实值收敛，突变（终局/悔棋/断线重建）直接跟随
+    G.players.forEach((p) => {
+      if (p.type !== 'ai' || p.winRate === -1) { p._wrShown = -1; return; }
+      if (p._wrShown === undefined || p._wrShown === -1 || Math.abs(p.winRate - p._wrShown) > 0.35) p._wrShown = p.winRate;
+      else p._wrShown += 0.5 * (p.winRate - p._wrShown);
+    });
     const top = $('info-top'), bottom = $('info-bottom');
     // 选手条全模式常驻（对局前/对局中/结算）
     // 选手条常驻（全模式：对局前/对局中/结算）
@@ -536,7 +542,7 @@
   function updateWr() {
     for (const s of [0, 1]) {
       const p = G.players[s];
-      const v = p.type === 'ai' ? p.winRate : -1;
+      const v = p.type === 'ai' ? p._wrShown : -1;
       $('wr-val-' + s).textContent = v === -1 ? '--' : (v * 100).toFixed(1) + '%';
       $('wr-' + s).style.width = v === -1 ? '50%' : clamp(v * 100, 2, 100) + '%';
     }

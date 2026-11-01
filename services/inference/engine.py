@@ -10,12 +10,14 @@ import numpy as np
 import torch
 from numpy.typing import NDArray
 
+from core.utils.config import CONFIG
 from core.utils.logger import get_logger
 from core.utils.types import EnvName
 from core.utils.config import get_profile
 from .functions import get_checkpoint_path, get_model_name
 from .request import QueueRequest
 from core.network.network import Net
+from core.network.registry import DEFAULT_ARCH, get as get_arch
 
 
 class _ModelAccess:
@@ -148,7 +150,9 @@ class InferenceEngine:
         """尝试加载模型（envelope 经 registry 分发架构），加载失败时用当前档位默认配置
         新建，index=-1"""
         model_path = get_checkpoint_path(env_name, model_index, profile)
-        model, success = Net.load_from_checkpoint(model_path, eval_model=eval_mode)
+        # 无档新建走当前默认架构（有档时 envelope 的 arch 优先，registry 内部分发）
+        fresh_cls = get_arch(CONFIG.get(env_name, {}).get('default_net', {}).get('arch', DEFAULT_ARCH))
+        model, success = fresh_cls.load_from_checkpoint(model_path, eval_model=eval_mode)
         print(f'Success: {success}')
         index = model_index if success else -1
         print(f'model index is {index}')

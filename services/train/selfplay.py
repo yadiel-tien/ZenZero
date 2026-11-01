@@ -508,10 +508,10 @@ class SelfPlayManager:
             # gamma = 0.99
             # z = z * np.power(gamma, steps)
             # q与z加权使用
-            alpha = 0.5
-            v = alpha * z + (1 - alpha) * q
+            # alpha = 0.5
+            # v = alpha * z + (1 - alpha) * q
 
-            samples[i] = state, pi, v
+            samples[i] = state, pi, z
 
         # 驱动方式耗时拆分：选叶子(CPU) vs 等引擎(延迟)。判别"利用率不高"的根因用
         sims = env.steps * n_simulations

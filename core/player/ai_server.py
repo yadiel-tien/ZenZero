@@ -36,6 +36,21 @@ class AIServer(Player):
         self._dead = False  # reset() 后置位，在途 /update 据此快速失败
         self._op_lock = threading.Lock()  # update 与 reset 互斥（防在途请求撞销毁）
 
+    @staticmethod
+    def _root_win_rate(mcts) -> float:
+        """根局面胜率的稳定口径：MCTS 访问均值与根的网络原始评估混合。
+        浅树时 W/N 噪声大，网络先验占比重；访问数上来后统计自然接管
+        （权重 n/(n+60)，上限 0.85）。返回 root 轮走方胜率 ∈ [0,1]，无数据 -1。"""
+        root = mcts.root
+        if root.n <= 0:
+            return -1.0
+        search = root.w / root.n
+        v_net = getattr(root, 'v_net', None)
+        if v_net is None:
+            return (search + 1) / 2
+        w_search = min(0.85, root.n / (root.n + 60))
+        return (w_search * search + (1 - w_search) * v_net + 1) / 2
+
     def _print_verbose(self, msg: str) -> None:
         """只在verbose 模式下打印"""
         if self.verbose:
@@ -71,7 +86,7 @@ class AIServer(Player):
             child_state = self.mcts.root.get_child(last_action).state
             if np.array_equal(state, child_state):  # state匹配，向下裁剪树
                 self.mcts.apply_action(last_action)
-                rival_win_rate = self.mcts.root.win_rate  # root是对手视角
+                rival_win_rate = self._root_win_rate(self.mcts)  # root是对手视角
                 # -1代表无数据，其他情况计算对手胜率
                 self.win_rate = 1 - rival_win_rate if rival_win_rate != -1 else -1.0
             else:  # state与当前state不匹配，新建root节点
@@ -84,7 +99,7 @@ class AIServer(Player):
             self.mcts.apply_action(self.pending_action)
         else:
             self.pending_action = self.mcts.choose_action()
-        self.win_rate = self.mcts.root.win_rate
+        self.win_rate = self._root_win_rate(self.mcts)
         self.is_thinking = False
 
     def reset(self) -> None:
