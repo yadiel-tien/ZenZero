@@ -558,14 +558,15 @@
       const p = G.players[s];
       const v = p.type === 'ai' ? p._wrShown : -1;
       const w = p._wdlShown;
-      if (w) {   // 胜/和/负三段（v1 模型时无 wdl，退化为单条）
+      if (w) {   // 胜/和/负三段：不出数字（防溢出），颜色图例说明（随红黑各自色板）
         $('wr-' + s + '-w').style.width = (w[0] * 100).toFixed(1) + '%';
         $('wr-' + s + '-d').style.width = (w[1] * 100).toFixed(1) + '%';
         $('wr-' + s + '-l').style.width = (w[2] * 100).toFixed(1) + '%';
-        const pc = (x) => Math.round(x * 100);
-        $('wr-val-' + s).innerHTML = `${pc(w[0])}<em>·</em>${pc(w[1])}<em>·</em>${pc(w[2])}%`;
-        $('wr-bar-' + s).title = '胜 / 和 / 负 概率';
+        $('wr-val-' + s).textContent = '';
+        $('wr-legend-' + s).classList.add('on');
+        $('wr-bar-' + s).title = `胜 ${Math.round(w[0] * 100)}% · 和 ${Math.round(w[1] * 100)}% · 负 ${Math.round(w[2] * 100)}%`;
       } else {
+        $('wr-legend-' + s).classList.remove('on');
         $('wr-' + s + '-w').style.width = v === -1 ? '50%' : clamp(v * 100, 2, 100) + '%';
         $('wr-' + s + '-d').style.width = '0';
         $('wr-' + s + '-l').style.width = '0';
