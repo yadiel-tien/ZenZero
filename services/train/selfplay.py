@@ -51,6 +51,21 @@ def run_mcts(mcts: NeuronMCTS, n_simulations: int, batch_leaves: int) -> None:
         mcts.run(n_simulations)
 
 
+def resign_update(streak: dict, side: int, value_now: float, cfg: dict, steps: int) -> bool:
+    """自博弈认输状态机：轮走方根期望低于 -threshold（连续 N 次该方行棋、且已过最少步数）
+    触发判负；期间回升即清零。threshold<=0 恒 False（关闭）。
+    守擂评估局不走这里——胜负判定不能被认输掺手。"""
+    thr = float(cfg.get('threshold', 0.0))
+    if thr <= 0:
+        streak[side] = 0
+        return False
+    if value_now < -thr and steps >= int(cfg.get('min_steps', 20)):
+        streak[side] = streak.get(side, 0) + 1
+    else:
+        streak[side] = 0
+    return streak[side] >= int(cfg.get('consecutive', 6))
+
+
 class SelfPlayManager:
     def __init__(self, n_workers: int, train_server: TrainServer):
         self.logger = get_logger('selfplay')
@@ -461,6 +476,8 @@ class SelfPlayManager:
                                           is_self_play=True,
                                           planes_version=self.train_server.feature_version)
         samples = []
+        resign_cfg = settings['selfplay'].get('resign') or {}
+        resign_streak = {0: 0, 1: 0}
         exploration_steps = settings['selfplay']['exploration_steps']
         tau_decay_rate = settings['selfplay']['tau_decay_rate']
         while not env.terminated:   # 终局由规则硬保证（时钟/长将/重复都有裁定）
@@ -479,6 +496,12 @@ class SelfPlayManager:
             # q代表对上个玩家的回报，-q代表当前玩家的回报
             q = mcts.root.w / mcts.root.n
             samples.append((state, pi_target, -q, env.player_to_move))
+
+            # 认输门槛：轮走方持续必败即提前判负（样本照常入池，z 由 winner 决定）
+            if resign_update(resign_streak, env.player_to_move, -q, resign_cfg, env.steps):
+                env.winner = 1 - env.player_to_move
+                self.logger.info(f'Game end by resign. Loser: {env.player_to_move}, steps: {env.steps}')
+                break
 
             # 前期高温，后期低温。根据mcts模拟的概率分布进行落子
             if env.steps < exploration_steps:

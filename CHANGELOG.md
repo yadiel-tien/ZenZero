@@ -6,6 +6,12 @@
 
 ## Unreleased
 
+- **自博弈认输门槛**：轮走方根期望连续 6 个己方轮次低于 -0.95（且开局 20 步后）即提前判负收局，
+  省掉必败局的搜索算力（预计自博弈吞吐 +20~40%，以实测为准）；样本照常入池（z 由认负方的
+  winner 决定）。config `selfplay.resign = {threshold, consecutive, min_steps}`，
+  `ZZ_RESIGN=off|0.90` 运行期覆盖；**守擂评估不受影响**（代码路径隔离）。
+  测试 `tests/test_resign_threshold.py` 6 项。
+
 - **WDL value 三头（`resnet_wdl_v1`）**：value 头从标量回归（tanh+MSE）改为胜/和/负三分类
   （交叉熵），推理折成期望分 `p_win − p_loss ∈ (-1,1)` 供 MCTS/胜率条，与终局奖励同尺度——
   解决和棋多的棋类"官和与五五开无法区分"的校准问题。象棋与五子棋的 `default_net` 与 s/l preset

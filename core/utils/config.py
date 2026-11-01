@@ -129,7 +129,10 @@ CONFIG: AppConfig = {
         },
         'selfplay': {
             'tau_decay_rate': 0.96,
-            'exploration_steps': 30
+            'exploration_steps': 30,
+            # 认输门槛（仅自博弈；守擂评估不受影响）：轮走方根期望连续多手低于 -threshold
+            # 即提前判负，省死局算力。threshold=0 关闭；ZZ_RESIGN=off|0.90 覆盖
+            'resign': {'threshold': 0.95, 'consecutive': 6, 'min_steps': 20},
         },
         # 200 sims 的目标太软太噪（实测 KL(pi200‖pi800)=0.36，占可学空间的 64%）：
         # 起步抬到 400，第 50 代到 800。按绝对代爬坡 → 重启不会退回 200。
@@ -170,7 +173,8 @@ CONFIG: AppConfig = {
         },
         'selfplay': {
             'tau_decay_rate': 0.8,
-            'exploration_steps': 10
+            'exploration_steps': 10,
+            'resign': {'threshold': 0.95, 'consecutive': 6, 'min_steps': 20},
         },
         'sims': {'start': 400, 'max': 800, 'ramp_generations': 50},
         'evaluation': {
@@ -225,6 +229,19 @@ CONFIG: AppConfig = {
     'game_name': 'ChineseChess'
 }
 
+
+# 认输门槛运行期覆盖：ZZ_RESIGN=off 关闭；=0.90 等数值改阈值（两个棋种同步）
+_r = (os.environ.get('ZZ_RESIGN') or '').strip().lower()
+if _r:
+    for _g in ('ChineseChess', 'Gomoku'):
+        _rs = CONFIG[_g]['selfplay'].setdefault('resign', {'threshold': 0.95, 'consecutive': 6, 'min_steps': 20})
+        if _r in ('off', 'none', '0'):
+            _rs['threshold'] = 0.0
+        else:
+            try:
+                _rs['threshold'] = max(0.0, min(1.0, float(_r)))
+            except ValueError:
+                pass
 
 # 面板/CLI 的运行期覆盖：同一份 config 用环境变量跑不同并发/批量（训练控制台就这么透传的）
 for _env, _key in (('ZZ_WORKERS', 'selfplay_workers'),
