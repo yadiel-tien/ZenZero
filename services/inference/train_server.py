@@ -133,6 +133,7 @@ class TrainServer(InferenceEngine):
                 self.eval_model = build_arch(self.fit_model.arch_name, self.fit_model.config,
                                              eval_model=True, device=self.eval_model.device)
                 self.arch_name = self.fit_model.arch_name
+                self._is_wdl = bool(getattr(self.eval_model, 'is_wdl', False))
             else:
                 self.eval_model.load_state_dict(self.fit_model.state_dict())
             self.model_index = iteration

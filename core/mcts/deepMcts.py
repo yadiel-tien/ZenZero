@@ -51,6 +51,7 @@ class NeuronNode:
         self.child_w = np.zeros(self.n_actions, dtype=np.float32)  # 累计价值
         self.child_p = np.zeros(self.n_actions, dtype=np.float32)  # 先验概率
         self.is_expanded = False
+        self.p_wdl = None      # WDL 网络的本节点局面概率 [负,平,胜]（轮走方视角；非 wdl 架构 None）
         self.leaf_reward = GameResult.ONGOING  # 终局的奖励，1胜，0平，-1负，2未结束
 
     def __repr__(self) -> str:
@@ -148,11 +149,14 @@ class NeuronNode:
         """转换为适合神经网络的表示（按目标引擎的 feature version 布局）"""
         return self.env.convert_to_network(self.state, self.player_to_move, self.planes_version)
 
-    def apply_policy_value(self, policy: NDArray, value: float, is_self_play: bool = False) -> float:
+    def apply_policy_value(self, policy: NDArray, value: float, is_self_play: bool = False,
+                           wdl: NDArray | None = None) -> float:
         """把网络的 (policy, value) 落进本节点。返回该节点对上个玩家的奖励（= -value）。
 
         value 头约定的视角是"轮走方"，而 w 那一层存的是"走进本节点的一方"，所以要取反。
+        wdl（WDL 架构附带）是镜像不变的结局概率，供展示层读根节点用。
         """
+        self.p_wdl = wdl
         # 象棋采用了红黑交换，需要对应反转概率。类似象棋这样的env都要有switch_side_policy函数实现该功能
         if self.player_to_move == 1 and hasattr(self.env, "switch_side_policy"):
             policy = self.env.switch_side_policy(policy)
@@ -177,10 +181,10 @@ class NeuronNode:
         reward = self.check_terminal()
         if reward is not None:
             return reward
-        # 发送到推理引擎推理，获取policy和value
-        policy, value = send_via_queue(self.network_input(), cast(EnvName, self.env.__name__),
-                                       infer_queue, is_self_play)
-        return self.apply_policy_value(policy, value, is_self_play)
+        # 发送到推理引擎推理，获取policy和value（.wdl 随结果附带）
+        res = send_via_queue(self.network_input(), cast(EnvName, self.env.__name__),
+                             infer_queue, is_self_play)
+        return self.apply_policy_value(res[0], res[1], is_self_play, getattr(res, 'wdl', None))
 
     def back_propagate(self, result: float) -> None:
         """反向传播评估结果"""
@@ -351,9 +355,10 @@ class NeuronMCTS:
             states = [leaf.network_input() for leaf, _ in pending]
             results = send_many(states, cast(EnvName, self.root.env.__name__),
                                 self.infer_queue, self.is_self_play)
-            for (leaf, path), (policy, value) in zip(pending, results):
+            for (leaf, path), res in zip(pending, results):
                 self._undo_virtual_loss(path)
-                leaf.back_propagate(leaf.apply_policy_value(policy, value, self.is_self_play))
+                leaf.back_propagate(leaf.apply_policy_value(
+                    res[0], res[1], self.is_self_play, getattr(res, 'wdl', None)))
         # 至少有第一发（除非 K 条全撞同一叶子——不可能，seen 初始为空）
         return max(done, 1)
 
@@ -413,8 +418,9 @@ class NeuronMCTS:
                     continue
                 inflight.pop(i)
                 self._undo_virtual_loss(path)
-                policy, value = harvest(request, symmetric_idx, env_name)
-                leaf.back_propagate(leaf.apply_policy_value(policy, value, self.is_self_play))
+                res = harvest(request, symmetric_idx, env_name)
+                leaf.back_propagate(leaf.apply_policy_value(
+                    res[0], res[1], self.is_self_play, getattr(res, 'wdl', None)))
                 break
 
     def run(self, n_simulation=1000, batch_leaves: int = 1) -> None:

@@ -432,7 +432,7 @@
   function mkAI(sel) {
     const s = (sel && typeof sel === 'object') ? sel : { index: sel, profile: null };
     return { type: 'ai', desc: `AI·${s.profile ? s.profile + '' : ''}v${s.index}`,
-             modelId: s.index, profile: s.profile, pid: null, winRate: -1 };
+             modelId: s.index, profile: s.profile, pid: null, winRate: -1, wdl: null };
   }
 
   /* ================= 服务器状态 ================= */
@@ -522,10 +522,24 @@
 
   function updateInfos() {
     if (!G) return;
-    // 胜率显示平滑：每 tick 向真实值收敛，突变（终局/悔棋/断线重建）直接跟随
+    // 胜率显示平滑：每 tick 向真实值收敛，突变（终局/悔棋/断线重建）直接跟随。
+    // 有 WDL 概率时平滑三段（与胜率数字同源），数字即三段中"胜"的宽度
     G.players.forEach((p) => {
       if (p.type !== 'ai' || p.winRate === -1) { p._wrShown = -1; return; }
-      if (p._wrShown === undefined || p._wrShown === -1 || Math.abs(p.winRate - p._wrShown) > 0.35) p._wrShown = p.winRate;
+      const jump = (a, b) => a === undefined || a === -1 || Math.abs(b - a) > 0.35;
+      if (p.wdl && p.wdl.length === 3) {
+        let w = p.wdl;
+        if (jump(p._wdlShown ? p._wdlShown[0] : undefined, w[0])) p._wdlShown = w.slice();
+        else {
+          const mix = p._wdlShown.map((v, i) => v + 0.5 * (w[i] - v));
+          const s = mix.reduce((x, y) => x + y, 0) || 1;
+          p._wdlShown = mix.map((v) => v / s);
+        }
+        p._wrShown = p._wdlShown[0];
+        return;
+      }
+      p._wdlShown = null;
+      if (jump(p._wrShown, p.winRate)) p._wrShown = p.winRate;
       else p._wrShown += 0.5 * (p.winRate - p._wrShown);
     });
     const top = $('info-top'), bottom = $('info-bottom');
@@ -543,8 +557,21 @@
     for (const s of [0, 1]) {
       const p = G.players[s];
       const v = p.type === 'ai' ? p._wrShown : -1;
-      $('wr-val-' + s).textContent = v === -1 ? '--' : (v * 100).toFixed(1) + '%';
-      $('wr-' + s).style.width = v === -1 ? '50%' : clamp(v * 100, 2, 100) + '%';
+      const w = p._wdlShown;
+      if (w) {   // 胜/和/负三段（v1 模型时无 wdl，退化为单条）
+        $('wr-' + s + '-w').style.width = (w[0] * 100).toFixed(1) + '%';
+        $('wr-' + s + '-d').style.width = (w[1] * 100).toFixed(1) + '%';
+        $('wr-' + s + '-l').style.width = (w[2] * 100).toFixed(1) + '%';
+        const pc = (x) => Math.round(x * 100);
+        $('wr-val-' + s).innerHTML = `${pc(w[0])}<em>·</em>${pc(w[1])}<em>·</em>${pc(w[2])}%`;
+        $('wr-bar-' + s).title = '胜 / 和 / 负 概率';
+      } else {
+        $('wr-' + s + '-w').style.width = v === -1 ? '50%' : clamp(v * 100, 2, 100) + '%';
+        $('wr-' + s + '-d').style.width = '0';
+        $('wr-' + s + '-l').style.width = '0';
+        $('wr-val-' + s).textContent = v === -1 ? '--' : (v * 100).toFixed(1) + '%';
+        $('wr-bar-' + s).removeAttribute('title');
+      }
     }
   }
 
@@ -762,7 +789,8 @@ function render() {
       board: G.board ? G.board.slice() : null,
       ptm: G.ptm, lastAction: G.lastAction, steps: G.steps,
       histLen: G.history.length, timers: { 0: G.timers[0], 1: G.timers[1] },
-      winRates: G.players.map((p) => (p.type === 'ai' ? p.winRate : -1))
+      winRates: G.players.map((p) => (p.type === 'ai' ? p.winRate : -1)),
+      wdls: G.players.map((p) => (p.type === 'ai' && p.wdl ? p.wdl.slice() : null))
     });
     if (G.undoStack.length > 80) G.undoStack.shift();
   }
@@ -775,7 +803,7 @@ function render() {
     G.history.length = s.histLen;
     G.timers = s.timers;
     G.lastPlaced = null; G.selected = null; G.safeCache.clear();
-    G.players.forEach((p, i) => { if (p.type === 'ai') p.winRate = s.winRates[i]; });
+    G.players.forEach((p, i) => { if (p.type === 'ai') { p.winRate = s.winRates[i]; p.wdl = s.wdls ? s.wdls[i] : null; } });
     // AI 会话无需通知：下次轮到我方 update 时服务端检测到局面不匹配会自动 set_root
     render(); renderMoves(); updateInfos();
     advance();
@@ -925,10 +953,12 @@ function render() {
         const ru = await API.update(p.pid, stateArrayForAPI(), G.lastAction, G.ptm);
         if (!G || token !== G.token) return;   // 等待期间可能已退局（G=null）
         if (ru.win_rate != null) p.winRate = ru.win_rate;
+        p.wdl = ru.wdl || null;
         updateInfos();
         const ra = await API.getAction(p.pid);
         if (!G || token !== G.token) return;
         p.winRate = ra.win_rate != null ? ra.win_rate : p.winRate;
+        if (ra.wdl) p.wdl = ra.wdl;
         if (ra.model_id != null) p.modelId = ra.model_id;
         G.aiBusy = false;
         if (ra.action == null || ra.action < 0) throw new Error('AI 未返回有效着法');
@@ -967,7 +997,7 @@ function render() {
       if (p.type === 'ai' && p.pid) {
         try {
           const r = await API.heartbeat(p.pid);
-          if (r.win_rate != null && G.status === 'playing') p.winRate = r.win_rate;
+          if (r.win_rate != null && G.status === 'playing') { p.winRate = r.win_rate; p.wdl = r.wdl || null; }
           setServerDot('ok');
           probeServer();
           updateInfos();
@@ -1083,7 +1113,7 @@ function render() {
     if (G.status === 'finished') { // 重开一局：本地重置 + 通知服务端 reset
       G.token++;
       for (const p of G.players) {
-        if (p.type === 'ai' && p.pid) { API.reset(p.pid).catch(() => {}); p.pid = null; p.winRate = -1; }
+        if (p.type === 'ai' && p.pid) { API.reset(p.pid).catch(() => {}); p.pid = null; p.winRate = -1; p.wdl = null; }
       }
       G.ptm = 0; G.lastAction = -1; G.steps = 0; G.winner = 2;
       G.history = []; G.selected = null; G.safeCache.clear(); G.winStones = []; G.lastPlaced = null; G.undoStack = [];

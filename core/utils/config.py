@@ -164,9 +164,9 @@ CONFIG: AppConfig = {
         'avg_game_steps': 40,
         'c_puct': 5,
         'presets': {
-            's': {'arch': 'resnet_v1', 'n_filters': 128, 'n_res_blocks': 6},
+            's': {'arch': 'resnet_wdl_v1', 'n_filters': 128, 'n_res_blocks': 6},
             'm': {},
-            'l': {'arch': 'resnet_v1', 'n_res_blocks': 15},
+            'l': {'arch': 'resnet_wdl_v1', 'n_res_blocks': 15},
         },
         'selfplay': {
             'tau_decay_rate': 0.8,
@@ -178,7 +178,7 @@ CONFIG: AppConfig = {
             'exploration_steps': 4
         },
         'default_net': {
-            'arch': 'resnet_v1',
+            'arch': 'resnet_wdl_v1',
             'in_channels': 2,  # 输入通道数
             'n_filters': 256,  # 卷积层filter数量
             'n_cells': 15 * 15,  # 输入H*W

@@ -8,12 +8,16 @@
 
 - **WDL value 三头（`resnet_wdl_v1`）**：value 头从标量回归（tanh+MSE）改为胜/和/负三分类
   （交叉熵），推理折成期望分 `p_win − p_loss ∈ (-1,1)` 供 MCTS/胜率条，与终局奖励同尺度——
-  解决和棋多的棋类"官和与五五开无法区分"的校准问题。象棋 `default_net` 与 s/l preset 切至新架构，
-  五子棋暂留 `resnet_v1`。**半迁移续训**：旧 checkpoint 启动训练时同名同形权重（trunk/policy）
+  解决和棋多的棋类"官和与五五开无法区分"的校准问题。象棋与五子棋的 `default_net` 与 s/l preset
+  均已切至新架构。**半迁移续训**：旧 checkpoint 启动训练时同名同形权重（trunk/policy）
   继承、value 头重初始化、优化器从头开始（日志 `Migrated load: reused N/M tensors`）；
   旧 ckpt 存档原样不动，envelope 按各自 arch 分发，新老模型可同台对局。
   registry 新增公共 `migrated_load`；engine 无档新建按 `default_net.arch` 分发。
-  测试 `tests/test_wdl_value.py` 7 项。
+  测试 `tests/test_wdl_value.py` 9 项。
+- **前端 WDL 三段胜率条**：每方一条堆叠占比条（胜·和·负，宽度即概率，文字 `62·28·10%`），
+  数据链路 engine→MCTS 根节点→AIServer→API `wdl` 字段；展示概率与胜率数字严格自洽
+  （恒等式 p_win − p_loss = 2v − 1，网络和概率与混合期望冲突时平移和项）。
+  v1 老模型无概率输出，自动退化为原单条显示。
 - **胜率显示口径**：根节点取 MCTS 访问均值与网络原始评估的混合（浅树网络先验比重高，
   访问数上来后统计接管，权重 n/(n+60) 上限 0.85），前端每 tick EMA 平滑、突变（终局/悔棋）
   直接跟随——消除逐手乱跳。

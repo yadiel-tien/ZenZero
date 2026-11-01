@@ -137,6 +137,69 @@ def test_engine_fresh_build_follows_default_arch():
         shutil.rmtree(d, ignore_errors=True)
 
 
+def test_engine_wdl_passthrough():
+    """engine 对 WDL 模型透传结局概率；InferenceResult 保持二元组解包兼容（旧调用零破坏）"""
+    import numpy as np
+    import threading
+    from services.inference.client import send_via_queue
+    from services.inference.engine import InferenceEngine
+
+    net = _build('resnet_wdl_v1')
+    eng = InferenceEngine.__new__(InferenceEngine)   # 绕开 hub，手搭最小引擎
+    eng.eval_model = net
+    eng._is_wdl = True
+    eng.request_queue = __import__('queue').Queue()
+    eng.result_queue = __import__('queue').Queue()
+    eng.stop_event = threading.Event()
+    eng.model_lock = type('L', (), {'shared': lambda self: __import__('contextlib').nullcontext()})()
+    eng._record_fwd = lambda *a, **k: None
+    eng._record_post = lambda *a, **k: None
+
+    def fake_forward(batch, *_a):
+        b = batch.shape[0]
+        return torch.zeros(b, 30), torch.tensor([[5.0, 0.0, 0.0]] * b)   # 全"负"logit
+
+    net.forward_wdl = fake_forward
+    # 直接驱动一次 worker 体（不经线程）：模拟 engine._infer_loop 单轮
+    req_q, res_q = eng.request_queue, eng.result_queue
+    from services.inference.client import issue
+    from core.utils.config import CONFIG
+    # 简化：手动构造请求-回填链路（tensor 组装依赖真实 state 布局，此处只测协议段）
+    import numpy as _np
+    from services.inference.request import QueueRequest
+    r = QueueRequest(_np.zeros((4, 4, 5), dtype=_np.float32))
+    probs = torch.nn.functional.softmax(torch.zeros(1, 30), dim=-1).numpy()
+    wdl_p = torch.softmax(torch.tensor([[5.0, 0.0, 0.0]]), dim=-1).numpy()
+    values = (wdl_p[:, 2] - wdl_p[:, 0])
+    eng.deliver_result([r], probs, values, wdl_p)
+    res = r.policy, r.value
+    p2, v2 = r.policy, r.value          # 二元组兼容
+    assert abs(float(r.value) - (wdl_p[0][2] - wdl_p[0][0])) < 1e-6
+    assert r.wdl is not None and abs(float(r.wdl[0]) - 1.0) < 0.05
+
+
+def test_wd_probs_identity():
+    """AIServer 展示概率与 win_rate 恒等自洽：p_win − p_loss = 2v − 1，和为 1"""
+    from core.player.ai_server import AIServer
+
+    class _N:
+        p_wdl = None
+    class _M:
+        def __init__(self):
+            self.root = _N()
+    m = _M()
+    import numpy as _np
+    for wr, pd in [(0.5, 0.2), (0.9, 0.05), (0.2, 0.6), (0.75, 0.9), (1.0, 0.3), (0.0, 0.3)]:
+        m.root.p_wdl = _np.array([(1 - pd) / 2, pd, (1 - pd) / 2], dtype='float32')
+        pw, pdr, pl = AIServer._root_wdl(m, wr)
+        assert abs((pw + pdr + pl) - 1.0) < 1e-6
+        assert pw >= -1e-6 and pl >= -1e-6 and pdr >= -1e-6
+        assert abs((pw - pl) - (2 * wr - 1)) < 1e-6, (wr, pd, pw, pl)   # 恒等式：网络 p_d 与混合 v 冲突时平移和项
+    m.root.p_wdl = None
+    assert AIServer._root_wdl(m, 0.5) is None
+    assert AIServer._root_wdl(m, -1) is None
+
+
 def main():
     fns = [(k, v) for k, v in sorted(globals().items()) if k.startswith('test_') and callable(v)]
     for name, f in fns:

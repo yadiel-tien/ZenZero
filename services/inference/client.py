@@ -8,6 +8,16 @@ from core.utils.mirror import random_mirror_state
 from .request import QueueRequest, RequestLane
 
 
+class InferenceResult(tuple):
+    """(policy, value) 二元组 + wdl 附加属性：既有解包零破坏，
+    需要结局概率的调用方读 .wdl（[负,平,胜]，非 WDL 架构为 None）。"""
+
+    def __new__(cls, policy: NDArray, value: float, wdl: NDArray | None = None):
+        self = super().__new__(cls, (policy, value))
+        self.wdl = wdl
+        return self
+
+
 def issue(state: NDArray, env_name: EnvName, q: queue.Queue, is_self_play=False,
           lane: RequestLane | None = None) -> tuple[QueueRequest, int]:
     """投一条请求进引擎并立刻返回句柄（不等结果）——流水线的"发"侧。
@@ -22,8 +32,9 @@ def issue(state: NDArray, env_name: EnvName, q: queue.Queue, is_self_play=False,
 
 
 def harvest(request: QueueRequest, symmetric_idx: int, env_name: EnvName) -> tuple[NDArray, float]:
-    """把已完成的句柄取成 (policy, value)——流水线的"收"侧。"""
-    return postprocess_policy(request.policy, symmetric_idx, env_name), request.value
+    """把已完成的句柄取成 (policy, value)——流水线的"收"侧；.wdl 附在结果对象上。"""
+    return InferenceResult(postprocess_policy(request.policy, symmetric_idx, env_name),
+                           request.value, request.wdl)
 
 
 def send_many(states: list[NDArray], env_name: EnvName, q: queue.Queue,

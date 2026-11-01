@@ -348,7 +348,8 @@ class PlayApiServer:
                 player.update_state(state, data['action'], data['player_to_move'])
                 if getattr(player, '_dead', False):   # 跑完的瞬间被退局（reset）
                     return jsonify({"error": "Player not found"}), 404
-                return jsonify({'win_rate': float(player.win_rate)})
+                return jsonify({'win_rate': float(player.win_rate),
+                                'wdl': list(player.wd_probs) if player.wd_probs else None})
             except Exception as e:
                 self.logger.error(f"Error during state update for {pid[:8]}: {e}", exc_info=True)
                 return jsonify({"error": f"{str(e)}\n{traceback.format_exc()}"}), 500
@@ -372,6 +373,7 @@ class PlayApiServer:
                 return jsonify({
                     "action": action,
                     'win_rate': float(player.win_rate),
+                    'wdl': list(player.wd_probs) if player.wd_probs else None,
                     "model_id": player.model_id
                 })
             except Exception as e:
@@ -387,7 +389,9 @@ class PlayApiServer:
                     if pid in self.ai_players:
                         self.ai_players[pid].reset()
                         self.logger.info(f"Session {pid[:8]} reset.")
-                        return jsonify({"win_rate": self.ai_players[pid].win_rate})
+                        pl = self.ai_players[pid]
+                        return jsonify({"win_rate": pl.win_rate,
+                                        "wdl": list(pl.wd_probs) if pl.wd_probs else None})
                 return jsonify({"error": "Player not found"}), 404
             except Exception as e:
                 self.logger.error(f"Error resetting session {pid[:8]}: {e}")

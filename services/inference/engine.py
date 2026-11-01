@@ -143,6 +143,7 @@ class InferenceEngine:
         cfg = getattr(self.eval_model, 'config', None)
         self._in_channels = int(cfg['in_channels']) if isinstance(cfg, dict) and 'in_channels' in cfg else 0
         self.feature_version = int(getattr(self.eval_model, 'feature_version', 1))
+        self._is_wdl = bool(getattr(self.eval_model, 'is_wdl', False))
 
     @classmethod
     def load_model(cls, model_index: int, env_name: EnvName, eval_mode=True,
@@ -327,20 +328,26 @@ class InferenceEngine:
                         batch_tensor = tensor.to(self._model_device(), dtype=torch.float32,
                                                  non_blocking=False)
                         with self._ac_factory():  # 混合精度(按设备类型自适应)
-                            logits, values = self.eval_model(batch_tensor)
+                            if self._is_wdl:
+                                logits, wdl_logits = self.eval_model.forward_wdl(batch_tensor)
+                                wdl_p = torch.softmax(wdl_logits.float(), dim=-1)
+                                values = wdl_p[:, 2] - wdl_p[:, 0]   # 期望分与概率同源
+                            else:
+                                logits, values = self.eval_model(batch_tensor)
                 probs = torch.nn.functional.softmax(logits.float(), dim=-1).cpu().numpy()
                 values = values.float().cpu().numpy()
+                wdls = wdl_p.cpu().numpy() if self._is_wdl else None
                 self._record_fwd((time.perf_counter() - t_fwd) * 1e3, len(requests))
-                self.result_queue.put((requests, probs, values))
+                self.result_queue.put((requests, probs, values, wdls))
             except queue.Empty:
                 continue
 
     def _post_infer_loop(self):
         while not self.stop_event.is_set():
             try:
-                requests, probs, values = self.result_queue.get(timeout=0.5)
+                requests, probs, values, wdls = self.result_queue.get(timeout=0.5)
                 t0 = time.perf_counter()
-                self.deliver_result(requests, probs, values)
+                self.deliver_result(requests, probs, values, wdls)
                 self._record_post((time.perf_counter() - t0) * 1e3)
 
                 self.finished_requests += len(requests)
@@ -437,11 +444,12 @@ class InferenceEngine:
             self._fwd_ms.clear()
             self._post_ms.clear()
 
-    def deliver_result(self, requests: list[QueueRequest], probs: Sequence[NDArray], values: Sequence[float]) -> None:
+    def deliver_result(self, requests: list[QueueRequest], probs: Sequence[NDArray], values: Sequence[float],
+                       wdls: Sequence[NDArray] | None = None) -> None:
         # 结果交给请求方，通知 request 继续。组请求（批量 MCTS 一局 K 发）由最后一条
         # 回填者唤醒，省掉 K-1 次线程唤醒（一批 256 时这是半个批次的量级）。
-        for r, p, v in zip(requests, probs, values):
-            event = r.fill(p, v)
+        for i, (r, p, v) in enumerate(zip(requests, probs, values)):
+            event = r.fill(p, v, None if wdls is None else wdls[i])
             if event is not None:
                 event.set()
 

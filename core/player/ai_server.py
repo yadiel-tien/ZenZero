@@ -30,11 +30,28 @@ class AIServer(Player):
         self.mcts: NeuronMCTS | None = None
         self.verbose = verbose  # verbose=True打印日志信息
         self.win_rate = -1.0  # -1代表无数据
+        self.wd_probs = None  # (p_win, p_draw, p_loss)：与 win_rate 同视角同数值自洽（WDL 模型才有）
         self.hub = hub if hub is not None else ServerHub()
         self._own_hub = hub is None  # 自己创建的hub随玩家一起清理
         self._engine_name: str | None = None  # 已占用引擎名称，shutdown时释放
         self._dead = False  # reset() 后置位，在途 /update 据此快速失败
         self._op_lock = threading.Lock()  # update 与 reset 互斥（防在途请求撞销毁）
+
+    @staticmethod
+    def _root_wdl(mcts, win_rate: float):
+        """与 win_rate 严格自洽的胜/和/负展示概率：
+        和项直接取网络对根局面的 p_draw，胜负两项由恒等式
+        p_win − p_loss = 2·win_rate − 1、p_win + p_loss = 1 − p_draw 解出（clamp 归一）。
+        无 WDL 概率（v1 架构/未展开）返回 None，前端退化为单胜率条。"""
+        p = getattr(mcts.root, 'p_wdl', None)
+        if p is None or win_rate == -1:
+            return None
+        v = win_rate * 2 - 1
+        p_d = min(max(float(p[1]), 0.0), 1.0 - abs(v))   # 与混合期望冲突时平移，数字优先自洽
+        p_w = float((1 - p_d + v) / 2)
+        p_l = float((1 - p_d - v) / 2)
+        p_d = float(p_d)
+        return (p_w, p_d, p_l)
 
     @staticmethod
     def _root_win_rate(mcts) -> float:
@@ -89,6 +106,8 @@ class AIServer(Player):
                 rival_win_rate = self._root_win_rate(self.mcts)  # root是对手视角
                 # -1代表无数据，其他情况计算对手胜率
                 self.win_rate = 1 - rival_win_rate if rival_win_rate != -1 else -1.0
+                rival_p = self._root_wdl(self.mcts, rival_win_rate)
+                self.wd_probs = (rival_p[2], rival_p[1], rival_p[0]) if rival_p else None
             else:  # state与当前state不匹配，新建root节点
                 self.mcts.set_root(state, last_action, player_to_move)
 
@@ -100,6 +119,7 @@ class AIServer(Player):
         else:
             self.pending_action = self.mcts.choose_action()
         self.win_rate = self._root_win_rate(self.mcts)
+        self.wd_probs = self._root_wdl(self.mcts, self.win_rate)
         self.is_thinking = False
 
     def reset(self) -> None:

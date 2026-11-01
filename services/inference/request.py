@@ -34,14 +34,17 @@ class QueueRequest(ReferenceRequest):
         super().__init__(state)
         self.policy = None
         self.value = None
+        self.wdl = None       # WDL 架构的 [负,平,胜] 概率（其余架构恒 None）
         self.done = False      # 回填标记：流水线侧靠它判断"这条可以收割了"
         self.event = event     # 单条同步等待（人机对战/评估的一发一等）
         self.lane = lane       # 流水线信号（与 event 二选一）
 
-    def fill(self, policy: NDArray, value: float) -> threading.Event | None:
+    def fill(self, policy: NDArray, value: float,
+             wdl: NDArray | None = None) -> threading.Event | None:
         """回填推理结果，返回需要 set() 的 Event（流水线请求返回 None，改由 lane 放行）。"""
         self.policy = policy
         self.value = value
+        self.wdl = wdl
         self.done = True       # 必须先置位再唤醒等待方
         if self.lane is not None:
             self.lane.release()
