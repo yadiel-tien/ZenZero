@@ -6,6 +6,16 @@
 
 ## Unreleased
 
+- **WDL 迁移首夜复盘修复**（训练变弱根因）：单局结局 z 是局面胜负分布的带噪抽样，
+  one-hot CE 把噪声当全概率质量强推，value 过饱和毒化 PUCT（实测策略 KL 0.57→0.73，
+  52~74 代连续守擂 13~25%）。三处修正：
+  ① WDL CE 加 `label_smoothing=0.15`；
+  ② **迁移轮分层学习率**——继承的 trunk/policy 用 1e-4 保身位（旧优化器动量已弃），
+     value 头 1e-3 重校准；
+  ③ **认输门槛默认关闭**（`selfplay.resign.threshold=0`）——value 未成熟期开认输会把
+     理论和棋投毒成必负样本（首夜 291 局全部发生在迁移初期）；校准可靠后
+     `ZZ_RESIGN=0.95` 手动启用。
+
 - **自博弈认输门槛**：轮走方根期望连续 6 个己方轮次低于 -0.95（且开局 20 步后）即提前判负收局，
   省掉必败局的搜索算力（预计自博弈吞吐 +20~40%，以实测为准）；样本照常入池（z 由认负方的
   winner 决定）。config `selfplay.resign = {threshold, consecutive, min_steps}`，
