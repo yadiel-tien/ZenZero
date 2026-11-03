@@ -51,8 +51,6 @@ class TrainServer(InferenceEngine):
                                                                     T_max=settings['max_iters'], eta_min=1e-5)
         # 训练步数计数器
         self.total_steps_trained = 0
-        # fit 期望设备（构造时随模型）：显存水位恢复后 CPU 兜底轮自动回迁
-        self._fit_pref_device = next(self.fit_model.parameters()).device
         # buffer：由外部注入时与 SelfPlayManager 共享同一实例（同进程无需两份大数组，
         # 象棋旧配置双份合计 ~14GB）；默认容量也跟 config 对齐
         self.buffer = buffer if buffer is not None else ReplayBuffer(settings['buffer_size'], 2048)
@@ -150,41 +148,6 @@ class TrainServer(InferenceEngine):
             self.model_index = iteration
         self.fit_logger.info(f"Evaluation model updated to {iteration}.")
 
-    def _migrate_opt_state(self, device) -> None:
-        """Adam 动量状态跟着参数搬家（optimizer state 里的张量不会随 .to() 自动迁移）"""
-        for group in self.optimizer.param_groups:
-            for p in group['params']:
-                for k, v in self.optimizer.state.get(p, {}).items():
-                    if torch.is_tensor(v):
-                        self.optimizer.state[p][k] = v.to(device)
-
-    def _fit_device_this_round(self):
-        """fit 与常驻大模型进程（LLM 大脑等）共卡的水位仲裁：
-        推理只有 forward，引擎驻留额启动时已占好；fit 额外要梯度+Adam 矩+激活（~3 倍），
-        是水位波动下第一个被挤爆的。开轮前预留不足就直接 CPU 练一轮（mini 量级可接受），
-        下轮水宽裕了自动回 GPU——训练进程绝不因显存竞争而死。"""
-        cur = next(self.fit_model.parameters()).device
-        if not torch.cuda.is_available():
-            return torch.device('cpu') if cur.type != 'cuda' else cur
-        need = sum(p.numel() for p in self.fit_model.parameters()) * 4 * 3.3 + (512 << 20)
-        try:
-            free, _ = torch.cuda.mem_get_info(0)
-        except Exception:                       # noqa: BLE001 探测失败按"宽裕"赌一把，轮内有 OOM 兜底
-            free = need
-        if cur.type == 'cuda' and free < need:
-            self.fit_logger.warning(f'fit 显存预留不足（空闲 {free / 2**30:.1f}G < 需 ~{need / 2**30:.1f}G）：'
-                                    f'本轮 fit 改走 CPU，下轮自动重试 GPU')
-            self.fit_model.to('cpu'); self._migrate_opt_state('cpu')
-            return torch.device('cpu')
-        if cur.type == 'cpu' and free >= need:
-            try:
-                self.fit_model.to(self._fit_pref_device); self._migrate_opt_state(self._fit_pref_device)
-                self.fit_logger.info(f'显存回宽：fit 回迁 {self._fit_pref_device}')
-                return self._fit_pref_device
-            except (torch.cuda.OutOfMemoryError, RuntimeError):
-                self.fit_model.to('cpu')
-        return cur
-
     def fit(self, n_collected_samples: int, iteration: int, reload_buffer: bool = True,
             val_buffer: ReplayBuffer | None = None) -> str:
         """从buffer中获取数据，训练神经网络。
@@ -203,7 +166,7 @@ class TrainServer(InferenceEngine):
         # 设备跟随 fit_model 自身参数，**绝不读全局 CONFIG['device']**：
         # 评估阶段的守擂引擎加载失败会 _degrade_cpu 改写全局（推理端同款事故，见 engine.py 注释），
         # 全局一旦被污染，数据与权重就会分裂在两个设备上崩溃
-        fit_device = self._fit_device_this_round()
+        fit_device = next(self.fit_model.parameters()).device
         for step in range(n_training_steps):
             # 批量数据获取
             states, pis, zs = self.buffer.get_batch()
@@ -217,49 +180,41 @@ class TrainServer(InferenceEngine):
                 f" std:{torch.std(zs).item():>7.4f},"
                 f" v[:3]: {','.join(f'{i.item():>8.4f}' for i in zs[:3])}"
             )
-            try:
-    # 模型前向推理：WDL 架构取三头 logits，期望分 = p_win - p_loss
-                from core.network.archs.resnet_wdl import expected_score, zld_to_class
-                is_wdl = getattr(self.fit_model, 'is_wdl', False)
-                if is_wdl:
-                    policy_logits, wdl_logits = self.fit_model.forward_wdl(states)
-                    values = expected_score(wdl_logits)
-                else:
-                    policy_logits, values = self.fit_model(states)
-                self.fit_logger.info(
-                    f"pred v mean: {torch.mean(values).item():>7.4f},"
-                    f" std:{torch.std(values).item():>7.4f},"
-                    f" v[:3]: {','.join(f'{i.item():>8.4f}' for i in values[:3])}"
-                )
+            # 模型前向推理：WDL 架构取三头 logits，期望分 = p_win - p_loss
+            from core.network.archs.resnet_wdl import expected_score, zld_to_class
+            is_wdl = getattr(self.fit_model, 'is_wdl', False)
+            if is_wdl:
+                policy_logits, wdl_logits = self.fit_model.forward_wdl(states)
+                values = expected_score(wdl_logits)
+            else:
+                policy_logits, values = self.fit_model(states)
+            self.fit_logger.info(
+                f"pred v mean: {torch.mean(values).item():>7.4f},"
+                f" std:{torch.std(values).item():>7.4f},"
+                f" v[:3]: {','.join(f'{i.item():>8.4f}' for i in values[:3])}"
+            )
 
-                # 交叉熵损失，使policy的结果趋近mcts模拟出来的pi，[B,H*W]->scalar
-                policy_loss = - torch.sum(pis * torch.log_softmax(policy_logits, dim=1), dim=1).mean()
-                # value loss：WDL 向胜/和/负结局分类做交叉熵（z∈{-1,0,1} 即类标）；
-                # 老架构对期望分做 MSE 回归
-                if is_wdl:
-                    # 权重系数必需：CE 量级（~1.6）是 MSE（~0.1）的十几倍，直接相加会让 value
-                    # 从总 loss 的 4% 配角变 33% 主梯度；而单局 z 是带噪目标根本拟合不动，
-                    # 溢出的噪声梯度全灌进共享 trunk，把 policy 特征搅浑（WDL 首夜实测：
-                    # Val KL 0.29~0.43 → 0.73~0.84，52~74 代雪崩）。0.1 拉回 MSE 时代的梯度占比。
-                    value_loss = CONFIG['value_loss_weight'] * \
-                        torch.nn.functional.cross_entropy(wdl_logits, zld_to_class(zs))
-                else:
-                    value_loss = torch.nn.functional.mse_loss(values, zs)
+            # 交叉熵损失，使policy的结果趋近mcts模拟出来的pi，[B,H*W]->scalar
+            policy_loss = - torch.sum(pis * torch.log_softmax(policy_logits, dim=1), dim=1).mean()
+            # value loss：WDL 向胜/和/负结局分类做交叉熵（z∈{-1,0,1} 即类标）；
+            # 老架构对期望分做 MSE 回归
+            if is_wdl:
+                # 权重系数必需：CE 量级（~1.6）是 MSE（~0.1）的十几倍，直接相加会让 value
+                # 从总 loss 的 4% 配角变 33% 主梯度；而单局 z 是带噪目标根本拟合不动，
+                # 溢出的噪声梯度全灌进共享 trunk，把 policy 特征搅浑（WDL 首夜实测：
+                # Val KL 0.29~0.43 → 0.73~0.84，52~74 代雪崩）。0.1 拉回 MSE 时代的梯度占比。
+                value_loss = CONFIG['value_loss_weight'] * \
+                    torch.nn.functional.cross_entropy(wdl_logits, zld_to_class(zs))
+            else:
+                value_loss = torch.nn.functional.mse_loss(values, zs)
 
-                # 用总的损失进行反向梯度更新
-                loss = policy_loss + value_loss
-                self.optimizer.zero_grad()  # 清空旧梯度
-                loss.backward()  # 反向传播
+            # 用总的损失进行反向梯度更新
+            loss = policy_loss + value_loss
+            self.optimizer.zero_grad()  # 清空旧梯度
+            loss.backward()  # 反向传播
 
-                torch.nn.utils.clip_grad_norm_(self.fit_model.parameters(), max_norm=1.0)  # 将梯度范数裁剪到1.0
-                self.optimizer.step()  # 更新参数
-            except torch.OutOfMemoryError:
-                # 水位在开轮判定之后又被挤爆：就地转 CPU 续跑本轮（重跑该 step）
-                torch.cuda.empty_cache()
-                self.fit_logger.warning('fit 中途 CUDA OOM：本轮转 CPU 继续，训练进程不死')
-                fit_device = torch.device('cpu')
-                self.fit_model.to('cpu'); self._migrate_opt_state('cpu')
-                continue
+            torch.nn.utils.clip_grad_norm_(self.fit_model.parameters(), max_norm=1.0)  # 将梯度范数裁剪到1.0
+            self.optimizer.step()  # 更新参数
 
             # 记录数据到tensorboard
             self.writer.add_scalar('Loss/total', loss.item(), self.total_steps_trained)
