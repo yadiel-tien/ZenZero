@@ -508,7 +508,7 @@ function renderLegend(id, cfg){
   lg.innerHTML = series.map((s) => {
     const last = s.pts[s.pts.length - 1];
     const val = s.fmtLast ? s.fmtLast(last[1]) : fmt(last[1], 2);
-    const sw = s.dash ? `border:1px dashed ${s.color};background:transparent` : `background:${s.color}`;
+    const sw = s.dash ? `background:repeating-linear-gradient(90deg, ${s.color} 0 5px, transparent 5px 9px)` : `background:${s.color}`;
     return `<span><i style="${sw}"></i>${s.name || ''}<b>${val}</b></span>`;
   }).join('');
 }
