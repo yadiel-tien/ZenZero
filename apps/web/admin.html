@@ -556,6 +556,7 @@ function draw(id, cfg){
 function card(k,v,s){ return `<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s||''}</div></div>`; }
 function renderSnapshot(s){
   const L=s.live||{}, inf=L.infer||{}, fit=L.fit||{}, ev=L.eval||{}, hw=s.hardware||{}, tr=s.trainer||{};
+  const PHASE_CN = {fill:'蓄仓对局', selfplay:'自博弈采集', fit:'模型训练', eval:'守擂评估', idle:'待命'};
   const last=(s.rounds||[]).slice(-1)[0]||{}, sp=last.selfplay||{}, gpu=hw.gpu;
   // Buffer：优先用心跳里的实时值（整轮会一直在涨），没有才退回上一轮 perf 记录
   const sims = (s.heartbeat && s.heartbeat.sims_per_move) || sp.sims_per_move;
@@ -565,6 +566,12 @@ function renderSnapshot(s){
   const inferStale = (inf.age_s||0) > 15;
   const gpmLive = (L.gpm !== undefined && L.gpm !== null) ? L.gpm : null;
   $('cards').innerHTML = [
+    card('当前阶段 · ' + (tr.running ? (PHASE_CN[L.phase] || L.phase || '待命') : '未运行'),
+         '第 ' + fmt(L.iteration || last.iteration || 0, 0) + ' 代',
+         tr.running ? ((L.progress && L.progress.done != null)
+             ? `${L.progress.done} / ${L.progress.total || '?'} ${L.phase === 'fit' ? '步' : '局'}` : '心跳中…')
+             : '去「训练」页启动',
+         '本轮正在做什么（自博弈攒数据 → 训练网络 → 守擂赛），以及当前模型代数。'),
     card('引擎吞吐', fmt(inf.req_s,0)+' <span style="font-size:11px">req/s</span>',
          (inferStale? `日志 ${fmt(inf.age_s,0)}s 未更新 · ` : '') +
          'batch 均值 '+fmt(inf.batch,0)+' · 排队 '+fmt(inf.pending,0),
@@ -619,7 +626,7 @@ function renderSnapshot(s){
   if(!running){
     txt = '未运行' + (tr.exit_code!=null? ` · 上次退出码 ${tr.exit_code}` : '');
   } else {
-    txt = ph + (p && p.done!=null? ` ${p.done}/${p.total||'?'}` : '');
+    txt = (PHASE_CN[ph] || ph) + (p && p.done!=null? ` ${p.done}/${p.total||'?'}` : '');
     if(L.source === 'heartbeat') txt += ` · 心跳 ${fmt(L.age_s,1)}s 前`;
     else if((L.age_s||0) > 30){ chip += ' stalled'; txt += ` · 日志 ${fmt(L.age_s,0)}s 未更新`; }
   }
