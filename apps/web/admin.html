@@ -612,8 +612,9 @@ function renderSnapshot(s){
     card('Buffer', buf.size==null? '—' : (buf.capacity? `${(buf.size/1000).toFixed(1)}k<span style="font-size:12px;color:var(--dim)"> / ${(buf.capacity/1000).toFixed(0)}k</span>` : fmt(buf.size,0)),
          (buf.capacity? `样本 ${(100*buf.size/buf.capacity).toFixed(0)}% 满 · ` : '样本 · ') + (buf.live? '实时' : '上轮记录'),
          '训练池样本数 / 容量。满了会淘汰最旧的样本。数值来自训练进程心跳，轮内实时增长。'),
-    card('已完成轮数', fmt((s.rounds||[]).length,0)+' 轮', '第 '+fmt(L.iteration||last.iteration,0)+' 代 · 每轮 '+fmt(s.meta.games_per_round,0)+' 局',
-         '完成的自博弈 + 训练轮数（跨重启累计）。“代”是模型版本号，每完成一轮加 1。'),
+    card('已完成轮数', fmt((s.rounds||[]).filter(r=>r.profile===s.meta.profile).length,0)+' 轮',
+         '当前网络 '+fmt(s.meta.profile,0)+' 的循环数 · 全部网络累计 '+fmt((s.rounds||[]).length,0)+' 轮 · 每轮 '+fmt(s.meta.games_per_round,0)+' 局',
+         '一轮 = 自博弈+训练+守擂一个循环。守擂失败的重练会多计轮次，所以轮数可大于代数。'),
   ].join('');
   $('appver').textContent = 'v' + (s.meta.version || '?');
   $('appver').title = '应用版本（构建 ' + (s.meta.revision || '未知') + '）· 表示/网络/模型代数见下行';
