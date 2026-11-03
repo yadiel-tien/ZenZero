@@ -88,7 +88,7 @@
   .panel h2 .lg{font-weight:400;font-size:11px;color:var(--dim)}
   .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--dim);margin:-2px 0 5px}
   .legend span{display:inline-flex;align-items:center;gap:5px}
-  .legend i{width:11px;height:3px;border-radius:2px;display:inline-block}
+  .legend i{width:20px;height:3px;border-radius:2px;display:inline-block;flex:none}
   .legend b{color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums}
   .runfilter{display:flex;gap:4px 14px;align-items:center;flex-wrap:wrap;margin:2px 0 10px;font-size:12px;color:var(--dim)}
   .runfilter .rf-lb{font-weight:600;color:var(--fg)}
@@ -508,7 +508,7 @@ function renderLegend(id, cfg){
   lg.innerHTML = series.map((s) => {
     const last = s.pts[s.pts.length - 1];
     const val = s.fmtLast ? s.fmtLast(last[1]) : fmt(last[1], 2);
-    const sw = s.dash ? `background:repeating-linear-gradient(90deg, ${s.color} 0 5px, transparent 5px 9px)` : `background:${s.color}`;
+    const sw = s.dash ? `background:repeating-linear-gradient(90deg, ${s.color} 0 6px, transparent 6px 10px)` : `background:${s.color}`;
     return `<span><i style="${sw}"></i>${s.name || ''}<b>${val}</b></span>`;
   }).join('');
 }
