@@ -96,7 +96,22 @@ def list_runs(game: str | None = None) -> list[dict]:
         except ValueError:
             continue
         d, t = m['date'], m['time']
-        out.append({'name': name, 'game': m['game'], 'start': start,
+        # 会话标签（train_server 启动时写入 session.txt：名字/kind/起始代数）；
+        # 老 run 无此文件 → 归入"未分组"，各成一条会话线
+        sess, kind, start_iter = '未分组', None, None
+        try:
+            with open(os.path.join(base, name, 'session.txt'), encoding='utf-8') as f:
+                lines = f.read().splitlines()
+            if lines and lines[0].strip():
+                sess = lines[0].strip()
+            if len(lines) > 1 and lines[1].strip():
+                kind = lines[1].strip()
+            if len(lines) > 2 and lines[2].lstrip('-').isdigit():
+                start_iter = int(lines[2])
+        except OSError:
+            pass
+        out.append({'name': name, 'game': m['game'], 'start': start, 'session': sess,
+                    'kind': kind, 'start_iter': start_iter,
                     'start_iso': f'{d[:4]}-{d[4:6]}-{d[6:]} {t[:2]}:{t[2:4]}:{t[4:]}'})
     out.sort(key=lambda r: r['start'])
     return out
@@ -315,7 +330,7 @@ class TensorBoardReader:
             self._cache = out
             return self._cache
 
-    def series_by_run(self, game: str | None = None, max_runs: int = 6,
+    def series_by_run(self, game: str | None = None, max_runs: int = 14,
                       max_points: int = 300, force: bool = False) -> dict:
         """**按训练批次**的标量曲线（不跨 run 合并，各批次保留自己的 step 序列）。
 
@@ -703,7 +718,7 @@ class Monitor:
             'crashes': self._crashes(),
         }
 
-    def series(self, max_runs: int = 6) -> dict:
+    def series(self, max_runs: int = 14) -> dict:
         """按训练批次返回曲线（每个批次一个自己的横轴，互不粘连）。
 
         返回：
@@ -758,6 +773,8 @@ class Monitor:
         runs_out = [{
             'name': run['name'], 'start': run['start'], 'start_iso': run['start_iso'],
             'profile': profiles.get(run['name']),
+            'session': run.get('session'), 'kind': run.get('kind'),
+            'start_iter': run.get('start_iter'),
             'n_rounds': len(groups.get(run['name']) or []),
             'running': bool(started_ts is not None and abs(run['start'] - started_ts) <= 30),
         } for run in reversed(kept)]

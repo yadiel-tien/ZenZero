@@ -39,8 +39,12 @@ _KNOB_ENV = {
     'sims_start': 'ZZ_SIMS_START',          # 每手模拟次数：起始
     'sims_end': 'ZZ_SIMS_END',              # 每手模拟次数：上限
     'win_threshold': 'ZZ_WIN_THRESHOLD',    # 守擂晋升阈值（百分数 40~90）
+    'session': 'ZZ_SESSION',                # 训练任务名：同名批次曲线归组显示
 }
+import re as _re
+_SESSION_OK = _re.compile(r'^[\w\u4e00-\u9fff\-+ .]{1,48}$')
 _STR_OK = {
+    'session': lambda v: bool(_SESSION_OK.match(v)),
     'buffer': lambda v: v == 'default' or v.startswith('default@') or
                         __import__('re').fullmatch(r'[a-z][a-z0-9_]{0,31}', v) is not None,
     'start_from': lambda v: v in ('auto', 'fresh') or v.isdigit(),

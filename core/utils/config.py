@@ -200,6 +200,8 @@ CONFIG: AppConfig = {
     'data_dir': str(ROOT_DIR / 'data'),
     'dirichlet': 0.25,  # 原 0.2 从未被读取（死配置）；对齐 deepMcts 此前硬编码的 0.25 后接通
     'base_url': 'http://127.0.0.1:5000/',  # 前端跨机地址仅作展示兜底（现行前端读 localStorage），勿填内网真实地址
+    # 训练任务名（ZZ_SESSION，控制台表单传入）：同名 run 的曲线在监控里并为一条会话
+    'session': (os.environ.get('ZZ_SESSION') or '').strip()[:48],
     'device': 'auto',  # 'auto' 自动探测 | 'cuda:0'/'mps'/'xpu'/'privateuse1'/'cpu' 显式指定; 环境变量 ZZ_DEVICE 优先
     'log_dir': str(ROOT_DIR / 'logs'),
     'runs_dir': str(ROOT_DIR / 'runs'),  # TensorBoard 根；测试/演练把此键指到临时目录，避免共享仓库路径互踩

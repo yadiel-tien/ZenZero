@@ -58,7 +58,16 @@ class TrainServer(InferenceEngine):
         self.load_checkpoint(self.model_index)
         # 可视化记录
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.writer = SummaryWriter(log_dir=os.path.join(CONFIG['runs_dir'], f'{self.env_name}_{timestamp}'))
+        runs_dir = os.path.join(CONFIG['runs_dir'], f'{self.env_name}_{timestamp}')
+        self.writer = SummaryWriter(log_dir=runs_dir)
+        # 会话标签：监控页按任务名归组曲线；kind=续训/从头（由加载到的起始代数判定）
+        try:
+            _kind = 'resume' if (self.model_index or -1) > 0 else 'fresh'
+            _name = CONFIG.get('session') or f"{self.env_name}-{_kind}-{timestamp[:9]}"
+            with open(os.path.join(runs_dir, 'session.txt'), 'w', encoding='utf-8') as _f:
+                _f.write(f"{_name}\n{_kind}\n{self.model_index}\n")
+        except OSError:
+            pass  # 标签缺失只影响分组显示，绝不打断训练
 
     def load_checkpoint(self, iteration: int) -> None:
         """读取并加载存档"""

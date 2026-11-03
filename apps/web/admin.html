@@ -97,6 +97,8 @@
   .runfilter .sw{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
   .runfilter .rf-now{color:var(--green);font-weight:600;font-size:10px}
   .runfilter .rf-all{color:var(--blue);cursor:pointer;font-size:11px;text-decoration:underline}
+  .panel.focus{outline:2px solid rgba(110,168,254,.55);outline-offset:-2px;border-radius:10px}
+  .panel.focus h2::after{content:" 建议关注";font-size:10px;color:#6ea8fe;font-weight:400;letter-spacing:1px}
   canvas{width:100%;height:160px;display:block}
   table{width:100%;border-collapse:collapse;font-size:12px}
   th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--thead);white-space:nowrap}
@@ -166,6 +168,7 @@
         <div class="field"><label>棋种</label><select id="f_game"><option>ChineseChess</option><option>Gomoku</option></select></div>
         <div class="field"><label>神经网络</label><select id="f_profile" title="决定权重与经验池输入形状；新增规模去下方「神经网络配置」"><option value="s">s</option><option value="m">m</option><option value="l">l</option></select></div>
         <div class="field"><label>经验池</label><select id="f_buffer" title="棋种级经验池：悬停看详情，末项新建"></select></div>
+        <div class="field"><label>任务名</label><input id="f_session" maxlength="48" placeholder="留空自动（棋种-类型-日期）" title="同名任务的历史 run 曲线在监控页合并成一条；重启/断点续启都归入本名"></div>
         <div class="field"><label>起点</label><select id="f_start" title="续训=接最强权重；从头=随机新网络(代数接续永不覆盖)；分叉=从指定代另起">
           <option value="" selected>续训</option>
           <option value="fresh">从头训练</option>
@@ -650,19 +653,60 @@ let RUN_STATE = {vis: null};      // null = 显示全部批次；否则为要显
 let RUN_COLOR = {};               // 批次名 → 颜色（每次 renderCharts 重算）
 function runColors(){ return [PAL.blue, PAL.green, PAL.orange, PAL.red, PAL.purple, PAL.yellow, '#2dd4bf', '#f472b6']; }
 function normSeries(d){
-  if (d && Array.isArray(d.runs)) return d;
-  const name = '__legacy__';
-  return {runs: [{name, start: 0, running: false, legacy: true}],
-          rounds: {[name]: (d || {}).rounds || {}}, tb: {[name]: (d || {}).tb || {}}};
+  let base = d;
+  if (!(d && Array.isArray(d.runs))) {           // 旧后端扁平格式 → 单"累计"会话
+    const name = '__legacy__';
+    base = {runs: [{name, start: 0, running: false, legacy: true, session: '累计'}],
+            rounds: {[name]: (d || {}).rounds || {}}, tb: {[name]: (d || {}).tb || {}}};
+  }
+  // 按任务名把 run 聚合成会话：rounds 沿会话累计轮次平移拼接，tb 按 step 归并排序
+  const byS = new Map();
+  for (const r of (base.runs || []).slice().sort((a,b)=>a.start-b.start)){
+    const key = (r.session && r.session !== '未分组') ? r.session : r.name;   // 没起名的保持一 run 一线
+    if (!byS.has(key)) byS.set(key, {name: key, start: r.start, running: false,
+                                     kind: r.kind || null, n_runs: 0, legacy: r.legacy,
+                                     named: key !== r.name, members: []});
+    const g = byS.get(key);
+    g.members.push(r); g.n_runs++; g.running = g.running || r.running;
+    g.start = Math.max(g.start, r.start || 0);
+    if (!g.kind && r.kind) g.kind = r.kind;
+  }
+  const sessions = [...byS.values()].sort((a,b)=>b.start-a.start);   // 新→旧
+  const rounds = {}, tb = {};
+  for (const g of sessions){
+    const rn = {}, tn = {};
+    let off = 0;
+    for (const r of g.members){                 // 旧→新顺序拼接
+      const rr = (base.rounds || {})[r.name] || {};
+      let maxIdx = 0;
+      for (const [m, pts] of Object.entries(rr)){
+        const arr = rn[m] || (rn[m] = []);
+        for (const [x, y] of pts){ arr.push([off + x, y]); if (x > maxIdx) maxIdx = x; }
+      }
+      off += maxIdx;
+      const tt = (base.tb || {})[r.name] || {};
+      for (const [m, pts] of Object.entries(tt)){
+        const mp = tn[m] || (tn[m] = new Map());
+        for (const [x, y] of pts) mp.set(x, y);
+      }
+    }
+    rounds[g.name] = Object.fromEntries(Object.entries(rn).map(([m,v])=>[m, v.sort((a,b)=>a[0]-b[0])]));
+    tb[g.name] = Object.fromEntries(Object.entries(tn).map(([m,v])=>[m, [...v].sort((a,b)=>a[0]-b[0])]));
+  }
+  return {runs: sessions, rounds, tb, hw: base.hw};
 }
 function runLabel(r){
   if (r.legacy) return '累计';
-  const dte = new Date(r.start * 1000), p = n => String(n).padStart(2, '0');
+  if (r.named){
+    const k = r.kind === 'resume' ? '↺续' : (r.kind === 'fresh' ? '✚新' : '');
+    return `${r.name}${k ? ' ' + k : ''}${r.n_runs > 1 ? ' ·' + r.n_runs + '启' : ''}`;
+  }
+  const dte = new Date((r.start || 0) * 1000), p = n => String(n).padStart(2, '0');
   return `${p(dte.getMonth()+1)}-${p(dte.getDate())} ${p(dte.getHours())}:${p(dte.getMinutes())}`;
 }
 function renderRunFilter(runs){
   const el = $('runfilter'); if(!el) return;
-  if(!runs || runs.length < 2){ el.innerHTML = ''; return; }
+  if(!runs || runs.length < 2){ el.innerHTML = ''; return; }   // 会话级聚合后通常只剩一两条
   const vis = RUN_STATE.vis;
   const boxes = runs.map(r => {
     const on = !vis || vis.has(r.name);
@@ -670,7 +714,7 @@ function renderRunFilter(runs){
       <span class="sw" style="background:${RUN_COLOR[r.name]||PAL.blue}"></span>${runLabel(r)}
       ${r.running?'<b class="rf-now">运行中</b>':''}</label>`;
   }).join('');
-  el.innerHTML = `<span class="rf-lb">批次</span>${boxes}
+  el.innerHTML = `<span class="rf-lb">任务</span>${boxes}
     ${vis!==null?'<a class="rf-all" href="javascript:void(0)">全部</a>':''}`;
   el.querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
     const all = new Set(runs.map(r => r.name));
@@ -703,7 +747,7 @@ function renderCharts(d){
   const perRun2 = (kind, m1, m2, n1, n2) => vis.flatMap(r => [
     {name: `${runLabel(r)} · ${n1}`, pts: kind === 'r' ? ptsR(r, m1) : ptsT(r, m1), color: colorOf(r)},
     {name: `${runLabel(r)} · ${n2}`, pts: kind === 'r' ? ptsR(r, m2) : ptsT(r, m2), color: colorOf(r), dash: [5,4]}]);
-  const XROUND = (runs0[0] && runs0[0].legacy) ? '累计轮数' : '轮次（本批次内）';
+  const XROUND = (runs0[0] && runs0[0].legacy) ? '累计轮数' : '轮次（会话内累计）';
   draw('c_gpm',{series:perRun('r','games_per_min'),fmtY:v=>v.toFixed(0),fmtLast:v=>v.toFixed(1),xLabel:XROUND});
   draw('c_batch',{series:perRun('r','batch_mean'),ymin:0,fmtY:v=>v.toFixed(0),xLabel:XROUND});
   draw('c_mcts',{series:perRun2('r','select_ms','wait_ms','选叶子','等推理返回'),
@@ -717,6 +761,12 @@ function renderCharts(d){
   draw('c_hw',{series:[{name:'CPU',pts:hp('cpu'),color:PAL.blue},{name:'GPU',pts:hp('gpu'),color:PAL.green},{name:'内存',pts:hp('mem'),color:PAL.orange}],
        ymin:0,ymax:100,fmtY:v=>v.toFixed(0),xLabel:'时间',xFmt:hwClock});
   ['c_gpm','c_batch','c_mcts','c_loss_p','c_loss_v','c_kl','c_win','c_hw'].forEach(attachChart);
+  // 最新会话的类型 → 自动圈出该看的曲线：续训盯"有没有退步"，新训盯"学得动不动"
+  const cur = runs0.find(r => r.running) || runs0[0];
+  const FOCUS = { resume: ['c_kl','c_win','c_loss_v'], fresh: ['c_loss_p','c_loss_v','c_gpm'] };
+  const set = new Set(FOCUS[(cur && cur.kind) || 'fresh'] || []);
+  for (const id of ['c_gpm','c_batch','c_mcts','c_loss_p','c_loss_v','c_kl','c_win','c_hw'])
+    document.getElementById(id)?.closest('.panel')?.classList.toggle('focus', set.has(id));
 }
 
 /* ---------- 资产 ---------- */
@@ -933,6 +983,8 @@ function launchOpts(){
     if(!n){ toast('「从指定代数分叉」需要填起始代数'); return null; }
     o.start_from = String(n);
   } else if(st){ o.start_from = st; }
+  const sv = $('f_session').value.trim();
+  if(sv) o.session = sv;
   const bufv = $('f_buffer').value;
   if(!bufv || bufv==='__new__'){ toast('经验池必须选择：选已有池或选「新建经验池」'); return null; }
   o.buffer = bufv;
