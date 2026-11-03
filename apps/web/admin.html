@@ -155,8 +155,8 @@
       <div class="panel"><h2>自博弈吞吐 <span class="lg">局/分钟</span></h2><canvas id="c_gpm"></canvas></div>
       <div class="panel"><h2>batch 大小 <span class="lg">每轮整轮均值</span></h2><canvas id="c_batch"></canvas></div>
       <div class="panel"><h2>模拟耗时 <span class="lg">选叶子 / 等推理 (ms)</span></h2><canvas id="c_mcts"></canvas></div>
-      <div class="panel"><h2>Loss · policy <span class="lg">train / val</span></h2><canvas id="c_loss_p"></canvas></div>
-      <div class="panel"><h2>Loss · value <span class="lg">train / val</span></h2><canvas id="c_loss_v"></canvas></div>
+      <div class="panel"><h2>Loss · policy <span class="lg">训练集 / 验证集</span></h2><canvas id="c_loss_p"></canvas></div>
+      <div class="panel"><h2>Loss · value <span class="lg">训练集 / 验证集</span></h2><canvas id="c_loss_v"></canvas></div>
       <div class="panel"><h2>策略 KL / 目标熵 <span class="lg">KL = 可学部分 · 熵 = 下限（CE = KL + 熵）</span></h2><canvas id="c_kl"></canvas></div>
       <div class="panel"><h2>评估胜率 <span class="lg">阈值 52%</span></h2><canvas id="c_win"></canvas></div>
       <div class="panel"><h2>硬件 <span class="lg">CPU / GPU / 内存 (%)</span></h2><canvas id="c_hw"></canvas></div>
@@ -773,14 +773,14 @@ function renderCharts(d){
   // 双指标图：每任务两条线（实线/虚线区分指标，颜色区分任务）
   const perRun2 = (kind, m1, m2, n1, n2) => vis.flatMap(r => [
     {name: `${pfx(r)}${n1}`, pts: kind === 'r' ? ptsR(r, m1) : ptsT(r, m1), color: colorOf(r)},
-    {name: `${pfx(r)}${n2}`, pts: kind === 'r' ? ptsR(r, m2) : ptsT(r, m2), color: colorOf(r), dash: [5,4]}]);
+    {name: `${pfx(r)}${n2}`, pts: kind === 'r' ? ptsR(r, m2) : ptsT(r, m2), color: colorOf(r), dash: [5,4]}]);   // n1/n2 用中文，val 不与 value 混
   const XROUND = (runs0[0] && runs0[0].legacy) ? '累计轮数' : '轮次（会话内累计）';
   draw('c_gpm',{series:perRun('r','games_per_min'),fmtY:v=>v.toFixed(0),fmtLast:v=>v.toFixed(1),xLabel:XROUND});
   draw('c_batch',{series:perRun('r','batch_mean'),ymin:0,fmtY:v=>v.toFixed(0),xLabel:XROUND});
   draw('c_mcts',{series:perRun2('r','select_ms','wait_ms','选叶子','等推理返回'),
        ymin:0,fmtY:v=>v.toFixed(1),fmtLast:v=>v.toFixed(2),xLabel:XROUND});
-  draw('c_loss_p',{series:perRun2('t','Loss/policy','Val/policy','train','val'),fmtY:v=>v.toFixed(2),xLabel:'训练步数（step，各批次各自计）'});
-  draw('c_loss_v',{series:perRun2('t','Loss/value','Val/value','train','val'),fmtY:v=>v.toFixed(3),xLabel:'训练步数（step，各批次各自计）'});
+  draw('c_loss_p',{series:perRun2('t','Loss/policy','Val/policy','训练集','验证集'),fmtY:v=>v.toFixed(2),xLabel:'训练步数（step，各批次各自计）'});
+  draw('c_loss_v',{series:perRun2('t','Loss/value','Val/value','训练集','验证集'),fmtY:v=>v.toFixed(3),xLabel:'训练步数（step，各批次各自计）'});
   draw('c_kl',{series:perRun2('t','Val/policy_kl','Val/policy_entropy','KL（可学部分）','目标熵（下限）'),
        ymin:0,fmtY:v=>v.toFixed(2),xLabel:'训练步数（step，各批次各自计）'});
   draw('c_win',{series:perRun('r','eval_win_rate'),ymin:0,ymax:1,hline:0.52,fmtY:v=>(v*100).toFixed(0)+'%',fmtLast:v=>(v*100).toFixed(1)+'%',xLabel:XROUND});
