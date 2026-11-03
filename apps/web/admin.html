@@ -655,7 +655,7 @@ function hwClock(v){
 /* 默认视图 = 只显示当前（运行中/最新）任务，其余折叠可选；选择记忆到 localStorage。
    vis: undefined=自动取最新会话；null=全部；Set=勾选集 */
 let RUN_STATE = {vis: undefined};
-const VIS_KEY = 'zz_runvis';
+const VIS_KEY = 'zz_runvis2';   // v2：代数轴+前世衔接默认视图上线，旧勾选自然作废一次
 try {
   const saved = JSON.parse(localStorage.getItem(VIS_KEY) || 'null');
   if (saved === 'ALL') RUN_STATE.vis = null;
@@ -685,20 +685,19 @@ function normSeries(d){
     g.members.push(r); g.n_runs++; g.running = g.running || r.running;
     g.start = Math.max(g.start, r.start || 0);
     if (!g.kind && r.kind) g.kind = r.kind;
+    if (r.start_iter != null && (g.start_iter == null || r.start_iter < g.start_iter)) g.start_iter = r.start_iter;
   }
-  const sessions = [...byS.values()].sort((a,b)=>b.start-a.start);   // 新→旧
+  let sessions = [...byS.values()].sort((a,b)=>b.start-a.start);   // 新→旧
   const rounds = {}, tb = {};
   for (const g of sessions){
     const rn = {}, tn = {};
-    let off = 0;
     for (const r of g.members){                 // 旧→新顺序拼接
       const rr = (base.rounds || {})[r.name] || {};
-      let maxIdx = 0;
+      const iters = ((rr.iteration) || []).map(p => p[1]);   // 该 run 每轮的绝对代数
       for (const [m, pts] of Object.entries(rr)){
         const arr = rn[m] || (rn[m] = []);
-        for (const [x, y] of pts){ arr.push([off + x, y]); if (x > maxIdx) maxIdx = x; }
+        pts.forEach(([x, y], i) => arr.push([iters[i] != null ? iters[i] : x, y]));   // x=代数
       }
-      off += maxIdx;
       const tt = (base.tb || {})[r.name] || {};
       for (const [m, pts] of Object.entries(tt)){
         const mp = tn[m] || (tn[m] = new Map());
@@ -707,6 +706,30 @@ function normSeries(d){
     }
     rounds[g.name] = Object.fromEntries(Object.entries(rn).map(([m,v])=>[m, v.sort((a,b)=>a[0]-b[0])]));
     tb[g.name] = Object.fromEntries(Object.entries(tn).map(([m,v])=>[m, [...v].sort((a,b)=>a[0]-b[0])]));
+  }
+  // ——「前世」单线：当前任务（运行中或最新）之前的代数记录按代数去重合并（后写覆盖先写），
+  //     只收代数 < 本任务起始代数的点（昨晚毒段等不并入，留在折叠区单独可选）
+  const cur = sessions.find(g => g.running) || sessions[0];
+  const g0 = cur && cur.start_iter;
+  if (g0) {
+    const elder = sessions.filter(g => g !== cur);
+    const Rm = {}; const ptsBy = {};
+    let any = false, earliest = 0;
+    for (const g of elder.slice().sort((a,b)=>a.start-b.start)){       // 旧→新，后写覆盖
+      const rr = rounds[g.name] || {};
+      for (const [m, pts] of Object.entries(rr)){
+        if (m === 'iteration') continue;
+        const mp = Rm[m] || (Rm[m] = new Map());
+        for (const [x, y] of pts) if (x < g0){ mp.set(x, y); any = true; if (x > earliest) earliest = x; }
+      }
+    }
+    if (any) {
+      const NAME = '前世';
+      for (const [m, mp] of Object.entries(Rm)) ptsBy[m] = [...mp].sort((a,b)=>a[0]-b[0]);
+      rounds[NAME] = ptsBy; tb[NAME] = {};
+      sessions = [{name: NAME, start: cur.start, running: false, kind: null,
+                   n_runs: elder.length, legacy: false, named: true, elder: true, members: []}, ...sessions];
+    }
   }
   return {runs: sessions, rounds, tb, hw: base.hw};
 }
@@ -747,11 +770,12 @@ function renderCharts(d){
   refreshPalette();
   const d0 = normSeries(d);
   let runs0 = d0.runs || [];                      // 后端顺序：新 → 旧
-  // 自动默认：只看运行中（没有则最新）的任务；存的勾选已不存在（run 被归档）则回自动
+  // 自动默认：当前任务 + 被它续训的历史任务（有代数 < 本任务起始代数的数据），一条曲线接上前世
   if (RUN_STATE.vis !== null && (!runs0.length
       || RUN_STATE.vis === undefined || ![...RUN_STATE.vis].some(n => runs0.some(r => r.name === n)))) {
     const cur = runs0.find(r => r.running) || runs0[0];
-    RUN_STATE.vis = cur ? new Set([cur.name]) : null;
+    if (cur) { RUN_STATE.vis = new Set([cur.name]); const e = runs0.find(r => r.elder); if (e) RUN_STATE.vis.add(e.name); }
+    else RUN_STATE.vis = null;
   }
   runs0 = runs0.slice();
   const pal = runColors();
@@ -772,7 +796,7 @@ function renderCharts(d){
   const perRun2 = (kind, m1, m2, n1, n2) => vis.flatMap(r => [
     {name: `${pfx(r)}${n1}`, pts: kind === 'r' ? ptsR(r, m1) : ptsT(r, m1), color: colorOf(r)},
     {name: `${pfx(r)}${n2}`, pts: kind === 'r' ? ptsR(r, m2) : ptsT(r, m2), color: colorOf(r), dash: [5,4]}]);   // n1/n2 用中文，val 不与 value 混
-  const XROUND = (runs0[0] && runs0[0].legacy) ? '累计轮数' : '轮次（会话内累计）';
+  const XROUND = '代数（iteration）';
   draw('c_gpm',{series:perRun('r','games_per_min'),fmtY:v=>v.toFixed(0),fmtLast:v=>v.toFixed(1),xLabel:XROUND});
   draw('c_batch',{series:perRun('r','batch_mean'),ymin:0,fmtY:v=>v.toFixed(0),xLabel:XROUND});
   draw('c_mcts',{series:perRun2('r','select_ms','wait_ms','选叶子','等推理返回'),
