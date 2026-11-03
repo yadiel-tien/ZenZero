@@ -569,7 +569,7 @@ function renderSnapshot(s){
     card('当前阶段 · ' + (tr.running ? (PHASE_CN[L.phase] || L.phase || '待命') : '未运行'),
          '第 ' + fmt(L.iteration || last.iteration || 0, 0) + ' 代',
          tr.running ? ((L.progress && L.progress.done != null)
-             ? `${L.progress.done} / ${L.progress.total || '?'} ${L.phase === 'fit' ? '步' : '局'}` : '心跳中…')
+             ? `${L.progress.done} / ${L.progress.total || '?'} ${L.phase === 'fit' ? '步' : '局'} · 每轮 ${fmt(s.meta.games_per_round,0)} 局` : '心跳中…')
              : '去「训练」页启动',
          '本轮正在做什么（自博弈攒数据 → 训练网络 → 守擂赛），以及当前模型代数。'),
     card('引擎吞吐', fmt(inf.req_s,0)+' <span style="font-size:11px">req/s</span>',
@@ -612,9 +612,6 @@ function renderSnapshot(s){
     card('Buffer', buf.size==null? '—' : (buf.capacity? `${(buf.size/1000).toFixed(1)}k<span style="font-size:12px;color:var(--dim)"> / ${(buf.capacity/1000).toFixed(0)}k</span>` : fmt(buf.size,0)),
          (buf.capacity? `样本 ${(100*buf.size/buf.capacity).toFixed(0)}% 满 · ` : '样本 · ') + (buf.live? '实时' : '上轮记录'),
          '训练池样本数 / 容量。满了会淘汰最旧的样本。数值来自训练进程心跳，轮内实时增长。'),
-    card('已完成轮数', fmt((s.rounds||[]).filter(r=>r.profile===s.meta.profile).length,0)+' 轮',
-         '当前网络 '+fmt(s.meta.profile,0)+' 的循环数 · 全部网络累计 '+fmt((s.rounds||[]).length,0)+' 轮 · 每轮 '+fmt(s.meta.games_per_round,0)+' 局',
-         '一轮 = 自博弈+训练+守擂一个循环。守擂失败的重练会多计轮次，所以轮数可大于代数。'),
   ].join('');
   $('appver').textContent = 'v' + (s.meta.version || '?');
   $('appver').title = '应用版本（构建 ' + (s.meta.revision || '未知') + '）· 表示/网络/模型代数见下行';
