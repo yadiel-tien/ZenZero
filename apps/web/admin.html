@@ -1296,14 +1296,22 @@ async function loadBuffers(){
   if(pools.some(b=>b.ref===keep)) sel.value = keep;               // 默认停在第一个池（下拉无"不选"）
 }
 $('l_name').onchange = loadLog;
+// 记住训练表单的棋种+神经网络选择，下次打开自动回填
+for(const id of ['f_game','f_profile']) $(id).addEventListener('change', () => {
+  try{ localStorage.setItem('zz_last_target',
+    JSON.stringify({game: $('f_game').value, profile: $('f_profile').value})); }catch(e){}
+});
 window.addEventListener('resize', ()=>{ if(tab==='monitor') tickSeries(); });
 
 (async function boot(){
   try{
     const env = await api('/api/admin/env');
     const sug = env.suggested || {game: env.game, profile: env.profile};
-    $('f_game').value = sug.game; $('a_game').value = sug.game;
-    if([...$('f_profile').options].some(o=>o.value===sug.profile)){ $('f_profile').value = sug.profile; $('a_profile').value = sug.profile; }
+    let lastT = null;
+    try{ lastT = JSON.parse(localStorage.getItem('zz_last_target') || 'null'); }catch(e){}
+    const t = (lastT && lastT.game) ? lastT : sug;
+    $('f_game').value = t.game; $('a_game').value = t.game;
+    if([...$('f_profile').options].some(o=>o.value===t.profile)){ $('f_profile').value = t.profile; $('a_profile').value = t.profile; }
     if(env.workers) $('f_workers').value = env.workers;
     if(env.games_per_round) $('f_games').value = env.games_per_round;
     if(env.batch_leaves) $('f_leaves').value = env.batch_leaves;
@@ -1313,7 +1321,14 @@ window.addEventListener('resize', ()=>{ if(tab==='monitor') tickSeries(); });
     if(devs.some(d=>d.value===env.device)) $('f_device').value = env.device;
     $('launch_hint').textContent = `当前生效：${env.net.n_filters}x${env.net.n_res_blocks} · 线程 ${env.workers} · 每轮 ${env.games_per_round} 局 · K=${env.batch_leaves}`;
   }catch(e){ /* 忽略 */ }
-  loadProfiles(); loadBuffers();
+  await loadProfiles();
+  try{
+    const lastT = JSON.parse(localStorage.getItem('zz_last_target') || 'null');
+    if(lastT && [...$('f_profile').options].some(o=>o.value===lastT.profile)){
+      $('f_profile').value = lastT.profile; $('a_profile').value = lastT.profile;
+    }
+  }catch(e){}
+  loadBuffers();
   tick(); tickSeries();
   setInterval(tick, 2000);
   setInterval(()=>{ if(tab==='tasks') loadTasks(false); }, 5000);
