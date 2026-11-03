@@ -155,7 +155,7 @@
       <div class="panel"><h2>模拟耗时 <span class="lg">选叶子 / 等推理 (ms)</span></h2><canvas id="c_mcts"></canvas></div>
       <div class="panel"><h2>Loss · policy <span class="lg">训练集 / 验证集</span></h2><canvas id="c_loss_p"></canvas></div>
       <div class="panel"><h2>Loss · value <span class="lg">训练集 / 验证集</span></h2><canvas id="c_loss_v"></canvas></div>
-      <div class="panel"><h2>策略 KL / 目标熵 <span class="lg">KL = 可学部分 · 熵 = 下限（CE = KL + 熵）</span></h2><canvas id="c_kl"></canvas></div>
+      <div class="panel"><h2>策略 KL / 熵 <span class="lg" title="CE = KL + 熵：KL 是可学的差距，熵是教材自身不可约的不确定性，谁也压不到零">CE = KL + 熵</span></h2><canvas id="c_kl"></canvas></div>
       <div class="panel"><h2>评估胜率 <span class="lg">阈值 52%</span></h2><canvas id="c_win"></canvas></div>
       <div class="panel"><h2>硬件 <span class="lg">CPU / GPU / 内存 (%)</span></h2><canvas id="c_hw"></canvas></div>
     </div>
@@ -779,7 +779,7 @@ function renderCharts(d){
        ymin:0,fmtY:v=>v.toFixed(1),fmtLast:v=>v.toFixed(2),xLabel:XROUND});
   draw('c_loss_p',{series:perRun2('t','Loss/policy','Val/policy','训练集','验证集'),fmtY:v=>v.toFixed(2),xLabel:'训练步数（step，各批次各自计）'});
   draw('c_loss_v',{series:perRun2('t','Loss/value','Val/value','训练集','验证集'),fmtY:v=>v.toFixed(3),xLabel:'训练步数（step，各批次各自计）'});
-  draw('c_kl',{series:perRun2('t','Val/policy_kl','Val/policy_entropy','KL（可学部分）','目标熵（下限）'),
+  draw('c_kl',{series:perRun2('t','Val/policy_kl','Val/policy_entropy','KL','熵'),
        ymin:0,fmtY:v=>v.toFixed(2),xLabel:'训练步数（step，各批次各自计）'});
   draw('c_win',{series:perRun('r','eval_win_rate'),ymin:0,ymax:1,hline:0.52,fmtY:v=>(v*100).toFixed(0)+'%',fmtLast:v=>(v*100).toFixed(1)+'%',xLabel:XROUND});
   const hp=k=>(d0.hw||[]).filter(s=>s[k]!==null&&s[k]!==undefined).map(s=>[s.t,s[k]]);
