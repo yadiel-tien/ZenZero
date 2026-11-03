@@ -226,6 +226,8 @@ CONFIG: AppConfig = {
     'watch_every_games': 20,  # 终端战况播报：每 20 局一行（0 关）
     'watch_board_every_games': 20,  # 观战棋盘：每 M 局一张（0 关；开成 20 即每 20 局配一张棋盘）
     'win_threshold': 0.52,
+    # WDL 三分类 value 的 loss 权重（对齐 v1 时代 MSE 的梯度占比；仅 wdl 架构生效）
+    'value_loss_weight': 0.1,
     'stop_at_iter': None,          # 训练目标代数：None=无限；达标轮末优雅收尾（ZZ_STOP_AT_ITER）
     'game_name': 'ChineseChess'
 }

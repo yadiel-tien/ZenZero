@@ -43,18 +43,10 @@ class TrainServer(InferenceEngine):
                                  f'（value 头半迁移：不匹配的头重初始化，其余权重继承）')
         else:
             self.fit_model = build_arch(arch, cfg, eval_model=False)
-        # 优化器和学习率调解器。迁移轮分层 lr：继承来的 trunk/policy 用 1e-4 保身位
-        # （旧优化器动量已丢弃，全量 1e-3 会把继承特征一起晃散），value 头 1e-3 重校准
-        if self._arch_from:
-            head_ids = {id(p) for p in self.fit_model.value.parameters()}
-            self.optimizer = torch.optim.Adam([
-                {'params': [p for p in self.fit_model.parameters() if id(p) in head_ids], 'lr': 1e-3},
-                {'params': [p for p in self.fit_model.parameters() if id(p) not in head_ids], 'lr': 1e-4},
-            ], weight_decay=1e-4)
-        else:
-            self.optimizer = torch.optim.Adam(self.fit_model.parameters(),
-                                              lr=1e-3,
-                                              weight_decay=1e-4)
+        # 优化器和学习率调解器
+        self.optimizer = torch.optim.Adam(self.fit_model.parameters(),
+                                          lr=1e-3,
+                                          weight_decay=1e-4)
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=self.optimizer,
                                                                     T_max=settings['max_iters'], eta_min=1e-5)
         # 训练步数计数器
@@ -198,11 +190,12 @@ class TrainServer(InferenceEngine):
             # value loss：WDL 向胜/和/负结局分类做交叉熵（z∈{-1,0,1} 即类标）；
             # 老架构对期望分做 MSE 回归
             if is_wdl:
-                # label_smoothing 必需：单局结局 z 是局面真实胜负分布的一次带噪抽样
-                # （对等自博弈胜负近骰子），one-hot CE 会把每个噪声样本当全概率质量
-                # 强推到 ±1——一夜实测 value 过饱和、PUCT 被毒、policy KL 回涨 0.57→0.73。
-                value_loss = torch.nn.functional.cross_entropy(wdl_logits, zld_to_class(zs),
-                                                               label_smoothing=0.15)
+                # 权重系数必需：CE 量级（~1.6）是 MSE（~0.1）的十几倍，直接相加会让 value
+                # 从总 loss 的 4% 配角变 33% 主梯度；而单局 z 是带噪目标根本拟合不动，
+                # 溢出的噪声梯度全灌进共享 trunk，把 policy 特征搅浑（WDL 首夜实测：
+                # Val KL 0.29~0.43 → 0.73~0.84，52~74 代雪崩）。0.1 拉回 MSE 时代的梯度占比。
+                value_loss = CONFIG['value_loss_weight'] * \
+                    torch.nn.functional.cross_entropy(wdl_logits, zld_to_class(zs))
             else:
                 value_loss = torch.nn.functional.mse_loss(values, zs)
 
@@ -277,8 +270,8 @@ class TrainServer(InferenceEngine):
                     policy_logits, values = self.fit_model(states)
                 log_p = torch.log_softmax(policy_logits, dim=1)
                 policy_loss = - torch.sum(pis * log_p, dim=1).mean()
-                value_loss = (torch.nn.functional.cross_entropy(wdl_logits, zld_to_class(zs),
-                                                                label_smoothing=0.15)
+                value_loss = (CONFIG['value_loss_weight'] *
+                              torch.nn.functional.cross_entropy(wdl_logits, zld_to_class(zs))
                               if getattr(self.fit_model, 'is_wdl', False)
                               else torch.nn.functional.mse_loss(values, zs))
                 # 策略交叉熵有硬地板：CE >= H(pi)。目标越软（sims 越少）地板越高，
