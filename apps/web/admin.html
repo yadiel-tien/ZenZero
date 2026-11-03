@@ -571,7 +571,8 @@ function renderSnapshot(s){
   $('cards').innerHTML = [
     card('当前阶段 · ' + (tr.running ? (PHASE_CN[L.phase] || L.phase || '待命') : '未运行'),
          '第 ' + fmt(L.iteration || last.iteration || 0, 0) + ' 代'
-         + (s.best != null ? ` <span style="font-size:15px;font-weight:600;color:var(--dim)">· 最佳 ${s.best}</span>` : ''),
+         + ((s.best != null && s.best > -1 && s.best !== (L.iteration || last.iteration))
+             ? ` <span style="font-size:15px;font-weight:600;color:var(--dim)">· 最佳 ${s.best}</span>` : ''),
          tr.running ? ((L.progress && L.progress.done != null)
              ? `${L.progress.done} / ${L.progress.total || '?'} ${L.phase === 'fit' ? '步' : '局'} · 每轮 ${fmt(s.meta.games_per_round,0)} 局` : '心跳中…')
              : '去「训练」页启动',

@@ -84,6 +84,16 @@ def admin_page():
 def snapshot():
     snap = _m().snapshot()
     snap['trainer'] = _r().status()
+    # 最佳代数（擂主编号）：监控状态卡要区分"练到哪代"和"最强是哪代"
+    try:
+        from core.network.functions import read_best_index
+        meta = snap.get('meta') or {}
+        if meta.get('game') and meta.get('profile'):
+            snap['best'] = int(read_best_index(meta['game'], meta['profile']))
+        else:
+            snap['best'] = None
+    except Exception:                                 # noqa: BLE001 读不到不影响快照主体
+        snap['best'] = None
     return jsonify(snap)
 
 
