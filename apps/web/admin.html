@@ -102,8 +102,6 @@
   .runfilter .rf-more[open] summary{border-style:solid;color:var(--fg)}
   .runfilter .rf-more[open] .rf-more-in{display:inline-flex;flex-wrap:wrap;gap:4px 14px;margin-left:8px}
   .runfilter .rf-more:not([open]) .rf-more-in{display:none}
-  .panel.focus{outline:2px solid rgba(110,168,254,.55);outline-offset:-2px;border-radius:10px}
-  .panel.focus h2::after{content:" 建议关注";font-size:10px;color:#6ea8fe;font-weight:400;letter-spacing:1px}
   canvas{width:100%;height:160px;display:block}
   table{width:100%;border-collapse:collapse;font-size:12px}
   th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--thead);white-space:nowrap}
@@ -788,12 +786,6 @@ function renderCharts(d){
   draw('c_hw',{series:[{name:'CPU',pts:hp('cpu'),color:PAL.blue},{name:'GPU',pts:hp('gpu'),color:PAL.green},{name:'内存',pts:hp('mem'),color:PAL.orange}],
        ymin:0,ymax:100,fmtY:v=>v.toFixed(0),xLabel:'时间',xFmt:hwClock});
   ['c_gpm','c_batch','c_mcts','c_loss_p','c_loss_v','c_kl','c_win','c_hw'].forEach(attachChart);
-  // 最新会话的类型 → 自动圈出该看的曲线：续训盯"有没有退步"，新训盯"学得动不动"
-  const cur = runs0.find(r => r.running) || runs0[0];
-  const FOCUS = { resume: ['c_kl','c_win','c_loss_v'], fresh: ['c_loss_p','c_loss_v','c_gpm'] };
-  const set = new Set(FOCUS[(cur && cur.kind) || 'fresh'] || []);
-  for (const id of ['c_gpm','c_batch','c_mcts','c_loss_p','c_loss_v','c_kl','c_win','c_hw'])
-    document.getElementById(id)?.closest('.panel')?.classList.toggle('focus', set.has(id));
 }
 
 /* ---------- 资产 ---------- */
