@@ -503,12 +503,14 @@ function renderLegend(id, cfg){
     cv.parentNode.insertBefore(lg, cv);          // 放在标题和图之间
   }
   lg.style.display = 'flex';
+  const seen = new Set();          // 图例名只写一次，重复项剩色块+数值（颜色对筛选条）
   lg.innerHTML = series.map((s) => {
     const last = s.pts[s.pts.length - 1];
     const val = s.fmtLast ? s.fmtLast(last[1]) : fmt(last[1], 2);
     const sw = s.dash ? `background:repeating-linear-gradient(90deg, ${s.color} 0 6px, transparent 6px 10px)` : `background:${s.color}`;
     const tip = s.tip ? ` title="${esc(s.tip)}"` : '';
-    return `<span${tip}><i style="${sw}"></i>${s.name ? s.name + ' ' : ''}<b>${val}</b></span>`;
+    let nm = ''; if (s.name && !seen.has(s.name)) { seen.add(s.name); nm = s.name + ' '; }
+    return `<span${tip}><i style="${sw}"></i>${nm}<b>${val}</b></span>`;
   }).join('');
 }
 
@@ -797,10 +799,10 @@ function renderCharts(d){
   // 图例去任务名：颜色=任务（对照筛选条色块），线型=指标（实线/虚线）
   const perRun = (kind, m) => vis.map(r =>
     ({name: '', tip: runLabel(r), pts: kind === 'r' ? ptsR(r, m) : ptsT(r, m), color: colorOf(r)}));
-  // 双指标图：每任务两条线（实线/虚线区分指标，颜色区分任务）
-  const perRun2 = (kind, m1, m2, n1, n2) => vis.flatMap(r => [
-    {name: n1, tip: runLabel(r), pts: kind === 'r' ? ptsR(r, m1) : ptsT(r, m1), color: colorOf(r)},
-    {name: n2, tip: runLabel(r), pts: kind === 'r' ? ptsR(r, m2) : ptsT(r, m2), color: colorOf(r), dash: [5,4]}]);
+  // 双指标图：实线/虚线=指标、颜色=任务；同指标的任务排在一起（图例名去重只写一次）
+  const perRun2 = (kind, m1, m2, n1, n2) => [
+    ...vis.map(r => ({name: n1, tip: runLabel(r), pts: kind === 'r' ? ptsR(r, m1) : ptsT(r, m1), color: colorOf(r)})),
+    ...vis.map(r => ({name: n2, tip: runLabel(r), pts: kind === 'r' ? ptsR(r, m2) : ptsT(r, m2), color: colorOf(r), dash: [5,4]}))];
   const XROUND = '代数（iteration）';
   draw('c_gpm',{series:perRun('r','games_per_min'),fmtY:v=>v.toFixed(0),fmtLast:v=>v.toFixed(1),xLabel:XROUND});
   draw('c_batch',{series:perRun('r','batch_mean'),ymin:0,fmtY:v=>v.toFixed(0),xLabel:XROUND});
