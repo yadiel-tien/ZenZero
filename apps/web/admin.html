@@ -765,12 +765,15 @@ function renderCharts(d){
   const ptsR = (r, m) => ((d0.rounds[r.name]) || {})[m] || [];
   const ptsT = (r, m) => ((d0.tb[r.name]) || {})[m] || [];
   // 单指标图：每批次一条线（颜色区分批次）
+  // 只看一个任务时，图例省略冗长前缀：运行中就叫"运行中"，单指标图看历史才带会话名
+  const one = vis.length === 1;
+  const pfx = r => one ? '' : runLabel(r) + ' · ';
   const perRun = (kind, m) => vis.map(r =>
-    ({name: runLabel(r) + (r.running ? '（运行中）' : ''), pts: kind === 'r' ? ptsR(r, m) : ptsT(r, m), color: colorOf(r)}));
-  // 双指标图：每批次两条线（实线/虚线区分指标，颜色区分批次）
+    ({name: one ? (r.running ? '运行中' : runLabel(r)) : runLabel(r) + (r.running ? '（运行中）' : ''), pts: kind === 'r' ? ptsR(r, m) : ptsT(r, m), color: colorOf(r)}));
+  // 双指标图：每任务两条线（实线/虚线区分指标，颜色区分任务）
   const perRun2 = (kind, m1, m2, n1, n2) => vis.flatMap(r => [
-    {name: `${runLabel(r)} · ${n1}`, pts: kind === 'r' ? ptsR(r, m1) : ptsT(r, m1), color: colorOf(r)},
-    {name: `${runLabel(r)} · ${n2}`, pts: kind === 'r' ? ptsR(r, m2) : ptsT(r, m2), color: colorOf(r), dash: [5,4]}]);
+    {name: `${pfx(r)}${n1}`, pts: kind === 'r' ? ptsR(r, m1) : ptsT(r, m1), color: colorOf(r)},
+    {name: `${pfx(r)}${n2}`, pts: kind === 'r' ? ptsR(r, m2) : ptsT(r, m2), color: colorOf(r), dash: [5,4]}]);
   const XROUND = (runs0[0] && runs0[0].legacy) ? '累计轮数' : '轮次（会话内累计）';
   draw('c_gpm',{series:perRun('r','games_per_min'),fmtY:v=>v.toFixed(0),fmtLast:v=>v.toFixed(1),xLabel:XROUND});
   draw('c_batch',{series:perRun('r','batch_mean'),ymin:0,fmtY:v=>v.toFixed(0),xLabel:XROUND});
