@@ -158,6 +158,7 @@ class TrainingRunner:
         log_path = self.log_file                      # 统一格式：<模块>/console.log（追加，历次会话连贯）
         env = os.environ.copy()
         env['PYTHONUNBUFFERED'] = '1'
+        env.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')  # 共卡抗碎片（OOM 建议项）
         for key, env_name in _KNOB_ENV.items():
             if clean.get(key) not in (None, ''):
                 env[env_name] = str(clean[key])

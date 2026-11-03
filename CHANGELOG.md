@@ -6,6 +6,14 @@
 
 ## Unreleased
 
+- **fit 显存抗压（与常驻大模型共卡不再死）**：selfplay 推理是常驻 forward（启动占好额），
+  fit 每轮新分配梯度+Adam 矩+激活（~3 倍），LLM 水位波动下最先被挤爆——实锤：11-03 训练
+  51~54 代 fit 全成功，55 代 fit 撞上 strata 高水位 OOM 掉进程。三层防护：
+  ① 每轮 fit 开跑前探测空闲显存（预留 params×4B×3.3+0.5G），不足**本轮直接 CPU 训练**，
+     下轮水宽裕自动回迁 GPU；② 轮内真 OOM：清缓存、就地转 CPU 续跑（进程不死）；
+  ③ 训练子进程 env 注入 `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` 抗碎片。
+     Adam state 随模型跨设备迁移（`_migrate_opt_state`）。
+
 - **监控曲线按"任务名"会话化**：训练表单新增「任务名」（≤48 字，留空自动 `棋种-类型-日期`），
   同名任务的所有启动（重启/断点续启）曲线**合并为一条**——轮次横轴沿会话累计平移、TB 按 step 归并；
   每个 run 目录落 `session.txt`（名字/kind/起始代数），老 run 无标签照旧一 run 一线（时间名）。
