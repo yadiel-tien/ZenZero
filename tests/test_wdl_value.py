@@ -26,7 +26,7 @@ import torch  # noqa: E402
 import torch.nn.functional as F  # noqa: E402
 
 from core.network import registry  # noqa: E402
-from core.network.archs.resnet_wdl import WdlNet, expected_score, zld_to_class  # noqa: E402
+from core.network.archs.resnet_wdl import WdlNet, expected_score, wdl_class  # noqa: E402
 from core.utils.config import CONFIG  # noqa: E402
 
 TINY = {'in_channels': 4, 'n_filters': 8, 'n_res_blocks': 1, 'n_cells': 20,
@@ -55,9 +55,9 @@ def test_forward_contract():
     assert torch.equal(pol, pol2)
 
 
-def test_zld_to_class():
+def test_wdl_class():
     z = torch.tensor([1.0, 0.5, 0.0, -0.3, -1.0])
-    assert zld_to_class(z).tolist() == [2, 1, 1, 1, 0]
+    assert wdl_class(z).tolist() == [2, 1, 1, 1, 0]
 
 
 def test_envelope_roundtrip():
@@ -107,7 +107,7 @@ def test_ce_signal_reaches_value_head():
     pol_logits, _ = net(x)
     pi_soft = torch.rand(4, 30)
     pi_soft = pi_soft / pi_soft.sum(dim=1, keepdim=True)
-    loss = (F.cross_entropy(wdl, zld_to_class(z))
+    loss = (F.cross_entropy(wdl, wdl_class(z))
             - (pi_soft * F.log_softmax(pol_logits, dim=1)).sum(dim=1).mean())
     opt.zero_grad()
     loss.backward()

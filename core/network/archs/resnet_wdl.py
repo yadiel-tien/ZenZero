@@ -7,7 +7,7 @@
 契约：
 - forward(x) -> (policy_logits, value)：与 resnet_v1 完全同形，engine/MCTS 零改动；
 - forward_wdl(x) -> (policy_logits, wdl_logits)：训练侧专用；
-- logit 顺序 [负, 平, 胜]，与 z∈{-1,0,+1} 的标签映射 zld_to_class 一致；
+- logit 顺序 [负, 平, 胜]，与 z∈{-1,0,+1} 的标签映射 wdl_class 一致；
 - 权重半迁移：与 resnet_v1 除 value.fc2 外全部同名同形，旧 ckpt 可 filtered load
   （trunk/policy 继承，value 头重初始化），见 train_server 的迁移加载。
 """
@@ -26,7 +26,10 @@ from ..registry import register
 CLASS_LOSS, CLASS_DRAW, CLASS_WIN = 0, 1, 2
 
 
-def zld_to_class(z: Tensor) -> Tensor:
+def wdl_class(z: Tensor) -> Tensor:
+    """z > +0.5   → CLASS_WIN  (2)
+    z < -0.5   → CLASS_LOSS (0)
+    其余 [-0.5, +0.5] → CLASS_DRAW (1)  """
     return torch.where(z > 0.5, CLASS_WIN, torch.where(z < -0.5, CLASS_LOSS, CLASS_DRAW))
 
 

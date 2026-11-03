@@ -181,7 +181,7 @@ class TrainServer(InferenceEngine):
                 f" v[:3]: {','.join(f'{i.item():>8.4f}' for i in zs[:3])}"
             )
             # 模型前向推理：WDL 架构取三头 logits，期望分 = p_win - p_loss
-            from core.network.archs.resnet_wdl import expected_score, zld_to_class
+            from core.network.archs.resnet_wdl import expected_score, wdl_class
             is_wdl = getattr(self.fit_model, 'is_wdl', False)
             if is_wdl:
                 policy_logits, wdl_logits = self.fit_model.forward_wdl(states)
@@ -204,7 +204,7 @@ class TrainServer(InferenceEngine):
                 # 溢出的噪声梯度全灌进共享 trunk，把 policy 特征搅浑（WDL 首夜实测：
                 # Val KL 0.29~0.43 → 0.73~0.84，52~74 代雪崩）。0.1 拉回 MSE 时代的梯度占比。
                 value_loss = CONFIG['value_loss_weight'] * \
-                    torch.nn.functional.cross_entropy(wdl_logits, zld_to_class(zs))
+                    torch.nn.functional.cross_entropy(wdl_logits, wdl_class(zs))
             else:
                 value_loss = torch.nn.functional.mse_loss(values, zs)
 
@@ -272,7 +272,7 @@ class TrainServer(InferenceEngine):
                 states = torch.from_numpy(val_buffer.state_buffer[sl]).float().to(fit_device)
                 pis = torch.from_numpy(val_buffer.policy_buffer[sl]).float().to(fit_device)
                 zs = torch.from_numpy(val_buffer.value_buffer[sl]).float().to(fit_device)
-                from core.network.archs.resnet_wdl import zld_to_class
+                from core.network.archs.resnet_wdl import wdl_class
                 if getattr(self.fit_model, 'is_wdl', False):
                     policy_logits, wdl_logits = self.fit_model.forward_wdl(states)
                 else:
@@ -280,7 +280,7 @@ class TrainServer(InferenceEngine):
                 log_p = torch.log_softmax(policy_logits, dim=1)
                 policy_loss = - torch.sum(pis * log_p, dim=1).mean()
                 value_loss = (CONFIG['value_loss_weight'] *
-                              torch.nn.functional.cross_entropy(wdl_logits, zld_to_class(zs))
+                              torch.nn.functional.cross_entropy(wdl_logits, wdl_class(zs))
                               if getattr(self.fit_model, 'is_wdl', False)
                               else torch.nn.functional.mse_loss(values, zs))
                 # 策略交叉熵有硬地板：CE >= H(pi)。目标越软（sims 越少）地板越高，
