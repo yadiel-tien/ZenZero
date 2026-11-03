@@ -97,6 +97,11 @@
   .runfilter .sw{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
   .runfilter .rf-now{color:var(--green);font-weight:600;font-size:10px}
   .runfilter .rf-all{color:var(--blue);cursor:pointer;font-size:11px;text-decoration:underline}
+  .runfilter .rf-more{display:inline-flex;align-items:center}
+  .runfilter .rf-more summary{color:var(--dim);font-size:11.5px;cursor:pointer;list-style:none;padding:2px 8px;border:1px dashed var(--line);border-radius:8px}
+  .runfilter .rf-more[open] summary{border-style:solid;color:var(--fg)}
+  .runfilter .rf-more[open] .rf-more-in{display:inline-flex;flex-wrap:wrap;gap:4px 14px;margin-left:8px}
+  .runfilter .rf-more:not([open]) .rf-more-in{display:none}
   .panel.focus{outline:2px solid rgba(110,168,254,.55);outline-offset:-2px;border-radius:10px}
   .panel.focus h2::after{content:" 建议关注";font-size:10px;color:#6ea8fe;font-weight:400;letter-spacing:1px}
   canvas{width:100%;height:160px;display:block}
@@ -649,7 +654,19 @@ function hwClock(v){
    新后端 /api/admin/series 按批次嵌套返回（d.runs / d.rounds[name] / d.tb[name]）。
    每个批次一种颜色 + 图例，顶部批次筛选条可只看某一个批次（比如只看新开的训练）。
    旧后端（扁平 rounds/tb）合成一个"累计"伪批次，页面照旧可用。 */
-let RUN_STATE = {vis: null};      // null = 显示全部批次；否则为要显示的批次名集合
+/* 默认视图 = 只显示当前（运行中/最新）任务，其余折叠可选；选择记忆到 localStorage。
+   vis: undefined=自动取最新会话；null=全部；Set=勾选集 */
+let RUN_STATE = {vis: undefined};
+const VIS_KEY = 'zz_runvis';
+try {
+  const saved = JSON.parse(localStorage.getItem(VIS_KEY) || 'null');
+  if (saved === 'ALL') RUN_STATE.vis = null;
+  else if (Array.isArray(saved) && saved.length) RUN_STATE.vis = new Set(saved);
+} catch (e) { /* 坏了就回自动模式 */ }
+function saveVis(){
+  try { localStorage.setItem(VIS_KEY, RUN_STATE.vis === null ? 'ALL'
+       : RUN_STATE.vis === undefined ? 'null' : JSON.stringify([...RUN_STATE.vis])); } catch (e) {}
+}
 let RUN_COLOR = {};               // 批次名 → 颜色（每次 renderCharts 重算）
 function runColors(){ return [PAL.blue, PAL.green, PAL.orange, PAL.red, PAL.purple, PAL.yellow, '#2dd4bf', '#f472b6']; }
 function normSeries(d){
@@ -706,32 +723,39 @@ function runLabel(r){
 }
 function renderRunFilter(runs){
   const el = $('runfilter'); if(!el) return;
-  if(!runs || runs.length < 2){ el.innerHTML = ''; return; }   // 会话级聚合后通常只剩一两条
+  if(!runs || runs.length < 2){ el.innerHTML = ''; return; }
   const vis = RUN_STATE.vis;
-  const boxes = runs.map(r => {
-    const on = !vis || vis.has(r.name);
-    return `<label><input type="checkbox" ${on?'checked':''} data-run="${esc(r.name)}">
+  const box = r => `<label><input type="checkbox" ${(!vis||vis.has(r.name))?'checked':''} data-run="${esc(r.name)}">
       <span class="sw" style="background:${RUN_COLOR[r.name]||PAL.blue}"></span>${runLabel(r)}
       ${r.running?'<b class="rf-now">运行中</b>':''}</label>`;
-  }).join('');
-  el.innerHTML = `<span class="rf-lb">任务</span>${boxes}
-    ${vis!==null?'<a class="rf-all" href="javascript:void(0)">全部</a>':''}`;
+  const on  = runs.filter(r => !vis || vis.has(r.name)).map(box);
+  const off = runs.filter(r =>  vis && !vis.has(r.name)).map(box);
+  el.innerHTML = `<span class="rf-lb">任务</span>${on.join('')}`
+    + (off.length ? `<details class="rf-more"><summary>＋${off.length} 个历史</summary><span class="rf-more-in">${off.join('')}</span></details>` : '')
+    + (vis !== null ? '<a class="rf-all" href="javascript:void(0)">全部</a>' : '');
   el.querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
     const all = new Set(runs.map(r => r.name));
     const names = new Set([...el.querySelectorAll('input[data-run]')]
       .filter(i => i.dataset.run !== '__all__' && i.checked).map(i => i.dataset.run));
     RUN_STATE.vis = names.size === all.size ? null : names;   // 全勾 = 全部
+    saveVis();
     if(LAST_CHARTS) renderCharts(LAST_CHARTS);
   }));
   const allA = el.querySelector('.rf-all');
-  if(allA) allA.addEventListener('click', () => { RUN_STATE.vis = null; if(LAST_CHARTS) renderCharts(LAST_CHARTS); });
+  if(allA) allA.addEventListener('click', () => { RUN_STATE.vis = null; saveVis(); if(LAST_CHARTS) renderCharts(LAST_CHARTS); });
 }
 function renderCharts(d){
   LAST_CHARTS = d;
   refreshPalette();
   const d0 = normSeries(d);
-  const runs0 = d0.runs || [];                    // 后端顺序：新 → 旧
-  RUN_COLOR = {};
+  let runs0 = d0.runs || [];                      // 后端顺序：新 → 旧
+  // 自动默认：只看运行中（没有则最新）的任务；存的勾选已不存在（run 被归档）则回自动
+  if (RUN_STATE.vis !== null && (!runs0.length
+      || RUN_STATE.vis === undefined || ![...RUN_STATE.vis].some(n => runs0.some(r => r.name === n)))) {
+    const cur = runs0.find(r => r.running) || runs0[0];
+    RUN_STATE.vis = cur ? new Set([cur.name]) : null;
+  }
+  runs0 = runs0.slice();
   const pal = runColors();
   runs0.forEach((r, i) => RUN_COLOR[r.name] = pal[i % pal.length]);
   renderRunFilter(runs0);
