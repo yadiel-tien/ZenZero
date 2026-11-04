@@ -89,6 +89,19 @@
   .rz-item:hover{background:color-mix(in srgb, var(--blue) 10%, transparent)}
   .rz-item .mv{color:var(--dim);font-size:11px}
   .rz-item:hover .mv{color:var(--blue)}
+  .pchip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px 3px 8px;border-radius:999px;
+    border:1px solid var(--line);font-size:11.5px;white-space:nowrap;
+    background:linear-gradient(100deg,
+      color-mix(in srgb, var(--ca, #888) 16%, transparent) 0%,
+      color-mix(in srgb, var(--ca, #888) 4%, transparent) 42%,
+      color-mix(in srgb, var(--cb, #888) 4%, transparent) 58%,
+      color-mix(in srgb, var(--cb, #888) 16%, transparent) 100%)}
+  .pchip .pd{width:6px;height:6px;border-radius:50%}
+  .pchip .pvs{font-size:9px;color:var(--dim);letter-spacing:.6px;text-transform:uppercase;padding:0 2px}
+  .pchip b{font-weight:600;font-size:11.5px}
+  .pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:#3aa6a0;
+    box-shadow:0 0 0 0 rgba(58,166,160,.55);animation:pulse 1.6s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(58,166,160,.5)}70%{box-shadow:0 0 0 7px rgba(58,166,160,0)}100%{box-shadow:0 0 0 0 rgba(58,166,160,0)}}
   .chipbox{display:flex;flex-wrap:wrap;gap:4px;max-height:132px;overflow:auto}
   .chip{border:1px solid var(--line);border-radius:11px;padding:1px 9px;font-size:11px;cursor:pointer;user-select:none;background:var(--card)}
   .chip:hover{border-color:var(--blue)}
@@ -1521,7 +1534,7 @@ function renderArena(){
   // 直播
   const MODE_CN = {smart:'智能约架', gauntlet:'车轮战', duel:'自定义对决'};
   $('ar_status').innerHTML = here
-    ? `<span style="color:#3aa6a0">● 对阵中</span> · ${MODE_CN[st.mode]||''} · ${st.tables||''} 桌 · ${fmt(st.gpm,1)} 局/分`
+    ? `<span style="color:#3aa6a0"><span class="pulse" style="width:6px;height:6px;vertical-align:1px;margin-right:4px"></span>对阵中</span> · ${MODE_CN[st.mode]||''} · ${st.tables||''} 桌 · ${fmt(st.gpm,1)} 局/分`
     : (st.error ? `<span style="color:#c0392b">● 已中止</span>` : (hereDone ? `空闲 · 上批 ${st.done} 局打完` : '空闲'));
   $('ar_go').disabled = here;
   $('ar_go').textContent = here ? '对阵中…' : '开始';
@@ -1620,6 +1633,14 @@ async function arenaRoster(add, remove){
   if(!r.ok) toast(r.error||'名册操作失败',true);
   arenaFetch();
 }
+function pairChip(a,b){
+  const i1=a.lastIndexOf('/'), i2=b.lastIndexOf('/');
+  const ca=netColor(a.slice(0,i1)), cb=netColor(b.slice(0,i2));
+  return `<span class="pchip" style="--ca:${ca};--cb:${cb}">
+    <i class="pd" style="background:${ca}"></i><b style="color:${ca}">${esc(pretty(a))}</b>
+    <span class="pvs">vs</span>
+    <i class="pd" style="background:${cb}"></i><b style="color:${cb}">${esc(pretty(b))}</b></span>`;
+}
 function liveCard(here, hereDone, st, P, nm, FCOL){
   if(st.error && st.done !== undefined && !st.running)
     return `<div style="color:#c0392b;font-size:12.5px">✕ ${esc(st.error)}</div>` + (st.done? `<div class="hint" style="margin-top:6px">已完成的 ${st.done} 局计入榜单</div>`:'');
@@ -1636,17 +1657,17 @@ function liveCard(here, hereDone, st, P, nm, FCOL){
       <span>每批推理 <b>${fmt(infer.fwd_ms_mean,2)}ms</b></span>
       <span>引擎吞吐 <b>${fmt(infer.req_per_s,0)}</b> req/s</span>
       <span>设备 <b>${esc(st.device||'—')}</b></span></div>`;
-  const pairs = (st.pairs||[]).map(x=>`<span class="chip" style="cursor:default">${esc(pretty(x[0]))} <span style="color:var(--dim)">vs</span> ${esc(pretty(x[1]))}</span>`).join('');
+  const pairs = (st.pairs||[]).map(x=>pairChip(x[0],x[1])).join('');
   const duel = st.mode==='duel' && st.pair
     ? (()=>{ const [a,b]=st.pair, ea=expRate(P.find(x=>x.id===a)?.score, P.find(x=>x.id===b)?.score);
         return duelHtml(a,b,ea,st,FCOL,nm); })() : '';
   const head = `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <b style="font-size:13px">${here?'<span style="color:#3aa6a0">●</span> '+esc(mode)+' 进行中':'上批已结束'}</b>
+      <b style="font-size:13px">${here?'<span class="pulse"></span> '+esc(mode)+' 进行中':'上批已结束'}</b>
       <span class="hint" style="margin:0">第 ${doneN}/${total} 局 · ${pct}%</span>
       ${here&&st.started_ts?`<span class="hint" style="margin:0" id="ar_elapsed">已用 ${fmtElapsed(Date.now()/1000-st.started_ts)}</span>`:''}
       <span class="mono" style="margin-left:auto"><b style="color:#2e8b57">${w}</b> 胜 · <b style="color:#9a917d">${d}</b> 和 · <b style="color:#c0392b">${l}</b> 负</span></div>
     <div class="pb"><i style="width:${pct}%;background:#3aa6a0"></i></div>`;
-  return (duel || head) + (pairs? `<div style="margin-top:8px;display:flex;gap:5px;flex-wrap:wrap">${pairs}</div>`:'')
+  return (duel || head) + (pairs? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="hint" style="margin:0;font-size:10px;letter-spacing:.5px">本波对阵</span>${pairs}</div>`:'')
     + (st.feed&&st.feed.length? `<div style="margin-top:7px;display:flex;align-items:center;gap:8px"><span class="hint" style="margin:0">最近</span>${feedHtml(st.feed,FCOL)}</div>`:'')
     + metrics;
 }
