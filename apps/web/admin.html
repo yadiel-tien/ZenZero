@@ -263,7 +263,7 @@
     <div class="cards" id="cards"></div>
     <div class="runfilter" style="margin:2px 0 0">
       <span class="rf-lb">棋种</span>
-      <select id="mon_game" class="rf-sel"><option>ChineseChess</option><option>Gomoku</option></select>
+      <select id="mon_game" class="rf-sel" title="棋种"><option value="ChineseChess">中国象棋</option><option value="Gomoku">五子棋</option></select>
       <span class="rf-lb">网络</span>
       <select id="mon_profile" class="rf-sel"><option value="">全部</option></select>
       <span class="hint" id="mon_hint"></span>
@@ -288,7 +288,7 @@
       <h2>启动参数</h2>
       <div class="fsec">训练对象</div>
       <div class="row">
-        <div class="field"><label>棋种</label><select id="f_game"><option>ChineseChess</option><option>Gomoku</option></select></div>
+        <div class="field"><label>棋种</label><select id="f_game"><option value="ChineseChess">中国象棋</option><option value="Gomoku">五子棋</option></select></div>
         <div class="field"><label>神经网络</label><select id="f_profile" title="决定权重与经验池输入形状；新增规模去下方「神经网络配置」"><option value="s">s</option><option value="m">m</option><option value="l">l</option></select></div>
         <div class="field"><label>经验池</label><select id="f_buffer" title="棋种级经验池：悬停看详情，末项新建"></select></div>
         <div class="field"><label>任务名</label><input id="f_session" maxlength="48" placeholder="留空自动（棋种-类型-日期）" title="同名任务的历史 run 曲线在监控页合并成一条；重启/断点续启都归入本名"></div>
@@ -431,7 +431,7 @@
     <div class="panel" style="margin-bottom:12px">
       <h2>资产概览</h2>
       <div class="row">
-        <div class="field"><label>棋种</label><select id="a_game"><option>ChineseChess</option><option>Gomoku</option></select></div>
+        <div class="field"><label>棋种</label><select id="a_game"><option value="ChineseChess">中国象棋</option><option value="Gomoku">五子棋</option></select></div>
         <div class="field"><label>神经网络</label><select id="a_profile"><option value="s">s</option><option value="m">m</option><option value="l">l</option></select></div>
         <div class="field"><label>&nbsp;</label><button id="btn-refresh-art">刷新</button></div>
       </div>
@@ -845,7 +845,7 @@ function renderSnapshot(s){
   ].join('');
   $('appver').textContent = 'v' + (s.meta.version || '?');
   $('appver').title = '应用版本（构建 ' + (s.meta.revision || '未知') + '）· 表示/网络/模型代数见下行';
-  window.__meta = `${s.meta.game} · ${s.meta.profile} · ${s.meta.device} · ${s.meta.net.n_filters}x${s.meta.net.n_res_blocks}`
+  window.__meta = `${GAME_CN(s.meta.game)} · ${s.meta.profile} · ${s.meta.device} · ${s.meta.net.n_filters}x${s.meta.net.n_res_blocks}`
       + ` · K=${s.meta.batch_leaves}` + (sims? ` · ${fmt(sims,0)} sims/手` : '');
   renderStrip(s);
   window.__lastProgress = L.progress || {};
@@ -1500,6 +1500,7 @@ async function taskShowLog(name){
 /* ================= 竞技场 ================= */
 const NET_C = {mini:'#4a90d9', mini2:'#3aa6a0', s:'#e08a4e', m:'#9575cd'};
 let ARENA = {game:'ChineseChess', arena:'default', ranks:null, state:{running:false}, prev:null, timer:null};
+const GAME_CN = g => ({ChineseChess:'中国象棋', Gomoku:'五子棋'})[g] || g;
 const pretty = id => String(id).replace('/', ' v');
 /* 选手键排序：网络名升序，同网络代数降序（大的在上，数字比较非字符串） */
 const kpf = id => id.slice(0, id.lastIndexOf('/')), kix = id => +id.slice(id.lastIndexOf('/') + 1);
@@ -1614,7 +1615,7 @@ async function rosterModal(){
   const R=ARENA.ranks||{}; const cand=R.candidates||[]; const roster=new Set((R.players||[]).map(p=>p.id));
   const box=document.createElement('div'); box.className='mask';
   box.innerHTML=`<div class="dlg" style="width:min(660px,94vw)">
-    <h3>名册管理 <span class="hint" style="font-weight:400">${esc(ARENA.game)} · ${esc(ARENA.arena)} — 点条目左右移动，改动即时保存</span></h3>
+    <h3>名册管理 <span class="hint" style="font-weight:400">${esc(GAME_CN(ARENA.game))} · ${esc(ARENA.arena)} — 点条目左右移动，改动即时保存</span></h3>
     <div class="rz-grid">
       <div class="rz-col"><div class="rz-h">
         <button class="mini" data-all="1">全部入册</button>
