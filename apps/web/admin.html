@@ -70,6 +70,12 @@
   #cards .card:nth-child(3){order:9}  #cards .card:nth-child(6){order:10}
   #cards .card:nth-child(10){order:11} #cards .card:nth-child(13){order:12}
   #cards .card:nth-child(11){order:13} #cards .card:nth-child(12){order:14}
+  .hb{height:3px;border-radius:2px;background:rgba(128,128,128,.16);margin-top:5px;overflow:hidden}
+  .hb i{display:block;height:100%;border-radius:2px;transition:width .5s ease}
+  .ss{display:flex;height:3px;border-radius:2px;overflow:hidden;margin-top:5px;background:rgba(128,128,128,.12)}
+  .ss i{height:100%;transition:width .5s ease}
+  .spk{vertical-align:-4px;margin-left:6px}
+  .ph-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:2px}
   .pb{height:3px;border-radius:2px;background:rgba(128,128,128,.18);margin-top:4px;overflow:hidden}
   .pb i{display:block;height:100%;background:var(--blue);border-radius:2px;transition:width .5s ease}
   .v .ok{color:#2e8b57} .v .bad{color:#c0392b}
@@ -613,10 +619,30 @@ function gauge(pct, label, colorOverride){
   </svg>`;
 }
 function card(k,v,s){ return `<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s||''}</div></div>`; }
+/* 迷你图形件：spark 折线 / hb 单进度条 / ss 堆叠占比条 */
+function spark(arr, color, w=64, h=20){
+  arr = (arr||[]).filter(v=>v!=null && isFinite(v));
+  if (arr.length < 3) return '';
+  const lo = Math.min(...arr), hi = Math.max(...arr), sp = hi - lo || 1;
+  const pts = arr.map((v,i)=>`${(i/(arr.length-1)*w).toFixed(1)},${(h-2-(v-lo)/sp*(h-4)).toFixed(1)}`).join(' ');
+  return `<svg class="spk" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="${color||'var(--blue)'}" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
+}
+function hb(pct, color){ return `<div class="hb"><i style="width:${Math.max(0,Math.min(100,pct)).toFixed(0)}%;background:${color||'var(--blue)'}"></i></div>`; }
+function ss(segs){ const t = segs.reduce((a,x)=>a+x[0],0) || 1;
+  return `<div class="ss">${segs.map(x=>`<i style="width:${(100*x[0]/t).toFixed(1)}%;background:${x[1]}"></i>`).join('')}</div>`; }
 function renderSnapshot(s){
   const L=s.live||{}, inf=L.infer||{}, fit=L.fit||{}, ev=L.eval||{}, hw=s.hardware||{}, tr=s.trainer||{};
   const PHASE_CN = {fill:'蓄仓对局', selfplay:'自博弈采集', fit:'模型训练', eval:'守擂评估', idle:'待命'};
   const last=(s.rounds||[]).slice(-1)[0]||{}, sp=last.selfplay||{}, gpu=hw.gpu;
+  const RD = (s.rounds||[]).slice(-14);
+  const ser = f => RD.map(r=>{ try { return f(r); } catch(e){ return null; } });
+  const gpmSer = ser(r=>r.selfplay && r.selfplay.games_per_min);
+  const reqSer = ser(r=>r.selfplay && r.selfplay.infer && r.selfplay.infer.req_per_s);
+  const fwdSer = ser(r=>r.selfplay && r.selfplay.infer && r.selfplay.infer.fwd_ms_mean);
+  const selSer = ser(r=>r.selfplay && r.selfplay.mcts && r.selfplay.mcts.select_ms_per_sim);
+  const waitSer = ser(r=>r.selfplay && r.selfplay.mcts && r.selfplay.mcts.wait_ms_per_sim);
+  const PHASE_C = {fill:'#3aa6a0', selfplay:'#4a90d9', fit:'#e08a4e', eval:'#7e57c2', idle:'#9a917d'};
+  const phColor = PHASE_C[L.phase] || '#9a917d';
   // Buffer：优先用心跳里的实时值（整轮会一直在涨），没有才退回上一轮 perf 记录
   const sims = (s.heartbeat && s.heartbeat.sims_per_move) || sp.sims_per_move;
   const buf = (L.buffer && L.buffer.size != null)
@@ -626,7 +652,7 @@ function renderSnapshot(s){
   const gpmLive = (L.gpm !== undefined && L.gpm !== null) ? L.gpm : null;
   $('cards').innerHTML = [
     card('当前阶段 · ' + (tr.running ? (PHASE_CN[L.phase] || L.phase || '待命') : '未运行'),
-         '第 ' + fmt(L.iteration || last.iteration || 0, 0) + ' 代'
+         `<span class="ph-dot" style="background:${tr.running ? phColor : '#9a917d'}${tr.running?';box-shadow:0 0 6px '+phColor+'66':''}"></span>第 ` + fmt(L.iteration || last.iteration || 0, 0) + ' 代'
          + ((s.best != null && s.best > -1 && s.best !== (L.iteration || last.iteration))
              ? ` <span style="font-size:15px;font-weight:600;color:var(--dim)">· 最佳 ${s.best}</span>` : '')
          + (tr.running && L.progress && L.progress.total
@@ -635,21 +661,24 @@ function renderSnapshot(s){
              ? `${L.progress.done}/${L.progress.total || '?'} ${L.phase === 'fit' ? '步' : '局'} · 每轮${fmt(s.meta.games_per_round,0)}` : '心跳中…')
              : '去训练页启动',
          '本轮正在做什么（自博弈攒数据 → 训练网络 → 守擂赛），以及当前模型代数。'),
-    card('引擎吞吐', fmt(inf.req_s,0)+' <span style="font-size:11px">req/s</span>',
+    card('引擎吞吐', fmt(inf.req_s,0)+' <span style="font-size:11px">req/s</span>'+spark(reqSer,'#4a90d9',54,16),
          '批 '+fmt(inf.batch,0)+' · 队 '+fmt(inf.pending,0)+(inferStale? ` · ${fmt(inf.age_s,0)}s前`:''),
          '推理引擎每秒处理多少个局面（瞬时值，用相邻两条日志的 total 之差算）。batch 均值 = 每次前向一起算几个局面，越大越省 GPU。排队 = 已进队列、还没被凑进 batch 的请求数。'),
-    card('前向耗时', fmt(inf.fwd,2)+' ms', '凑批 '+fmt(inf.window,2)+' ms',
+    card('前向耗时', fmt(inf.fwd,2)+' ms'+spark(fwdSer,'#e08a4e',54,16), '凑批 '+fmt(inf.window,2)+' ms',
          '一次 GPU 前向要多久；凑批等待 = 为了凑出更大的 batch 而多等的毫秒数。GPU 每次前向有固定开销，所以 batch 越大，摊到每个局面上越便宜。'),
-    card('每手模拟', sims? fmt(sims,0) : '—', 'K='+ fmt(s.meta.batch_leaves,0),
+    card('每手模拟', (sims? fmt(sims,0) : '—') + (sims? hb(100*(sims-400)/400, '#3aa6a0') : ''),
+         'K='+ fmt(s.meta.batch_leaves,0) + ' · 爬坡 400→800',
          'MCTS 的每一步搜索多少次（随代数从 400 爬到 800）。K = 一手棋同时挂起的并行 leaf 数（virtual loss），决定 batch 能凑多大。'),
-    card('局/分钟', gpmLive!==null? fmt(gpmLive,1) : fmt(sp.games_per_min,1),
+    card('局/分钟', (gpmLive!==null? fmt(gpmLive,1) : fmt(sp.games_per_min,1)) + spark(gpmSer, phColor),
          (gpmLive!==null? '实时' : '上轮') + ' · '+fmt(sp.sims_per_s,0)+' sims/s',
          '自博弈吞吐。轮内按"已完成局数 ÷ 已用时间"实时算；没有心跳时退回上一轮的记录。看速度要同时看 sims/秒，因为每手模拟次数在爬坡。'),
-    card('单次模拟耗时', fmt((sp.mcts||{}).select_ms_per_sim,2)+' ms',
-         '选'+fmt((sp.mcts||{}).select_ms_per_sim,2)+' 等'+fmt((sp.mcts||{}).wait_ms_per_sim,2)+'（上轮）',
+    card('单次模拟耗时', fmt((sp.mcts||{}).select_ms_per_sim,2)+' ms'
+         + ss([[(sp.mcts||{}).select_ms_per_sim||0, '#4a90d9'], [(sp.mcts||{}).wait_ms_per_sim||0, '#e08a4e']]),
+         '<span style="color:#4a90d9">■</span>选叶子 <span style="color:#e08a4e">■</span>等推理（上轮）',
          '每模拟一次的时长，拆成"CPU 选叶子"和"等推理返回"两段。两者之比说明瓶颈在 CPU 搜索还是 GPU 推理。'),
     card('训练步数',
-         fit.batch_stale? '—' : (fit.step? fmt(fit.step,0) + (fit.fit_total_steps? `<span style="font-size:12px;color:var(--dim)"> / ${fmt(fit.fit_total_steps,0)}</span>`:'') : '—'),
+         (fit.batch_stale? '—' : (fit.step? fmt(fit.step,0) + (fit.fit_total_steps? `<span style="font-size:12px;color:var(--dim)"> / ${fmt(fit.fit_total_steps,0)}</span>`:'') : '—'))
+         + (!fit.batch_stale && fit.step && fit.fit_total_steps ? hb(100*fit.step/fit.fit_total_steps, '#e08a4e') : ''),
          fit.batch_stale
              ? `本批未训练 · 上批末步 ${fmt(fit.step,0)}`
              : (fit.loss!==undefined? `loss ${fmt(fit.loss,2)} · π ${fmt(fit.policy_loss,2)} · v ${fmt(fit.value_loss,3)}`
@@ -657,7 +686,7 @@ function renderSnapshot(s){
          '本轮 fit 已走的优化步数 / 本轮总步数（每轮约 8 遍 × Buffer ÷ batch = 1171 步）。loss 是最近一步的总损失，后面拆成 policy / value。'),
     card('验证集', (!fit.batch_stale && fit.val)?fmt(fit.val.policy,3):'—',
          fit.batch_stale? '本批未测 · 上批的别当真'
-         : (fit.val? `KL ${fmt(fit.val.kl,3)}` + (fit.val.kl!==undefined? ` · v ${fmt(fit.val.value,3)}`:'')
+         : (fit.val? `<span class="${fit.val.kl==null?'':fit.val.kl<0.40?'ok':fit.val.kl<0.55?'':'bad'}" ${fit.val.kl>=0.55?'':''}>KL ${fmt(fit.val.kl,3)}</span>` + (fit.val.kl!==undefined? ` · v ${fmt(fit.val.value,3)}`:'')
                   + (fit.val.n_samples? ` · ${fmt(fit.val.n_samples,0)} 样本`:'')
                   + (fit.val.stale? ' · 上一代' : ((fit.val.age_s||0) > 600? ` · ${fmt((fit.val.age_s||0)/60,0)}min前` : '')) : '—'),
          '验证集（holdout，永不参与训练）上的 loss。policy 是交叉熵，其中约 85% 是目标自身熵的下限，真正能学的是 KL。'
@@ -682,7 +711,8 @@ function renderSnapshot(s){
     card('内存', `<div class="cgv">${gauge((hw.mem||{}).pct||0)}</div>`,
          `${fmt((hw.mem||{}).used_gb,1)}/${fmt((hw.mem||{}).total_gb,1)} GB`,
          '物理内存占用（Buffer 常驻内存占大头）。'),
-    card('Buffer', buf.size==null? '—' : (buf.capacity? `${(buf.size/1000).toFixed(1)}k<span style="font-size:12px;color:var(--dim)"> / ${(buf.capacity/1000).toFixed(0)}k</span>` : fmt(buf.size,0)),
+    card('Buffer', (buf.size==null? '—' : (buf.capacity? `${(buf.size/1000).toFixed(1)}k<span style="font-size:12px;color:var(--dim)"> / ${(buf.capacity/1000).toFixed(0)}k</span>` : fmt(buf.size,0)))
+         + (buf.size!=null && buf.capacity? hb(100*buf.size/buf.capacity, buf.size/buf.capacity>0.95? '#7e57c2' : 'var(--blue)') : ''),
          (buf.capacity? `${(100*buf.size/buf.capacity).toFixed(0)}% 满 · ` : '') + (buf.live? '实时' : '上轮'),
          '训练池样本数 / 容量。满了会淘汰最旧的样本。数值来自训练进程心跳，轮内实时增长。'),
   ].join('');
