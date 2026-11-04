@@ -431,7 +431,7 @@
   function mkHuman(desc) { return { type: 'human', desc }; }
   function mkAI(sel) {
     const s = (sel && typeof sel === 'object') ? sel : { index: sel, profile: null };
-    return { type: 'ai', desc: `AI·${s.profile ? s.profile + '' : ''}v${s.index}`,
+    return { type: 'ai', desc: `AI·${s.profile ? s.profile + '·' : ''}v${s.index}`,
              modelId: s.index, profile: s.profile, pid: null, winRate: -1, wdl: null };
   }
 
@@ -507,7 +507,7 @@
     let nameHtml;
     if (p.type === 'ai') {
       const m = p.desc.match(/^(.*?)(v-?\d+)$/i);
-      nameHtml = m ? `${m[1]}<span class="si-ver">${m[2].slice(1) === '-1' ? '原生' : m[2].slice(1) + ' 代'}</span>` : p.desc;
+      nameHtml = m ? `${m[1].replace(/·$/, '')}<span class="si-ver">${m[2].slice(1) === '-1' ? '原生' : m[2].slice(1) + ' 代'}</span>` : p.desc;
     } else {
       nameHtml = p.desc;
     }
