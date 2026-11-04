@@ -97,6 +97,10 @@
   .runfilter .sw{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
   .runfilter .rf-now{color:var(--green);font-weight:600;font-size:10px}
   .runfilter .rf-all{color:var(--blue);cursor:pointer;font-size:11px;text-decoration:underline}
+  .fadv summary{cursor:pointer;user-select:none}
+  .fadv summary::before{content:"▸ ";color:var(--dim)}
+  .fadv[open] summary::before{content:"▾ "}
+  .fadv > .row{margin-top:8px}
   .rf-sel{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:6px;font-size:11.5px;padding:2px 6px;color-scheme:dark}
   .rf-sel option{background:var(--card);color:var(--fg)}
   :root[data-theme="light"] .rf-sel{color-scheme:light}
@@ -188,20 +192,21 @@
           <option value="fork">分叉</option></select></div>
         <div class="field hidden" id="f_startn_w"><label>分叉自第几代</label><input id="f_startn" type="number" min="1" placeholder="如 48"></div>
       </div>
-      <div class="fsec">运行资源</div>
+      <details class="fadv">
+        <summary class="fsec">资源与目标 · 全自动 <span class="hint" id="adv_now"></span></summary>
       <div class="row">
-        <div class="field"><label>自博弈线程</label><input id="f_workers" type="number" min="1" value="32" title="同时下棋的 MCTS 进程数"></div>
-        <div class="field"><label>每轮局数</label><input id="f_games" type="number" min="1" value="400" title="一轮=自博弈→训练→守擂 的完整循环"></div>
-        <div class="field"><label>并行 leaf 数 K</label><input id="f_leaves" type="number" min="1" value="12" title="一手棋同时挂起的推理请求数，决定 batch 大小"></div>
-        <div class="field"><label>batch 上限</label><input id="f_maxbatch" type="number" min="1" placeholder="默认256" title="推理引擎单批叶子数封顶"></div>
-        <div class="field"><label>推理设备</label><select id="f_device" title="自博弈与训练的神经网络计算跑在哪块设备"></select></div>
+        <div class="field"><label>自博弈线程</label><input id="f_workers" type="number" min="1" placeholder="自动" title="同时下棋的 MCTS 进程数；默认=核数×2（等推理时 CPU 是闲的）"></div>
+        <div class="field"><label>每轮局数</label><input id="f_games" type="number" min="1" placeholder="自动 400" title="一轮=自博弈→训练→守擂 的完整循环"></div>
+        <div class="field"><label>并行 leaf 数 K</label><input id="f_leaves" type="number" min="1" placeholder="自动 12" title="一手棋同时挂起的推理请求数，决定 batch 大小"></div>
+        <div class="field"><label>batch 上限</label><input id="f_maxbatch" type="number" min="1" placeholder="自动 2048" title="GPU 目标批；显存不足时自动对半退避，留空即可"></div>
+        <div class="field"><label>推理设备</label><select id="f_device" title="自博弈与训练的神经网络计算设备；默认自动（有 GPU 用 GPU）"></select></div>
       </div>
-      <div class="fsec">训练目标 <span style="letter-spacing:0;font-weight:400">留空即采用默认值</span></div>
       <div class="row">
         <div class="field"><label>练到第几代</label><input id="f_stopiter" type="number" min="1" placeholder="不限" title="达标那一轮完整结束后自动退出"></div>
         <div class="field"><label>模拟次数 起→止</label><span class="pair"><input id="f_sims0" type="number" min="10" placeholder="400" title="开局每手 MCTS 模拟数"><b>→</b><input id="f_sims1" type="number" min="10" placeholder="800" title="随代数线性爬升的上限"></span></div>
         <div class="field"><label>守擂胜率 %</label><input id="f_gate" type="number" min="40" max="90" placeholder="52" title="新模型战胜守擂者的比例须严格超过该值才晋升为最强；默认 52%"></div>
       </div>
+      </details>
       <div class="row" style="align-items:center;margin-top:14px">
         <div id="launch_hint" class="hint" style="flex:1;margin:0"></div>
         <button class="primary" id="btn-start2">启动训练</button>
@@ -1081,7 +1086,7 @@ function launchOpts(){
   if($('f_games').value) o.games_per_round = +$('f_games').value;
   if($('f_leaves').value) o.batch_leaves = +$('f_leaves').value;
   if($('f_maxbatch').value) o.max_batch = +$('f_maxbatch').value;
-  o.device = $('f_device').value;
+  if($('f_device').value) o.device = $('f_device').value;
   const st = $('f_start').value;
   if(st === 'fork'){
     const n = +$('f_startn').value;
@@ -1398,14 +1403,14 @@ window.addEventListener('resize', ()=>{ if(tab==='monitor') tickSeries(); });
     const t = (lastT && lastT.game) ? lastT : sug;
     $('f_game').value = t.game; $('a_game').value = t.game;
     if([...$('f_profile').options].some(o=>o.value===t.profile)){ $('f_profile').value = t.profile; $('a_profile').value = t.profile; }
-    if(env.workers) $('f_workers').value = env.workers;
-    if(env.games_per_round) $('f_games').value = env.games_per_round;
-    if(env.batch_leaves) $('f_leaves').value = env.batch_leaves;
-    if(env.max_batch) $('f_maxbatch').value = env.max_batch;
-    const devs = env.devices || [{value:'cuda:0',label:'cuda:0'},{value:'cpu',label:'cpu'}];
+    const devs = [{value:'', label:'自动（优先 GPU）'}].concat(env.devices || []);
     $('f_device').innerHTML = devs.map(d=>`<option value="${esc(d.value)}">${esc(d.label)}</option>`).join('');
-    if(devs.some(d=>d.value===env.device)) $('f_device').value = env.device;
-    $('launch_hint').textContent = `当前生效：${env.net.n_filters}x${env.net.n_res_blocks} · 线程 ${env.workers} · 每轮 ${env.games_per_round} 局 · K=${env.batch_leaves}`;
+    const adv = [];
+    if(env.workers){ $('f_workers').placeholder = '自动 ' + env.workers; adv.push(env.workers + ' 线程'); }
+    if(env.games_per_round){ $('f_games').placeholder = '自动 ' + env.games_per_round; adv.push('每轮 ' + env.games_per_round + ' 局'); }
+    if(env.batch_leaves){ $('f_leaves').placeholder = '自动 ' + env.batch_leaves; adv.push('K=' + env.batch_leaves); }
+    adv.push('batch 自适应', '设备自动');
+    $('adv_now').textContent = '（当前自动值：' + adv.join(' · ') + '）';
   }catch(e){ /* 忽略 */ }
   await loadProfiles();
   try{
