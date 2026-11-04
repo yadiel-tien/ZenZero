@@ -61,7 +61,9 @@ class AIServer(Player):
         root = mcts.root
         if root.n <= 0:
             return -1.0
-        search = root.w / root.n
+        # 符号约定（deepMcts.back_propagate 每层取反的归纳结果）：节点 w 累计的是
+        # “走进该节点那一方”的奖励——对 root 而言即【刚走完棋的对手】。取负才是 root 轮走方胜率。
+        search = -(root.w / root.n)
         v_net = getattr(root, 'v_net', None)
         if v_net is None:
             return (search + 1) / 2
