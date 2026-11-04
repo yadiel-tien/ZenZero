@@ -1781,8 +1781,10 @@ function updExpect(){ const P=(ARENA.ranks&&ARENA.ranks.players)||[];
   const a=P.find(x=>x.id===$('ar_p1').value), b=P.find(x=>x.id===$('ar_p2').value);
   const ea=expRate(a&&a.score, b&&b.score);
   $('ar_expect').textContent=`预期 ${(ea*100).toFixed(0)} : ${(100-ea*100).toFixed(0)}`; }
-function arenaPoll(on){ if(ARENA.timer){clearInterval(ARENA.timer);ARENA.timer=null;}
-  if(on) ARENA.timer=arenaFetch, setInterval(()=>{ if(tab==='arena') arenaFetch(); }, 3000); }
+function arenaPoll(on){
+  if(ARENA.timer){ clearInterval(ARENA.timer); ARENA.timer = null; }
+  if(on) ARENA.timer = setInterval(()=>{ if(tab==='arena') arenaFetch(); }, 1500);
+}
 $('ar_game').addEventListener('change',()=>{ ARENA.game=$('ar_game').value; ARENA.arena='default'; arenaReloadAll(); });
 $('ar_arena').addEventListener('change',()=>{ ARENA.arena=$('ar_arena').value; arenaReloadAll(); });
 $('ar_new').addEventListener('click',async()=>{ const name=await zzAsk({title:'新建竞技场',placeholder:'名字，如「宇宙对抗」「mini2 内战」',okText:'创建'}); if(!name) return;
@@ -1820,7 +1822,8 @@ function switchTab(name){
   if(name==='artifacts') loadArtifacts();
   if(name==='logs'){ loadLogList(); }
   if(name==='tasks') loadTasks(true);
-  if(name==='arena'){ $('ar_game').value=ARENA.game; arenaReloadAll(); }
+  if(name==='arena'){ $('ar_game').value=ARENA.game; arenaReloadAll(); arenaPoll(true); }
+  else arenaPoll(false);
 }
 document.querySelectorAll('nav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault(); switchTab(a.dataset.tab);}));
 async function tick(){
