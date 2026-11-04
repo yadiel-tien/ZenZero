@@ -664,10 +664,34 @@ class Monitor:
         except Exception:                                # noqa: BLE001 档位名不认识就退回默认
             net, profile = CONFIG[game_name]['default_net'], get_profile()
         from core.utils.version import __version__, revision
-        # 训练进程可以用 ZZ_BATCH_LEAVES 覆盖，面板配置只是默认值；心跳新鲜时以心跳为准
-        k = CONFIG.get('mcts_batch_leaves')
+        # K 的真相链：新鲜心跳 > 该网络最后一轮 perf 实测 > 面板进程配置。
+        # 面板 CONFIG 只是启动快照——训练进程用 env 覆盖、或被自适应调优中途改 K，
+        # 面板都不可能知道；训练停了心跳过期时，perf 末轮仍是"上一次实际跑的 K"。
+        k = None
         if rt and (rt.get('age_s') or 1e9) < 12 and rt.get('batch_leaves'):
             k = rt['batch_leaves']
+        else:
+            try:
+                import json as _json
+                ppath = os.path.join(CONFIG['log_dir'], '_state', 'perf.jsonl')
+                with open(ppath, 'rb') as f:
+                    f.seek(max(0, os.path.getsize(ppath) - 65536))
+                    tail = f.read().splitlines()
+                for line in reversed(tail):
+                    try:
+                        r = _json.loads(line)
+                    except ValueError:
+                        continue        # 半行（进程写一半被杀）跳过
+                    if r.get('profile') != profile:
+                        continue
+                    kb = (r.get('selfplay') or {}).get('batch_leaves')
+                    if kb:
+                        k = kb
+                    break
+            except OSError:
+                pass
+        if k is None:
+            k = CONFIG.get('mcts_batch_leaves')
         return {'version': __version__, 'revision': revision(),
                 'game': game, 'profile': profile, 'profile_source': src,
                 'device': CONFIG.get('device'), 'net': net,
