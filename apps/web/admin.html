@@ -1733,12 +1733,7 @@ function liveCard(here, hereDone, st, P, nm, FCOL){
   const total = st.total || 0, doneN = st.done || 0;
   const pct = total ? Math.round(100*doneN/total) : 0;
   const mode = {smart:'智能约架', gauntlet:'车轮战', duel:'自定义对决'}[st.mode]||st.mode||'';
-  const metrics = `<div class="hint" style="margin-top:7px;display:flex;gap:14px;flex-wrap:wrap">
-      <span>桌数 <b>${esc(String(st.tables==null?'—':st.tables))}</b></span>
-      <span>均批 <b>${fmt(infer.batch_recent_mean||infer.batch_mean,0)}</b></span>
-      <span>每批推理 <b>${fmt(infer.fwd_ms_mean,2)}ms</b></span>
-      <span>引擎吞吐 <b>${fmt(infer.req_per_s,0)}</b> req/s</span>
-      <span>设备 <b>${esc(st.device||'—')}</b></span></div>`;
+
   const pairs = (st.pairs||[]).map(x=>pairChip(x[0],x[1])).join('');
   const duel = st.mode==='duel' && st.pair
     ? (()=>{ const [a,b]=st.pair, ea=expRate(P.find(x=>x.id===a)?.score, P.find(x=>x.id===b)?.score);
@@ -1755,8 +1750,7 @@ function liveCard(here, hereDone, st, P, nm, FCOL){
         const duelMode = st.mode==='duel';
         const legend = duelMode ? '绿=甲方胜 · 灰=和 · 红=甲方负' : '蓝=决胜局 · 灰=和棋';
         return `<div style="margin-top:7px;display:flex;align-items:center;gap:8px"><span class="hint" style="margin:0">全批进程</span>${feedHtml(st.feed, FCOL, !duelMode)}<span class="hint" style="margin:0;font-size:10px">${legend}</span></div>`;
-      })() : '')
-    + metrics;
+      })() : '');
 }
 // decisiveOnly=true（智能约架/车轮战）：配对每局都换，胜负归属无统一点义，
 // 只讲"决胜/和棋"才不撒谎；duel 才用甲乙方胜负三色。
