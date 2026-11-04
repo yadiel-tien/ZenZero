@@ -220,9 +220,14 @@ CONFIG: AppConfig = {
     #   24 线程 47.3k / 32 线程 46.9k / 32×K16 49.7k / 40 线程 44.8k / 48 线程 38.0k
     #   → 32 附近是甜点，64 线程反而只有 35.9k（比 32 少 28%，超订后上下文切换吃掉了收益）。
     # 在飞请求 = 局数 × K = 32 × 12 = 384 > max_batch 256，够喂满引擎。
-    'selfplay_workers': min(128, (os.cpu_count() or 8) * 2),  # 自博弈 worker 常阻塞在等推理上，2× 核数填缝；ZZ_WORKERS 可覆写
+    # 自博弈 worker 全程阻塞在等推理上，实测 4× 核数才能把推理队列喂满（32 核→128，
+    # 2026-11-04 A/B：64→24局/分、128→92局/分）；ZZ_WORKERS 可覆写
+    'selfplay_workers': min(192, (os.cpu_count() or 8) * 4),
     'selfplay_games_per_round': 400,
-    'mcts_batch_leaves': 12,
+    # 每手并行 playout 数：不只是“批量”，更是每手搜索的往返次数——K 越大往返越少。
+    # 2026-11-04 A/B：K=12→24→32→64 对应 24→36→44→92 局/分（GPU 全程 <20%）；
+    # 再大反而更慢（batch>3000 时前向/凑批延迟翻倍，192线程×K64 掉到 60）。
+    'mcts_batch_leaves': 64,
     'val_holdout_ratio': 0.02,
     'val_buffer_name': 'val_buffer.pkl',
     'watch_every_games': 20,  # 终端战况播报：每 20 局一行（0 关）

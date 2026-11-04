@@ -664,12 +664,16 @@ class Monitor:
         except Exception:                                # noqa: BLE001 档位名不认识就退回默认
             net, profile = CONFIG[game_name]['default_net'], get_profile()
         from core.utils.version import __version__, revision
+        # 训练进程可以用 ZZ_BATCH_LEAVES 覆盖，面板配置只是默认值；心跳新鲜时以心跳为准
+        k = CONFIG.get('mcts_batch_leaves')
+        if rt and (rt.get('age_s') or 1e9) < 12 and rt.get('batch_leaves'):
+            k = rt['batch_leaves']
         return {'version': __version__, 'revision': revision(),
                 'game': game, 'profile': profile, 'profile_source': src,
                 'device': CONFIG.get('device'), 'net': net,
                 'games_per_round': CONFIG.get('selfplay_games_per_round'),
                 'win_threshold': CONFIG.get('win_threshold'),
-                'batch_leaves': CONFIG.get('mcts_batch_leaves')}
+                'batch_leaves': k}
 
     def _heartbeat(self) -> dict | None:
         """训练进程自己写的心跳（logs/runtime.json）——面板的实时真源。"""
