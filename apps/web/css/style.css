@@ -489,7 +489,7 @@ body {
 .wr-block { display: grid; grid-template-columns: 56px 1fr 52px; align-items: center; gap: 8px; }
 .wr-block .p-label { margin: 0; }
 /* 三段色板：红黑双方各自定义，条与图例共用同一组变量保证一致 */
-.wr-block { --c-w: linear-gradient(90deg, var(--red-2), #d04a2a); --c-d: #bdb29a; --c-l: #8d8371; }
+.wr-block { --c-w: linear-gradient(90deg, var(--red-2), #d04a2a); --c-d: #bdb29a; --c-l: linear-gradient(90deg, #333, #111); }
 .wr-block + .wr-block { --c-w: linear-gradient(90deg, #555, #111); --c-l: linear-gradient(90deg, #d04a2a, var(--red-2)); }
 /* 五子棋：胜=己方棋色（白子方白、黑子方黑），负=对方棋色，和=中性灰 */
 .wr-block.gomoku { --c-w: linear-gradient(90deg, #f6f3ec, #e3ddd0); --c-d: #a9a49b; --c-l: linear-gradient(90deg, #333, #111); }

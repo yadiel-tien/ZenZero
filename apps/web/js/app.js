@@ -454,8 +454,8 @@
       ({ HvH: '双人同屏 · 无需后端', HvAI: '人机对战', AIvAI: 'AI 观战' })[G.mode];
     $('board-wrap').classList.toggle('gomoku', G.name === 'Gomoku');
     $('board-img').src = G.name === 'ChineseChess' ? 'assets/graphics/chess/board.svg' : 'assets/graphics/gomoku/board.jpeg';
-    $('wr-label-0').textContent = cfg.sides[0];
-    $('wr-label-1').textContent = cfg.sides[1];
+    $('wr-label-0').textContent = cfg.sides[0] + '视角';
+    $('wr-label-1').textContent = cfg.sides[1] + '视角';
   }
 
   function renderControls() {
