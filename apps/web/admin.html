@@ -1780,8 +1780,9 @@ function pushHist(k, v){ if(v==null || !isFinite(v)) return; const h = window.__
   h.push(v); if(h.length > 24) h.shift(); }
 function inferCards(req, fwd, subA, subB){
   pushHist('req', req); pushHist('fwd', fwd);
-  const rc = req > 400 ? '#3aa6a0' : req > 150 ? '#4a90d9' : '#e08a4e';
-  const fc = fwd <= 8 ? '#3aa6a0' : fwd <= 15 ? '#e08a4e' : '#c0392b';
+  const idle = !req && !fwd;
+  const rc = idle ? 'var(--dim)' : req > 400 ? '#3aa6a0' : req > 150 ? '#4a90d9' : '#e08a4e';
+  const fc = idle ? 'var(--dim)' : fwd <= 8 ? '#3aa6a0' : fwd <= 15 ? '#e08a4e' : '#c0392b';
   return card('引擎吞吐',
             `<span style="color:${rc}">${fmt(req,0)}</span><span style="font-size:10px;color:var(--dim)"> req/s</span>`
             + spark(window.__INFHIST.req, rc, 42, 12),
@@ -1809,7 +1810,9 @@ function renderTask(){
                         `等凑批 ${fmt(inf.window,2)}ms`);
     go = 'monitor';
   } else {
-    cards = '';
+    // 卡片不随任务消失；但训练心跳里的吞吐是**上一轮的历史值**，空闲时必须归零，
+    // 否则会出现「402 req/s · 引擎空闲」的自相矛盾（2026-11-04 实测）。
+    cards += inferCards(0, 0, '引擎空闲 · 无推理流量', '等待任务启动');
   }
   box.innerHTML = cards;
   // 任务卡单独一组
@@ -1822,8 +1825,7 @@ function renderTask(){
     : card('任务', `<span class="tchip2" style="color:var(--dim)">未运行</span>`, '去竞技场或训练页启动任务');
   tbox.innerHTML = taskCard;
   tbox.dataset.go = go;
-  $('strip_div2').style.display = box.innerHTML.trim() ? '' : 'none';
-  box.style.display = box.innerHTML.trim() ? '' : 'none';
+
 }
 $('strip_task').addEventListener('click',()=>{
   const go = $('strip_task').dataset.go; if(go) switchTab(go);
