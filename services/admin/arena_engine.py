@@ -101,7 +101,21 @@ class ArenaEngine:
         if not str(CONFIG.get('device', '')).startswith('cuda') or not torch.cuda.is_available():
             return None
         try:
-            free, _ = torch.cuda.mem_get_info(torch.device(CONFIG['device']).index or 0)
+            idx = torch.device(CONFIG['device']).index or 0
+            # 上一批的空闲引擎/缓存会把 free 压低——先同步回收零引用引擎再还缓存，
+            # 否则预检把自己的残茶当外人，拒绝自己下一场（2026-11-04 实测误伤）。
+            for eng in list(self._cache.values()):
+                with eng.hub.lock:
+                    idle = [n for n, c in eng.hub.ref_counts.items() if c <= 0]
+                    for name in idle:
+                        e = eng.hub.engines.pop(name, None)
+                        eng.hub.ref_counts.pop(name, None)
+                        if e:
+                            try: e.shutdown()
+                            except Exception:              # noqa: BLE001
+                                pass
+            torch.cuda.empty_cache()
+            free, _ = torch.cuda.mem_get_info(idx)
         except Exception:                                  # noqa: BLE001
             return None
         need, detail = 0, []
@@ -112,9 +126,10 @@ class ArenaEngine:
                          if os.path.exists(os.path.join(d, f))), None)
             if not path:
                 continue
-            n = os.path.getsize(path) * 1.35 + 600 * 1024 * 1024
+            n = os.path.getsize(path) * 1.35          # 权重+激活驻留估算
             need += n
             detail.append((k, n))
+        need += 600 * 1024 * 1024                      # CUDA context + cuDNN workspace：整卡一次性，不是每模型
         if need > free * 0.95:
             top = '、'.join(f'{k}≈{n / 2 ** 30:.1f}G' for k, n in sorted(detail, key=lambda x: -x[1])[:3])
             return (f'显存不够开赛：名册 {len(detail)} 个模型需常驻 ≈{need / 2 ** 30:.1f}G，'
@@ -169,6 +184,13 @@ class ArenaEngine:
                             mode=mode, pair=pr, on_state=beat)
             except Exception as exc:                        # noqa: BLE001 线程兜底留痕
                 self._state = {**self._state, 'running': False, 'error': str(exc)[:200]}
+            finally:
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()            # 把本场的缓存还给下一场/训练
+                except Exception:                           # noqa: BLE001
+                    pass
 
         beat({'running': True, 'mode': mode, 'pair': list(pr) if pr else None,
               'done': 0, 'total': games, 'tally': [0, 0, 0], 'feed': [], 'gpm': 0})

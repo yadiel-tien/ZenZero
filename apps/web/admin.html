@@ -131,6 +131,29 @@
   .tstate.train{color:#4a90d9;border-color:color-mix(in srgb,#4a90d9 45%,transparent);background:color-mix(in srgb,#4a90d9 12%,transparent);cursor:pointer}
   .tmeta{font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
   .taskcard button.mini{padding:1px 7px}
+  .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-top:10px}
+  .tble{border:1px solid var(--line);border-radius:12px;padding:7px 8px;background:var(--card);position:relative}
+  .tble.playing{animation:tblGlow 2.4s ease-in-out infinite}
+  @keyframes tblGlow{0%,100%{box-shadow:0 0 0 0 rgba(58,166,160,0)}50%{box-shadow:0 0 15px 1px rgba(58,166,160,.30)}}
+  .tseat{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:9px;font-size:12px;
+    transition:background .4s, opacity .4s, outline-color .4s;outline:1px solid transparent}
+  .tseat .who{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+  .tseat .el{color:var(--dim);font-size:10.5px;font-variant-numeric:tabular-nums}
+  .tseat .tag{font-size:9px;color:var(--dim);white-space:nowrap}
+  .tseat.win{background:linear-gradient(90deg,color-mix(in srgb,#e6a817 24%,transparent),transparent 85%);
+    outline-color:color-mix(in srgb,#e6a817 60%,transparent)}
+  .tseat.lose{opacity:.42}
+  .tseat.draw{opacity:.75}
+  .crown{animation:pop .55s cubic-bezier(.2,1.7,.4,1)}
+  @keyframes pop{0%{transform:scale(0) rotate(-40deg)}100%{transform:scale(1) rotate(0)}}
+  .tmidd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 10px;color:var(--dim);font-size:10.5px}
+  .tmidd .line{flex:1;height:1px;background:repeating-linear-gradient(90deg,var(--line) 0 6px,transparent 6px 12px)}
+  .tstone{display:inline-flex;align-items:center;gap:4px}
+  .tstone b{width:11px;height:11px;border-radius:50%;display:inline-block;font-size:7px;color:#fff;
+    align-items:center;justify-content:center;line-height:11px;text-align:center;font-weight:700}
+  .thinking i{display:inline-block;width:4px;height:4px;border-radius:50%;background:#3aa6a0;margin:0 1.5px;animation:blink 1.2s infinite}
+  .thinking i:nth-child(2){animation-delay:.2s} .thinking i:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,100%{opacity:.15}50%{opacity:1}}
   .tchip{display:inline-flex;align-items:center;gap:7px;padding:3px 10px;border-radius:999px;
     border:1px solid var(--line);text-decoration:none;color:var(--fg);font-size:11.5px;background:var(--card)}
   .tchip:hover{border-color:var(--blue)}
@@ -1530,9 +1553,12 @@ function zzAsk(opts){
 }
 const fmtElapsed = s => { s=Math.max(0,Math.round(s)); const m=Math.floor(s/60), r=s%60;
   return m? `${m} 分 ${r} 秒` : `${r} 秒`; };
-setInterval(()=>{ const el=document.getElementById('ar_elapsed');
-  if(el && ARENA.state && ARENA.state.running && ARENA.state.started_ts)
-    el.textContent=`已用 ${fmtElapsed(Date.now()/1000-ARENA.state.started_ts)}`; }, 1000);
+setInterval(()=>{ const st=ARENA.state||{};
+  const el=document.getElementById('ar_elapsed');
+  if(el && st.running && st.started_ts) el.textContent=`已用 ${fmtElapsed(Date.now()/1000-st.started_ts)}`;
+  document.querySelectorAll('.tble.playing [data-sec]').forEach(x=>{
+    x.textContent = fmtElapsed(+x.dataset.sec + (Date.now()/1000 - (st.__recv||0)));
+  }); }, 1000);
 function chip(id){ const i=id.lastIndexOf('/'), pf=id.slice(0,i);
   return `<span class="chip" data-k="${esc(id)}"><span style="color:${netColor(pf)}">●</span>${esc(id)}</span>`; }
 async function arenaLoadList(){
@@ -1548,7 +1574,7 @@ async function arenaFetch(){
     const q = '?game='+ARENA.game+'&arena='+encodeURIComponent(ARENA.arena);
     const [r,s] = await Promise.all([api('/api/arena/ranks'+q), api('/api/arena/state')]);
     ARENA.prev = ARENA.ranks && ARENA.ranks.arena===r.arena ? ARENA.ranks : null;
-    ARENA.ranks = r; ARENA.state = s;
+    ARENA.ranks = r; ARENA.state = s; s.__recv = Date.now()/1000;
   }catch(e){ return; }
   renderArena();
 }
@@ -1673,6 +1699,30 @@ function pairChip(a,b){
     <span class="pvs">vs</span>
     <i class="pd" style="background:${cb}"></i><b style="color:${cb}">${esc(pretty(b))}</b></span>`;
 }
+const Persp = {w:'a', l:'b', d:null};
+function seatHtml(k, res, isA, eloOf){
+  const winner = res && ((res==='w'&&isA) || (res==='l'&&!isA));
+  const loser  = res==='d' ? false : res && !winner;
+  const cls = winner?'win':loser?'lose':res==='d'?'draw':'';
+  const mark = winner? '<span class="crown">🏆</span>' : res==='d'? '<span class="tag">和</span>'
+             : loser? '<span class="tag">负</span>'
+             : '<span class="thinking"><i></i><i></i><i></i></span>';
+  return `<div class="tseat ${cls}"><span style="color:${netColor(k.split('/')[0])}">●</span>
+    <span class="who">${esc(pretty(k))}</span><span class="el">${eloOf}</span>${mark}</div>`;
+}
+function tablesHtml(st, P){
+  const info = st.table_info || [];
+  if(!info.length) return '';
+  const elo = k => { const x=P.find(p=>p.id===k); return x? x.score.toFixed(0):''; };
+  return '<div class="tgrid">' + info.map(tb=>{
+    const live = !tb.result;
+    return `<div class="tble ${live?'playing':''}">${seatHtml(tb.a, tb.result, true, elo(tb.a))}
+      <div class="tmidd"><span class="tstone"><b style="background:#c0392b">帥</b>先</span>
+        <span class="line"></span><span data-sec="${tb.sec||0}">${live? fmtElapsed(tb.sec||0) : '终局 '+(tb.result==='d'?'和':(tb.result==='w'?pretty(tb.a):pretty(tb.b))+' 胜')}</span>
+        <span class="line"></span><span class="tstone">后<b style="background:#333">將</b></span></div>
+      ${seatHtml(tb.b, tb.result, false, elo(tb.b))}</div>`;
+  }).join('') + '</div>';
+}
 function liveCard(here, hereDone, st, P, nm, FCOL){
   if(st.error && st.done !== undefined && !st.running)
     return `<div style="color:#c0392b;font-size:12.5px">✕ ${esc(st.error)}</div>` + (st.done? `<div class="hint" style="margin-top:6px">已完成的 ${st.done} 局计入榜单</div>`:'');
@@ -1699,8 +1749,9 @@ function liveCard(here, hereDone, st, P, nm, FCOL){
       ${here&&st.started_ts?`<span class="hint" style="margin:0" id="ar_elapsed">已用 ${fmtElapsed(Date.now()/1000-st.started_ts)}</span>`:''}
       <span class="mono" style="margin-left:auto"><b style="color:#2e8b57">${w}</b> 胜 · <b style="color:#9a917d">${d}</b> 和 · <b style="color:#c0392b">${l}</b> 负</span></div>
     <div class="pb"><i style="width:${pct}%;background:#3aa6a0"></i></div>`;
-  return (duel || head) + (pairs? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="hint" style="margin:0;font-size:10px;letter-spacing:.5px">本波对阵</span>${pairs}</div>`:'')
-    + (st.feed&&st.feed.length? `<div style="margin-top:7px;display:flex;align-items:center;gap:8px"><span class="hint" style="margin:0">最近</span>${feedHtml(st.feed,FCOL)}</div>`:'')
+  return (duel || head)
+    + (here ? tablesHtml(st, P) : (pairs? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="hint" style="margin:0;font-size:10px;letter-spacing:.5px">本波对阵</span>${pairs}</div>`:''))
+    + (st.feed&&st.feed.length? `<div style="margin-top:7px;display:flex;align-items:center;gap:8px"><span class="hint" style="margin:0">全批进程</span>${feedHtml(st.feed,FCOL)}</div>`:'')
     + metrics;
 }
 function feedHtml(feed,FCOL){ return `<span class="ar-feed">${(feed||[]).map(f=>`<i style="background:${FCOL[f]}" title="${{w:'先手胜',d:'和',l:'先手负'}[f]}"></i>`).join('')}</span>`; }
@@ -1951,6 +2002,11 @@ window.addEventListener('resize', ()=>{ if(tab==='monitor') tickSeries(); });
   }catch(e){}
   loadBuffers();
   tick(); tickSeries();
+  // 深链支持：/admin#arena 直达并停留可刷新恢复；点导航同步 hash
+  const boot = (location.hash||'').replace('#','');
+  if(['monitor','train','artifacts','logs','arena','tasks'].includes(boot)) switchTab(boot);
+  document.querySelectorAll('nav a').forEach(a2=>a2.addEventListener('click',()=>{ history.replaceState(null,'','#'+a2.dataset.tab); }));
+  window.addEventListener('hashchange',()=>{ const h=(location.hash||'').replace('#',''); if(h && h!==tab) switchTab(h); });
   setInterval(tick, 2000);
   setInterval(()=>{ if(tab==='tasks') loadTasks(false); }, 5000);
   setInterval(tickSeries, 8000);

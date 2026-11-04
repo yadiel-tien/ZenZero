@@ -199,34 +199,35 @@ class Arena:
                 prs.append(pr)
             if not prs:
                 break
-            if on_state:     # 波次开打即回报：前端据此立刻画当前对阵与桌数
+            results = {}          # 本波每桌结果（先手视角 key=(a,b)）
+            wave_t0 = time.time()
+
+            def wave_state():
+                # 波次快照：每桌 = 对阵 + 已下秒数 + 结果，前端画成棋桌直播
+                tinfo = [{'a': a, 'b': b, 'sec': round(time.time() - wave_t0),
+                          'result': results.get((a, b))} for a, b in prs]
+                el = time.time() - t0
                 on_state({'running': True, 'mode': mode, 'pair': None, 'done': done,
                           'total': games, 'tally': [tally['w'], tally['d'], tally['l']],
                           'feed': feed[-40:], 'tables': t if not auto else f'自动{t}',
+                          'table_info': tinfo,
                           'pairs': [list(x) for x in prs], 'infer': self._hub_stats(),
                           'device': str(CONFIG.get('device', '')),
-                          'gpm': round(done / max(time.time() - t0, 1e-9) * 60, 1)})
+                          'gpm': round(done / max(el, 1e-9) * 60, 1)})
+            if on_state:
+                wave_state()          # 波次开打即回报：前端立刻摆桌
             with ThreadPoolExecutor(max_workers=len(prs)) as pool:
-                futs = [pool.submit(self._safe_versus, a, b, n_sim) for a, b in prs]
+                futs = {pool.submit(self._safe_versus, a, b, n_sim): (a, b) for a, b in prs}
                 for fut in as_completed(futs):
                     r = fut.result()
                     if r is None:
                         continue
+                    results[futs[fut]] = r
                     tally[r] += 1
                     feed.append(r)
                     done += 1
                     if on_state:
-                        el = time.time() - t0
-                        on_state({'running': True, 'mode': mode,
-                                  'pair': list(pair) if pair else None,
-                                  'done': done, 'total': games,
-                                  'tally': [tally['w'], tally['d'], tally['l']],
-                                  'feed': feed[-40:],
-                                  'tables': t if not auto else f'自动{t}',
-                                  'pairs': [list(x) for x in prs],
-                                  'infer': self._hub_stats(),
-                                  'device': str(CONFIG.get('device', '')),
-                                  'gpm': round(done / max(el, 1e-9) * 60, 1)})
+                        wave_state()
             if auto:
                 new_t = self._auto_tune_tables(t, self._hub_stats())
                 if new_t != t:
