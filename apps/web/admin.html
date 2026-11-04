@@ -80,6 +80,24 @@
   .ph-pill{display:inline-block;font-size:12px;font-weight:700;letter-spacing:1px;padding:2px 10px;border-radius:10px;background:color-mix(in srgb, var(--phc) 18%, transparent);color:var(--phc)}
   .phase-card .gen{font-size:16px;font-weight:600;margin-top:3px}
   .phase-card .gen em{font-style:normal;font-size:12px;color:var(--dim);font-weight:400}
+  .h2like{font-size:14px;font-weight:600;margin:0;cursor:pointer;list-style:none}
+  .h2like::before{content:"▸ ";color:var(--dim)} details[open] .h2like::before{content:"▾ "}
+  .ar-feed{display:inline-flex;gap:3px;vertical-align:2px}
+  .ar-feed i{width:7px;height:12px;border-radius:1.5px;display:inline-block}
+  .ar-exp{display:flex;height:14px;border-radius:4px;overflow:hidden;background:rgba(128,128,128,.12);font-size:9.5px;line-height:14px;color:#fff}
+  .ar-exp b{padding:0 5px;font-weight:600;white-space:nowrap}
+  .rank-tb{width:100%;border-collapse:collapse;font-size:12px}
+  .rank-tb td,.rank-tb th{padding:4px 6px;text-align:left;border-bottom:1px solid var(--line)}
+  .rank-tb th{color:var(--dim);font-weight:400;font-size:10.5px}
+  .rank-tb .mono{font-variant-numeric:tabular-nums}
+  .rank-tb tr.champ{background:linear-gradient(90deg, rgba(212,175,55,.12), transparent 70%)}
+  .rank-tb tr.champ td:first-child{border-left:3px solid #d4af37}
+  .ladrow{display:flex;align-items:center;gap:6px;margin:4px 0;font-size:11px}
+  .ladrow .nm{width:84px;text-align:right;color:var(--dim);white-space:nowrap;overflow:hidden}
+  .ladrow .bar{height:12px;border-radius:3px;min-width:2px;transition:width .6s}
+  .mtx td,.mtx th{border:1px solid var(--line);padding:0;font-size:10px;text-align:center;min-width:30px;height:20px;line-height:20px}
+  .mtx th{background:var(--card);color:var(--dim);font-weight:400;padding:0 4px}
+  .mtx .diag{background:rgba(128,128,128,.08)}
   .pb{height:3px;border-radius:2px;background:rgba(128,128,128,.18);margin-top:4px;overflow:hidden}
   .pb i{display:block;height:100%;background:var(--blue);border-radius:2px;transition:width .5s ease}
   .v .ok{color:#2e8b57} .v .bad{color:#c0392b}
@@ -174,6 +192,7 @@
   <a href="#train" data-tab="train">训练</a>
   <a href="#artifacts" data-tab="artifacts">资产</a>
   <a href="#logs" data-tab="logs">日志</a>
+  <a href="#arena" data-tab="arena">竞技场</a>
   <a href="#tasks" data-tab="tasks">任务</a>
 </nav>
 <main>
@@ -377,6 +396,41 @@
         <div class="field"><label>&nbsp;</label><label class="hint"><input type="checkbox" id="l_follow" checked> 跟随</label></div>
       </div>
       <pre id="log_view" style="margin-top:10px">—</pre>
+    </div>
+  </section>
+  <section class="tab" id="tab-arena">
+    <div class="panel">
+      <h2>对阵直播 <span class="lg" id="ar_status">空闲</span></h2>
+      <div id="ar_live"></div>
+    </div>
+    <div class="panel">
+      <h2>发起对阵</h2>
+      <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
+        <select id="ar_mode" class="rf-sel">
+          <option value="smart">智能约架（分近者优先·出场均衡）</option>
+          <option value="gauntlet">车轮战（每人坐庄一轮）</option>
+          <option value="duel">自定义对决（点将）</option>
+        </select>
+        <label class="hint" style="margin:0">局数 <input id="ar_games" type="number" value="30" min="2" max="500" style="width:56px"></label>
+        <label class="hint" style="margin:0">sims <input id="ar_sims" type="number" value="300" min="50" max="5000" style="width:56px"></label>
+        <label class="hint" style="margin:0">并行桌 <input id="ar_tables" type="number" value="5" min="1" max="10" style="width:44px"></label>
+        <button class="primary" id="ar_go">开始</button>
+        <button id="ar_stop" class="mini">停止</button>
+        <span class="hint" id="ar_hint" style="margin:0"></span>
+      </div>
+      <div class="row hidden" id="ar_duel" style="gap:10px;margin-top:10px;align-items:center">
+        <select id="ar_p1" class="rf-sel"></select><b>VS</b><select id="ar_p2" class="rf-sel"></select>
+        <span class="hint" id="ar_expect" style="margin:0"></span>
+      </div>
+      <div class="hint" style="margin-top:8px">名册 = 资产页勾选的检查点（原型预览：下方 8 名选手）。同网络内代差不超过 20 的优先互爬，跨网络对局自动加 1.5 权重（新宇宙定级需要更多样本）。</div>
+    </div>
+    <div class="grid">
+      <div class="panel"><h2>排名 <span class="lg" id="ar_rsum"></span></h2><div id="ar_ranks"></div></div>
+      <div class="panel"><h2>实力阶梯 <span class="lg">Elo 横条 · 颜色=网络</span></h2><div id="ar_ladder"></div></div>
+    </div>
+    <div class="panel">
+      <details><summary class="h2like">对阵矩阵 <span class="lg">点开看两两历史战绩（绿=行胜率）</span></summary>
+      <div id="ar_matrix" style="overflow:auto;margin-top:10px"></div></details>
     </div>
   </section>
   <section class="tab" id="tab-tasks">
@@ -1373,6 +1427,77 @@ async function taskShowLog(name){
   }catch(e){ $('task-log').textContent = '日志读取失败: '+e.message; }
 }
 
+/* ================= 竞技场（原型：mock 数据，接口契约 = /api/arena/ranks|state） ================= */
+const NET_C = {mini:'#4a90d9', mini2:'#3aa6a0', s:'#e08a4e'};
+const ARENA_MOCK = {
+  state: { running:true, mode:'smart', pair:['mini2/50','mini/97'], expect:0.58, done:6, total:30, tally:[3,1,2],
+           feed:['w','d','l','w','w','d'], rate_gpm: 12.4 },
+  players: [
+    {id:'mini2/50', score:1638, delta:14, games:41, hist:[1500,1517,1542,1556,1571,1568,1585,1602,1611,1626,1632,1638]},
+    {id:'mini2/49', score:1602, delta:6,  games:33, hist:[1500,1512,1528,1541,1555,1570,1596,1602]},
+    {id:'mini/97',  score:1588, delta:-11, games:88, hist:[1500,1532,1521,1545,1562,1571,1599,1588]},
+    {id:'mini/94',  score:1559, delta:-3, games:76, hist:[1500,1524,1538,1551,1546,1563,1562]},
+    {id:'mini2/45', score:1548, delta:0,  games:18, hist:[1500,1517,1533,1551,1548]},
+    {id:'mini/93',  score:1535, delta:2,  games:64, hist:[1500,1519,1512,1528,1533,1533]},
+    {id:'mini/62',  score:1478, delta:-18, games:52, hist:[1500,1489,1496,1483,1496,1496]},
+    {id:'s/3',      score:1452, delta:-8, games:24, hist:[1500,1478,1489,1460,1460]},
+  ],
+  rival: {'mini2/50':{'mini/97':[2,1,1]},'mini/97':{'mini/94':[4,2,3]},'mini2/49':{'mini2/50':[0,2,0]},'mini/62':{'mini/93':[1,4,0]}},
+};
+const expRate = (a,b) => 1/(1+Math.pow(10,(b-a)/400));
+function renderArena(){
+  const M = ARENA_MOCK, st = M.state, P = M.players;
+  const nm = id => { const [p,v]=id.split('/'); return `<span style="color:${NET_C[p]||'#999'}">●</span> ${p==='s'?'S':p==='mini'?'Mini':'Mini2'} <b>v${v}</b>`; };
+  $('ar_status').innerHTML = st.running ? `<span style="color:#3aa6a0">● 对阵中</span> · ${fmt(st.rate_gpm,1)} 局/分` : '空闲';
+  const FCOL = {w:'#2e8b57', d:'#9a917d', l:'#c0392b'};
+  $('ar_live').innerHTML = st.running ? `
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <div style="font-size:15px">${nm(st.pair[0])}</div>
+      <div style="flex:1;min-width:130px" class="ar-exp">
+        <b style="width:${(st.expect*100).toFixed(0)}%;background:${NET_C[st.pair[0].split('/')[0]]}"> ${(st.expect*100).toFixed(0)}% 预期</b><b style="background:${NET_C[st.pair[1].split('/')[0]]}">${((1-st.expect)*100).toFixed(0)}%</b>
+      </div>
+      <div style="font-size:15px">${nm(st.pair[1])}</div>
+    </div>
+    <div style="margin-top:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span class="mono" style="font-size:15px"><b style="color:#2e8b57">${st.tally[0]}</b> 胜 · <b style="color:#9a917d">${st.tally[1]}</b> 和 · <b style="color:#c0392b">${st.tally[2]}</b> 负</span>
+      <span class="ar-feed">${st.feed.map(f=>`<i style="background:${FCOL[f]}" title="${{w:'本方胜',d:'和',l:'本方负'}[f]}"></i>`).join('')}</span>
+      <span class="hint" style="margin:0">第 ${st.done}/${st.total} 局</span>
+    </div>
+    <div class="pb"><i style="width:${(100*st.done/st.total).toFixed(0)}%;background:#3aa6a0"></i></div>`
+    : '<div class="hint" style="margin:0">暂无对局 — 选择模式后点「开始」。</div>';
+  const ranked = [...P].sort((a,b)=>b.score-a.score), top=ranked[0].score, floor=ranked[ranked.length-1].score-20;
+  $('ar_rsum').textContent = `${ranked.length} 名选手 · ${P.reduce((a,p)=>a+p.games,0)} 局已记录`;
+  $('ar_ranks').innerHTML = `<table class="rank-tb"><tr><th>#</th><th>选手</th><th>Elo</th><th>Δ</th><th>局</th><th>趋势</th></tr>` + ranked.map((p,i)=>{
+    const w = expRate(p.score, top)*100;
+    return `<tr class="${i===0?'champ':''}"><td class="mono">${i+1}</td><td>${nm(p.id)}</td>
+      <td class="mono"><b>${p.score.toFixed(0)}</b>${p.games<20?' <span class="hint" style="margin:0">考察期</span>':''}</td>
+      <td class="mono" style="color:${p.delta>0?'#2e8b57':p.delta<0?'#c0392b':'var(--dim)'}">${p.delta>0?'▲+':p.delta<0?'▼':''}${p.delta}</td>
+      <td class="mono">${p.games}</td><td>${spark(p.hist,'#8a8272',60,16)}</td></tr>`;
+  }).join('') + '</table>';
+  $('ar_ladder').innerHTML = ranked.map(p=>{
+    const w = 6 + (p.score-floor)/(top-floor+1e-9)*88;
+    const c = NET_C[p.id.split('/')[0]]||'#999';
+    return `<div class="ladrow"><span class="nm">${p.id.replace('/',' v')}</span><div class="bar" style="width:${w.toFixed(1)}%;background:${c}"></div><span class="mono">${p.score.toFixed(0)}</span></div>`;
+  }).join('') + '<div class="hint" style="margin-top:4px">条长=Elo（相对拉伸）；跨颜色相邻≈同级，断层=代差宇宙</div>';
+  const ids = ranked.map(p=>p.id);
+  $('ar_matrix').innerHTML = `<table class="mtx"><tr><th></th>${ids.map(x=>`<th>${x}</th>`).join('')}</tr>` +
+    ids.map(r=>`<tr><th>${r}</th>${ids.map(c=>{
+      if(r===c) return '<td class="diag">—</td>';
+      const rec=(M.rival[r]||{})[c]; if(!rec) return '<td class="hint" style="margin:0;opacity:.35">·</td>';
+      const [w,l,d]=rec, t=w+l+d, wr=w/t;
+      return `<td style="background:rgba(46,139,87,${(wr*0.75).toFixed(2)})" title="${w}胜${l}负${d}和">${(wr*100).toFixed(0)}%</td>`;
+    }).join('')}</tr>`).join('') + '</table>';
+  const psel = ranked.map(p=>`<option>${p.id}</option>`).join('');
+  if(!$('ar_p1').options.length){ $('ar_p1').innerHTML=$('ar_p2').innerHTML=psel; $('ar_p2').selectedIndex=2; updExpect(); }
+}
+function updExpect(){ const M=ARENA_MOCK, a=M.players.find(x=>x.id===$('ar_p1').value), b=M.players.find(x=>x.id===$('ar_p2').value);
+  if(a&&b) $('ar_expect').textContent=`预期 ${(expRate(a.score,b.score)*100).toFixed(0)} : ${(expRate(b.score,a.score)*100).toFixed(0)}`; }
+$('ar_mode').addEventListener('change',()=>{ $('ar_duel').classList.toggle('hidden', $('ar_mode').value!=='duel');
+  $('ar_hint').textContent = {smart:'全场循环约架直到停止', gauntlet:'按名次轮流传桌', duel:'只打点将的这一对'}[$('ar_mode').value]; });
+$('ar_p1').addEventListener('change',updExpect); $('ar_p2').addEventListener('change',updExpect);
+$('ar_go').addEventListener('click',()=>toast('原型阶段：接入 /api/arena/start 后生效'));
+$('ar_stop').addEventListener('click',()=>toast('原型阶段'));
+
 /* ---------- 主循环 ---------- */
 let tab = 'monitor';
 let TRAIN_RUNNING = false;
@@ -1384,6 +1509,7 @@ function switchTab(name){
   if(name==='artifacts') loadArtifacts();
   if(name==='logs'){ loadLogList(); }
   if(name==='tasks') loadTasks(true);
+  if(name==='arena') renderArena();
 }
 document.querySelectorAll('nav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault(); switchTab(a.dataset.tab);}));
 async function tick(){
