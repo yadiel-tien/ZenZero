@@ -607,19 +607,23 @@ function renderSnapshot(s){
          '选叶子 '+fmt((sp.mcts||{}).select_ms_per_sim,2)+' · 等推理 '+fmt((sp.mcts||{}).wait_ms_per_sim,2)+'（上轮）',
          '每模拟一次的时长，拆成"CPU 选叶子"和"等推理返回"两段。两者之比说明瓶颈在 CPU 搜索还是 GPU 推理。'),
     card('训练步数',
-         fit.step? fmt(fit.step,0) + (fit.fit_total_steps? `<span style="font-size:12px;color:var(--dim)"> / ${fmt(fit.fit_total_steps,0)}</span>`:'') : '—',
-         fit.loss!==undefined? `loss ${fmt(fit.loss,3)} · policy ${fmt(fit.policy_loss,3)} · value ${fmt(fit.value_loss,3)}`
-             : (fit.fit_seconds? `本轮 fit 用时 ${fmt(fit.fit_seconds,1)}s` : '—'),
+         fit.batch_stale? '—' : (fit.step? fmt(fit.step,0) + (fit.fit_total_steps? `<span style="font-size:12px;color:var(--dim)"> / ${fmt(fit.fit_total_steps,0)}</span>`:'') : '—'),
+         fit.batch_stale
+             ? `本次批次还没训练 · 上一批次最后一步 ${fmt(fit.step,0)} 步${fit.batch_stale_age_s? '（'+fmt(fit.batch_stale_age_s/60,0)+' 分钟前）':''}`
+             : (fit.loss!==undefined? `loss ${fmt(fit.loss,3)} · policy ${fmt(fit.policy_loss,3)} · value ${fmt(fit.value_loss,3)}`
+             : (fit.fit_seconds? `本轮 fit 用时 ${fmt(fit.fit_seconds,1)}s` : '—')),
          '本轮 fit 已走的优化步数 / 本轮总步数（每轮约 8 遍 × Buffer ÷ batch = 1171 步）。loss 是最近一步的总损失，后面拆成 policy / value。'),
-    card('验证集', fit.val?fmt(fit.val.policy,3):'—',
-         fit.val? `value ${fmt(fit.val.value,3)}` + (fit.val.kl!==undefined? ` · KL ${fmt(fit.val.kl,3)}`:'')
+    card('验证集', (!fit.batch_stale && fit.val)?fmt(fit.val.policy,3):'—',
+         fit.batch_stale? '本次批次尚无验证集测量（上一批次的不要当真）'
+         : (fit.val? `value ${fmt(fit.val.value,3)}` + (fit.val.kl!==undefined? ` · KL ${fmt(fit.val.kl,3)}`:'')
                   + (fit.val.n_samples? ` · ${fmt(fit.val.n_samples,0)} 样本`:'')
-                  + (fit.val.stale? ' · 上一代' : ((fit.val.age_s||0) > 600? ` · ${fmt((fit.val.age_s||0)/60,0)} 分钟前` : '')) : '—',
+                  + (fit.val.stale? ' · 上一代' : ((fit.val.age_s||0) > 600? ` · ${fmt((fit.val.age_s||0)/60,0)} 分钟前` : '')) : '—'),
          '验证集（holdout，永不参与训练）上的 loss。policy 是交叉熵，其中约 85% 是目标自身熵的下限，真正能学的是 KL。'
          + ' value 是价值头 MSE。标“上一代”表示本轮 fit 还没跑完，显示的是上一个模型的测量值。'),
-    card('评估胜率', ev.win_rate!==undefined?(ev.win_rate*100).toFixed(1)+'%':'—',
-         ev.games? `胜 ${ev.win} · 负 ${ev.lose} · 和 ${ev.draw}（共 ${ev.games} 局）· 得分 ${fmt(ev.win + ev.draw/2,1)}/${ev.games}`
-             : '—',
+    card('评估胜率', (!ev.batch_stale && ev.win_rate!==undefined)?(ev.win_rate*100).toFixed(1)+'%':'—',
+         ev.batch_stale? `本次批次还没打守擂 · 上一条是第 ${fmt(ev.new,0)} 代（上一批次）`
+         : (ev.games? `胜 ${ev.win} · 负 ${ev.lose} · 和 ${ev.draw}（共 ${ev.games} 局）· 得分 ${fmt(ev.win + ev.draw/2,1)}/${ev.games}`
+             : '—'),
          `新模型（第 ${fmt(ev.new||0,0)} 代）对守擂模型（第 ${fmt(ev.best||0,0)} 代）的战绩。`
          + `和棋算半分，得分率超过门槛 ${(100*((s.meta||{}).win_threshold||0.52)).toFixed(0)}% 就晋升为新的守擂模型。`
          + ' 例：胜 28 · 负 10 · 和 49 = 得分 52.5/87 = 60.3%。'),
@@ -1325,16 +1329,25 @@ async function tickSeries(){
         sel.dataset.sig = key;
         sel.innerHTML = '<option value="">全部网络</option>' +
           (d.profiles||[]).map(pf=>`<option>${esc(pf)}</option>`).join('');
-        sel.value = want;
       }
+      // 记忆里的网络不是正在跑的那个（换任务了）且用户本次没手动点过 → 自动跟随当前任务，
+      // 否则监控会一直停在上一次训练上，看着跟实际任务完全不一致
+      if(!RUN_STATE.userPicked && d.running_profile && t.profile && t.profile !== d.running_profile){
+        t.profile = d.running_profile;
+        try{ localStorage.setItem(MON_KEY, JSON.stringify(t)); }catch(e){}
+        RUN_STATE.vis = undefined; localStorage.removeItem(VIS_KEY);
+        sel.value = d.running_profile;
+        return tickSeries();
+      }
+      sel.value = want;
     }
     renderCharts(d);
   }catch(e){ /* 静默 */ }
 }
 function monReload(which){
   let t = {}; try{ t = JSON.parse(localStorage.getItem(MON_KEY)||'{}'); }catch(e){}
-  if(which==='game'){ t.game = $('mon_game').value; t.profile = ''; }
-  else t.profile = $('mon_profile').value;
+  if(which==='game'){ t.game = $('mon_game').value; t.profile = ''; RUN_STATE.userPicked = false; }
+  else { t.profile = $('mon_profile').value; RUN_STATE.userPicked = true; }
   try{ localStorage.setItem(MON_KEY, JSON.stringify(t)); }catch(e){}
   RUN_STATE.vis = undefined;          // 换筛选范围 → 回到"当前任务+同网络前世"自动视图
   localStorage.removeItem(VIS_KEY);

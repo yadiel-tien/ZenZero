@@ -703,15 +703,40 @@ class Monitor:
         return base
 
     # ---------- 对外接口 ----------
+    def _mark_batch_stale(self, live: dict) -> None:
+        """把来自**上一批次**的 fit/eval 数字标出来（本批次还在填池时它们会冒充当前值）。"""
+        started = self._trainer_started_ts()
+        if started is None:
+            return
+        fit = live.get('fit') or {}
+        try:
+            fit_mtime = os.path.getmtime(self.logs['fit'])
+        except OSError:
+            fit_mtime = 0.0
+        cur = (self._heartbeat() or {}).get('iteration')
+        if fit.get('step') and fit_mtime < started - 5:
+            fit['batch_stale'] = True
+            fit['batch_stale_age_s'] = round(time.time() - fit_mtime)
+        # 文件 mtime 会被启动时的 append 打开刷新，不能只靠它：fit 的代数比当前代数还大
+        # 只可能是上一批次的残留（本次 1 代 vs 上次 100 代）
+        if (fit.get('fit_iteration') is not None and cur is not None
+                and fit['fit_iteration'] > cur):
+            fit['batch_stale'] = True
+        ev = live.get('eval') or {}
+        if ev.get('new') is not None and cur is not None and ev['new'] > cur:
+            ev['batch_stale'] = True
+
     def snapshot(self) -> dict:
         rounds = self._rounds(200)
         rt = self._heartbeat()
+        live = {'infer': self._live_infer(), 'fit': self._fit_with_fallback(),
+                'eval': self._live_eval(), **(self._live_state(rt) or {})}
+        self._mark_batch_stale(live)
         return {
             'ts': time.time(),
             'meta': self._meta(rt, game_name),
             'rounds': rounds,
-            'live': {'infer': self._live_infer(), 'fit': self._fit_with_fallback(),
-                     'eval': self._live_eval(), **(self._live_state(rt) or {})},
+            'live': live,
             'heartbeat': rt,
             'hardware': self.hw.current(),
             'hw_history': self.hw.history()[-120:],
@@ -739,6 +764,20 @@ class Monitor:
         tb_out = self.tb.series_by_run(game, max_runs=max_runs * 3)
         tb_runs = {r['name'] for r in tb_out['runs']}
 
+        # 正在跑、但本次还没产生任何曲线的新批次：不论筛选谁都要认出它（下拉得能选到）
+        started_ts = self._trainer_started_ts()
+        running_run = None
+        running_profile = None
+        if started_ts is not None:
+            for r in runs:
+                if abs(r['start'] - started_ts) <= 30:
+                    running_run = r
+                    break
+        if running_run:
+            running_profile = (rt or {}).get('profile') or profiles.get(running_run['name'])
+            if running_profile and not profiles.get(running_run['name']):
+                profiles[running_run['name']] = running_profile
+
         # 级联筛选第二层：指定神经网络时只看它（各网络的代数互不相干）
         all_profiles = sorted({p for p in profiles.values() if p})
         if profile:
@@ -750,6 +789,8 @@ class Monitor:
 
         # 有数据的批次（轮次记录或 TB 标量），取最近 max_runs 个
         kept = [r for r in runs if groups.get(r['name']) or r['name'] in tb_runs][-max_runs:]
+        if running_run and running_run['name'] not in {r['name'] for r in kept}:
+            kept = kept + [running_run]
 
         keys = {
             'iteration': lambda r: r.get('iteration'),
@@ -792,6 +833,7 @@ class Monitor:
         return {
             'game': game,
             'profiles': all_profiles,
+            'running_profile': running_profile,
             'runs': runs_out,
             'rounds': rounds_out,
             'tb': {r['name']: tb_out['tb'].get(r['name'], {}) for r in kept},
