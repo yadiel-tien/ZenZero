@@ -97,7 +97,9 @@
   .runfilter .sw{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
   .runfilter .rf-now{color:var(--green);font-weight:600;font-size:10px}
   .runfilter .rf-all{color:var(--blue);cursor:pointer;font-size:11px;text-decoration:underline}
-  .rf-sel{background:var(--panel,#161b22);color:var(--fg);border:1px solid var(--line);border-radius:6px;font-size:11.5px;padding:2px 6px}
+  .rf-sel{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:6px;font-size:11.5px;padding:2px 6px;color-scheme:dark}
+  .rf-sel option{background:var(--card);color:var(--fg)}
+  :root[data-theme="light"] .rf-sel{color-scheme:light}
   .runfilter .rf-more{display:inline-flex;align-items:center}
   .runfilter .rf-more summary{color:var(--dim);font-size:11.5px;cursor:pointer;list-style:none;padding:2px 8px;border:1px dashed var(--line);border-radius:8px}
   .runfilter .rf-more[open] summary{border-style:solid;color:var(--fg)}
