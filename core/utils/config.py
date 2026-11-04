@@ -220,7 +220,7 @@ CONFIG: AppConfig = {
     #   24 线程 47.3k / 32 线程 46.9k / 32×K16 49.7k / 40 线程 44.8k / 48 线程 38.0k
     #   → 32 附近是甜点，64 线程反而只有 35.9k（比 32 少 28%，超订后上下文切换吃掉了收益）。
     # 在飞请求 = 局数 × K = 32 × 12 = 384 > max_batch 256，够喂满引擎。
-    'selfplay_workers': 32,
+    'selfplay_workers': min(128, (os.cpu_count() or 8) * 2),  # 自博弈 worker 常阻塞在等推理上，2× 核数填缝；ZZ_WORKERS 可覆写
     'selfplay_games_per_round': 400,
     'mcts_batch_leaves': 12,
     'val_holdout_ratio': 0.02,

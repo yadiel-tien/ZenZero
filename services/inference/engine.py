@@ -120,7 +120,9 @@ class InferenceEngine:
         # 批大小上限。GPU 上 t(b) 实测接近常数（b=8 1.24ms → b=256 2.37ms/批，
         # 边际仅 ~4.5µs/样本），所以批越大越划算，256 是吞吐/单请求延迟的折中；
         # CPU 上多 worker 小批才是正解（历史结论），保持 50。
-        default_batch = 256 if not is_cpu else 50
+        # GPU 目标批 2048：发车有 ~2ms 固定税（派发/拷贝），"车大趟少"摊薄税费；
+        # 实际凑不满是常态（在飞叶子几百），真挤爆显存由 OOM 对半退避自动收敛出本卡上限
+        default_batch = 2048 if not is_cpu else 50
         try:
             self.max_batch_size = max(1, int(os.environ['ZZ_MAX_BATCH']))
         except (KeyError, ValueError):
@@ -306,6 +308,30 @@ class InferenceEngine:
                 # 这样 H2D 拷贝与本线程的打包不抢同一条线程的时间片。
                 self.infer_queue.put((part, torch.from_numpy(batch), t0))
 
+    def _forward_adaptive(self, x):
+        """GPU 前向 + OOM 自适应退避：装不下就对半拆批递归重试，并把 max_batch_size
+        软上限同步下调（后续收批直接按新上限发车，不再反复撞墙）。返回 (logits, values, wdl_p|None)。"""
+        try:
+            if self._is_wdl:
+                logits, wdl_logits = self.eval_model.forward_wdl(x)
+                wdl_p = torch.softmax(wdl_logits.float(), dim=-1)
+                return logits, wdl_p[:, 2] - wdl_p[:, 0], wdl_p    # 期望分与概率同源
+            logits, values = self.eval_model(x)
+            return logits, values, None
+        except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
+            oom = isinstance(e, torch.cuda.OutOfMemoryError) or 'out of memory' in str(e).lower()
+            n = x.shape[0]
+            if not oom or n <= 8:
+                raise
+            torch.cuda.empty_cache()
+            self.max_batch_size = max(8, n // 2)
+            self.logger.warning(f'GPU 显存不足：batch {n} OOM，批上限自动降至 {self.max_batch_size} 并对半重试')
+            h = n // 2
+            la, va, wa = self._forward_adaptive(x[:h])
+            lb, vb, wb = self._forward_adaptive(x[h:])
+            cat = lambda a_, b_: None if a_ is None else torch.cat([a_, b_])
+            return cat(la, lb), cat(va, vb), cat(wa, wb)
+
     def _inference_loop(self, worker_id: int = 0):
         """推理worker loop：接收切片 batch，并发 forward，回填结果"""
         while not self.stop_event.is_set():
@@ -328,12 +354,7 @@ class InferenceEngine:
                         batch_tensor = tensor.to(self._model_device(), dtype=torch.float32,
                                                  non_blocking=False)
                         with self._ac_factory():  # 混合精度(按设备类型自适应)
-                            if self._is_wdl:
-                                logits, wdl_logits = self.eval_model.forward_wdl(batch_tensor)
-                                wdl_p = torch.softmax(wdl_logits.float(), dim=-1)
-                                values = wdl_p[:, 2] - wdl_p[:, 0]   # 期望分与概率同源
-                            else:
-                                logits, values = self.eval_model(batch_tensor)
+                            logits, values, wdl_p = self._forward_adaptive(batch_tensor)
                 probs = torch.nn.functional.softmax(logits.float(), dim=-1).cpu().numpy()
                 values = values.float().cpu().numpy()
                 wdls = wdl_p.cpu().numpy() if self._is_wdl else None
