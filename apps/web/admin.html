@@ -175,9 +175,11 @@
   .rank-tb .mono{font-variant-numeric:tabular-nums}
   .rank-tb tr.champ{background:linear-gradient(90deg, rgba(212,175,55,.12), transparent 70%)}
   .rank-tb tr.champ td:first-child{border-left:3px solid #d4af37}
-  .ladrow{display:flex;align-items:center;gap:6px;margin:4px 0;font-size:11px}
-  .ladrow .nm{width:84px;text-align:right;color:var(--dim);white-space:nowrap;overflow:hidden}
-  .ladrow .bar{height:12px;border-radius:3px;min-width:2px;transition:width .6s}
+  .ladrow{display:grid;grid-template-columns:88px 1fr 52px;align-items:center;gap:8px;margin:3px 0;font-size:11px}
+  .ladrow .nm{text-align:right;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ladrow .track{height:12px;border-radius:3px;background:rgba(128,128,128,.13);overflow:hidden}
+  .ladrow .track i{display:block;height:100%;border-radius:3px;transition:width .6s}
+  .ladrow .elo{text-align:right;font-variant-numeric:tabular-nums}
   .mtx td,.mtx th{border:1px solid var(--line);padding:0;font-size:10px;text-align:center;min-width:30px;height:20px;line-height:20px}
   .mtx th{background:var(--card);color:var(--dim);font-weight:400;padding:0 4px}
   .mtx .diag{background:rgba(128,128,128,.08)}
@@ -1613,10 +1615,19 @@ function renderArena(){
         <td class="mono"><b>${p.score.toFixed(0)}</b>${p.games<20?' <span class="hint" style="margin:0;font-size:9px">考察期</span>':''}</td>
         <td class="mono" style="color:${dl>0?'#2e8b57':dl<0?'#c0392b':'var(--dim)'}">${dl>0?'▲+':dl<0?'▼':''}${dl?dl.toFixed(1):''}</td>
         <td class="mono">${p.games}</td><td>${p.hist&&p.hist.length>2?spark(p.hist,'#8a8272',60,16):''}</td></tr>`; }).join('')+'</table>';
-    $('ar_ladder').innerHTML = ranked.map(p=>{
-      const w=6+(p.score-floor)/Math.max(top-floor,1e-9)*88, c=netColor(p.profile);
-      return `<div class="ladrow"><span class="nm">${esc(pretty(p.id))}</span><div class="bar" style="width:${w.toFixed(1)}%;background:${c}"></div><span class="mono">${p.score.toFixed(0)}</span></div>`;
-    }).join('')+'<div class="hint" style="margin-top:4px">条长=Elo（相对拉伸）；颜色=网络；跨色相邻≈同级，断层=宇宙差</div>';
+    // 50 分档刻度：域只在跨档时变化，避免条形随极值实时伸缩、数字左右蹦
+    const ladder = (()=>{
+      const sc = ranked.map(p=>p.score);
+      const lo = Math.floor((Math.min(...sc)-40)/50)*50, hi = Math.ceil((Math.max(...sc)+40)/50)*50;
+      const span = Math.max(hi-lo, 100);
+      return ranked.map(p=>{
+        const pct = Math.max(1.5, Math.min(100, (p.score-lo)/span*100)), c = netColor(p.profile);
+        return `<div class="ladrow"><span class="nm">${esc(pretty(p.id))}</span>`
+          + `<div class="track"><i style="width:${pct.toFixed(1)}%;background:${c}"></i></div>`
+          + `<span class="elo mono">${p.score.toFixed(0)}</span></div>`;
+      }).join('')+`<div class="hint" style="margin-top:4px">条长=Elo（${lo}–${hi} 刻度）；颜色=网络；跨色相邻≈同级，断层=宇宙差</div>`;
+    })();
+    $('ar_ladder').innerHTML = ladder;
     const ids=ranked.map(p=>p.id);
     if(ids.length>1){
       $('ar_matrix').innerHTML = `<table class="mtx"><tr><th></th>${ids.map(x=>`<th>${esc(pretty(x))}</th>`).join('')}</tr>`+
