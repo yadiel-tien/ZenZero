@@ -1727,7 +1727,7 @@ function liveCard(here, hereDone, st, P, nm, FCOL){
   if(st.error && st.done !== undefined && !st.running)
     return `<div style="color:#c0392b;font-size:12.5px">✕ ${esc(st.error)}</div>` + (st.done? `<div class="hint" style="margin-top:6px">已完成的 ${st.done} 局计入榜单</div>`:'');
   if(!here && !hereDone)
-    return '<div class="hint" style="margin:0">暂无对局 — 管好名册，选模式点「开始」。这座竞技场还没打过，榜单自然是空的。</div>';
+    return '<div class="hint" style="margin:0">暂无对局</div>';
   const infer = st.infer || {};
   const [w,d,l] = st.tally || [0,0,0];
   const total = st.total || 0, doneN = st.done || 0;
