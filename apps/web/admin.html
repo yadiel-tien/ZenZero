@@ -191,6 +191,7 @@
           <option value="fresh">从头训练</option>
           <option value="fork">分叉</option></select></div>
         <div class="field hidden" id="f_startn_w"><label>分叉自第几代</label><input id="f_startn" type="number" min="1" placeholder="如 48"></div>
+        <div class="field"><label>截止代数</label><input id="f_stopiter" type="number" min="1" placeholder="建议填：当前代数+N" title="练到该代数，本轮完整结束后自动收尾退出；留空=永不停止（直到手动停止）"></div>
       </div>
       <details class="fadv">
         <summary class="fsec">资源与目标 · 全自动 <span class="hint" id="adv_now"></span></summary>
@@ -202,7 +203,6 @@
         <div class="field"><label>推理设备</label><select id="f_device" title="自博弈与训练的神经网络计算设备；默认自动（有 GPU 用 GPU）"></select></div>
       </div>
       <div class="row">
-        <div class="field"><label>练到第几代</label><input id="f_stopiter" type="number" min="1" placeholder="不限" title="达标那一轮完整结束后自动退出"></div>
         <div class="field"><label>模拟次数 起→止</label><span class="pair"><input id="f_sims0" type="number" min="10" placeholder="400" title="开局每手 MCTS 模拟数"><b>→</b><input id="f_sims1" type="number" min="10" placeholder="800" title="随代数线性爬升的上限"></span></div>
         <div class="field"><label>守擂胜率 %</label><input id="f_gate" type="number" min="40" max="90" placeholder="52" title="新模型战胜守擂者的比例须严格超过该值才晋升为最强；默认 52%"></div>
       </div>
