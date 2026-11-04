@@ -60,16 +60,14 @@
   nav a{color:var(--dim);text-decoration:none;padding:6px 12px;border-radius:8px 8px 0 0;border:1px solid transparent}
   nav a.on{color:var(--fg);background:var(--card);border-color:var(--line);border-bottom-color:var(--card)}
   main{padding:14px 20px 40px}
-  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;margin-bottom:14px}
-  /* 显示顺序按语义重排：第一行=训练进程与成果，第二行=引擎性能与硬件 */
+  .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+  @media(min-width:860px){.cards{grid-template-columns:repeat(4,1fr)}}
+  /* 8 卡 4 列 × 2 行：第一行=进程与节奏，第二行=进度与成果（DOM 序见 renderSnapshot） */
   #cards .card{order:99}
-  #cards .card:nth-child(1){order:1}  #cards .card:nth-child(5){order:2}
-  #cards .card:nth-child(4){order:3}  #cards .card:nth-child(7){order:4}
-  #cards .card:nth-child(8){order:5}  #cards .card:nth-child(9){order:6}
-  #cards .card:nth-child(14){order:7} #cards .card:nth-child(2){order:8}
-  #cards .card:nth-child(3){order:9}  #cards .card:nth-child(6){order:10}
-  #cards .card:nth-child(10){order:11} #cards .card:nth-child(13){order:12}
-  #cards .card:nth-child(11){order:13} #cards .card:nth-child(12){order:14}
+  #cards .card:nth-child(1){order:1}  #cards .card:nth-child(3){order:2}
+  #cards .card:nth-child(2){order:3}  #cards .card:nth-child(4){order:4}
+  #cards .card:nth-child(5){order:5}  #cards .card:nth-child(8){order:6}
+  #cards .card:nth-child(7){order:7}  #cards .card:nth-child(6){order:8}
   .hb{height:3px;border-radius:2px;background:rgba(128,128,128,.16);margin-top:5px;overflow:hidden}
   .hb i{display:block;height:100%;border-radius:2px;transition:width .5s ease}
   .ss{display:flex;height:3px;border-radius:2px;overflow:hidden;margin-top:5px;background:rgba(128,128,128,.12)}
