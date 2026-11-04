@@ -454,6 +454,7 @@
       ({ HvH: '双人同屏 · 无需后端', HvAI: '人机对战', AIvAI: 'AI 观战' })[G.mode];
     $('board-wrap').classList.toggle('gomoku', G.name === 'Gomoku');
     $('board-img').src = G.name === 'ChineseChess' ? 'assets/graphics/chess/board.svg' : 'assets/graphics/gomoku/board.jpeg';
+    if (G.mode === 'HvH') { const d = $('p-device'); if (d) { d.classList.add('hidden'); d.innerHTML = ''; } }
     $('wr-label-0').textContent = cfg.sides[0] + '视角';
     $('wr-label-1').textContent = cfg.sides[1] + '视角';
   }
@@ -830,6 +831,7 @@ function render() {
   function renderDeviceInfo() {
     const el = $('p-device');
     if (!el || !G || !lastDeviceInfo) { if (el) el.classList.add('hidden'); return; }
+    if (G.mode === 'HvH') { el.classList.add('hidden'); el.innerHTML = ''; return; }   // 双人同屏无 AI，推理设备无意义
     el.classList.remove('hidden');
     const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
     const { current, device_note, devices } = lastDeviceInfo;
