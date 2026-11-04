@@ -441,7 +441,7 @@
         <select id="ar_p1" class="rf-sel"></select><b>VS</b><select id="ar_p2" class="rf-sel"></select>
         <span class="hint" id="ar_expect" style="margin:0"></span>
       </div>
-      <div class="hint" style="margin-top:8px">名册 = 资产页勾选的检查点（原型预览：下方 8 名选手）。同网络内代差不超过 20 的优先互爬，跨网络对局自动加 1.5 权重（新宇宙定级需要更多样本）。</div>
+      <div class="hint" style="margin-top:8px">名册在上方「名册管理」维护（候选=磁盘全部检查点，点击即入册）。智能约架策略：分近者优先 × 出场少者优先。</div>
     </div>
     <div class="grid">
       <div class="panel"><h2>排名 <span class="lg" id="ar_rsum"></span></h2><div id="ar_ranks"></div></div>
@@ -1452,6 +1452,26 @@ let ARENA = {game:'ChineseChess', arena:'default', ranks:null, state:{running:fa
 function netColor(pf){ if(NET_C[pf]) return NET_C[pf];
   let h=0; for(const ch of pf) h=(h*31+ch.charCodeAt(0))%360; return `hsl(${h} 55% 52%)`; }
 const expRate = (a,b) => 1/(1+Math.pow(10,((b||1500)-(a||1500))/400));
+/* 应用内对话框：替代原生 prompt/confirm，主题一致。opts={title,text,placeholder,value,danger,okText}
+   resolve(字符串|true|取消时 null) */
+function zzAsk(opts){
+  return new Promise(res=>{
+    const box=document.createElement('div'); box.className='mask';
+    const input = opts.placeholder!==undefined ? `<input id="zzask_i" placeholder="${esc(opts.placeholder||'')}" value="${esc(opts.value||'')}">` : '';
+    box.innerHTML=`<div class="dlg" style="width:min(400px,92vw)"><h3>${esc(opts.title||'')}</h3>`
+      +(opts.text?`<div class="dbody">${esc(opts.text)}</div>`:'')+input
+      +`<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">`
+      +`<button class="mini" data-a="c">取消</button>`
+      +`<button class="primary" data-a="k" ${opts.danger?'style="background:#c0392b;border-color:#c0392b"':''}>${esc(opts.okText||'确定')}</button></div></div>`;
+    document.body.appendChild(box);
+    const inp=box.querySelector('#zzask_i'); if(inp) setTimeout(()=>inp.focus(),30);
+    const done=v=>{box.remove(); res(v);};
+    box.addEventListener('click',e=>{ if(e.target===box) return done(null);
+      const a=e.target.dataset&&e.target.dataset.a; if(!a) return;
+      if(a==='c') done(null); else done(inp?inp.value.trim():true); });
+    box.addEventListener('keydown',e=>{ if(e.key==='Enter'&&inp){const v=inp.value.trim(); done(v||null);} if(e.key==='Escape') done(null); });
+  });
+}
 function chip(id){ const i=id.lastIndexOf('/'), pf=id.slice(0,i);
   return `<span class="chip" data-k="${esc(id)}"><span style="color:${netColor(pf)}">●</span>${esc(id)}</span>`; }
 async function arenaLoadList(){
@@ -1564,11 +1584,12 @@ function arenaPoll(on){ if(ARENA.timer){clearInterval(ARENA.timer);ARENA.timer=n
   if(on) ARENA.timer=arenaFetch, setInterval(()=>{ if(tab==='arena') arenaFetch(); }, 3000); }
 $('ar_game').addEventListener('change',()=>{ ARENA.game=$('ar_game').value; ARENA.arena='default'; arenaReloadAll(); });
 $('ar_arena').addEventListener('change',()=>{ ARENA.arena=$('ar_arena').value; arenaFetch(); });
-$('ar_new').addEventListener('click',async()=>{ const name=prompt('新竞技场名字（如「宇宙对抗」「mini2 内战」）：'); if(!name) return;
+$('ar_new').addEventListener('click',async()=>{ const name=await zzAsk({title:'新建竞技场',placeholder:'名字，如「宇宙对抗」「mini2 内战」',okText:'创建'}); if(!name) return;
   const r=await api('/api/arena/create',{method:'POST',body:JSON.stringify({game:ARENA.game,name})});
   if(r.ok){ ARENA.arena=name; toast(`竞技场「${name}」已创建 — 名册是空的，去名册管理点将`); } else toast(r.error,true); arenaReloadAll(); });
 $('ar_del').addEventListener('click',async()=>{ if(ARENA.arena==='default'){toast('default 竞技场不可删',true);return;}
-  if(!confirm(`删除竞技场「${ARENA.arena}」？榜单与战绩将一起销毁`)) return;
+  const yes=await zzAsk({title:'删除竞技场',text:`「${ARENA.arena}」的榜单与战绩将一起销毁，不可恢复。`,danger:true,okText:'删除'});
+  if(!yes) return;
   const r=await api('/api/arena/delete',{method:'POST',body:JSON.stringify({game:ARENA.game,name:ARENA.arena})});
   if(r.ok){ ARENA.arena='default'; } else toast(r.error,true); arenaReloadAll(); });
 $('ar_mode').addEventListener('change',()=>{ $('ar_duel').classList.toggle('hidden',$('ar_mode').value!=='duel');
