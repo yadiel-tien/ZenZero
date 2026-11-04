@@ -1778,14 +1778,18 @@ function renderTask(){
   let cards = '', go = '';
   if(a.running){
     const ai = a.infer || {};
-    cards += card('推理', `${fmt(ai.req_per_s,0)}<span style="font-size:10px"> req/s</span>`,
-                  `每批 ${fmt(ai.fwd_ms_mean,2)}ms · 均批 ${fmt(ai.batch_recent_mean||ai.batch_mean,0)}`);
+    cards += card('引擎吞吐', `${fmt(ai.req_per_s,0)}<span style="font-size:10px"> req/s</span>`,
+                  `均批 ${fmt(ai.batch_recent_mean||ai.batch_mean,0)} · ${fmt(ai.fwd_ms_mean,2)}ms/批`);
+    cards += card('推理耗时', `${fmt(ai.fwd_ms_mean,2)}<span style="font-size:10px"> ms</span>`,
+                  '每批（GPU 纯计算）');
     go = 'arena';
     cards += card('任务', `<span class="tchip2" style="color:#3aa6a0;border:1px solid color-mix(in srgb,#3aa6a0 45%,transparent);background:color-mix(in srgb,#3aa6a0 12%,transparent)"><span class="pulse" style="width:6px;height:6px"></span>竞技场 · ${esc(a.arena||'')}</span>`,
                   `${MODE[a.mode]||a.mode||''} · ${fmt(a.done||0,0)}/${fmt(a.total||0,0)} · ${fmt(a.gpm,1)} 局/分`);
   } else if(tr.running){
-    cards += card('推理', `${fmt(inf.req_s,0)}<span style="font-size:10px"> req/s</span>`,
-                  `每批 ${fmt(inf.fwd,2)}ms · 批 ${fmt(inf.batch,0)}`);
+    cards += card('引擎吞吐', `${fmt(inf.req_s,0)}<span style="font-size:10px"> req/s</span>`,
+                  `批 ${fmt(inf.batch,0)} · 队 ${fmt(inf.pending,0)}`);
+    cards += card('推理耗时', `${fmt(inf.fwd,2)}<span style="font-size:10px"> ms</span>`,
+                  `等凑批 ${fmt(inf.window,2)}ms`);
     go = 'monitor';
     cards += card('任务', `<span class="tchip2" style="color:#4a90d9;border:1px solid color-mix(in srgb,#4a90d9 45%,transparent);background:color-mix(in srgb,#4a90d9 12%,transparent)">● ${esc(tr.text)}</span>`,
                   esc(window.__meta||''));
