@@ -502,7 +502,6 @@
     if (G.status === 'playing' || G.status === 'finished') {
       timeStr = String(G.timers[sideIdx]);
     }
-    const wr = p.type === 'ai' && p.winRate !== -1 ? (p._wrShown * 100).toFixed(1) + '%' : '--';
     // 选手名 + 版本徽标：desc 形如 "AI·miniv50" → 名字 "AI·mini" + 徽标 "v50"（v-1=原生）
     let nameHtml;
     if (p.type === 'ai') {
@@ -514,7 +513,6 @@
     return `
       <div class="si-card ${isTurn ? 'si-turn' : ''}">
         <div class="si-name ${cfg.sideCls[sideIdx]}">${nameHtml}<span class="si-side">· ${cfg.sides[sideIdx]}</span></div>
-        <div class="si-wr">胜率 ${wr}</div>
       </div>
       <span class="si-thinking ${isTurn && p.type === 'ai' ? 'on' : ''}" title="AI 思考中"><i></i></span>
       <span class="si-timer ${isTurn && G.timers[sideIdx] <= 10 && G.status === 'playing' ? 'danger' : ''}" id="timer-${sideIdx}">${timeStr !== '' ? timeStr + 's' : ''}</span>`;

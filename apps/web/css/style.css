@@ -265,7 +265,6 @@ body {
   color: #faf0d2; background: linear-gradient(180deg, #c99a1e, var(--seal));
   border: 1px solid rgba(200, 160, 40, .9); box-shadow: 0 1px 3px rgba(60, 45, 20, .35);
 }
-.si-wr { font-size: 13px; color: #8a8272; line-height: 1; }
 /* 思考环/读秒：相对 .side-info（stage 全宽）定位 → 上下两条完全对齐，且独立于高亮卡片 */
 .si-thinking {
   position: absolute; left: 20px; top: 50%; transform: translateY(-50%);
