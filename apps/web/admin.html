@@ -789,11 +789,6 @@ function renderSnapshot(s){
       + `</div></div><div class="s">${tr.running ? ((L.progress && L.progress.done != null)
              ? `${L.progress.done}/${L.progress.total || '?'} ${L.phase === 'fit' ? '步' : '局'} · 每轮${fmt(s.meta.games_per_round,0)}` : '心跳中…')
              : '去训练页启动'}</div></div>`,
-    card('引擎吞吐', fmt(inf.req_s,0)+' <span style="font-size:11px">req/s</span>'+spark(reqSer,'#4a90d9',54,16),
-         '批 '+fmt(inf.batch,0)+' · 队 '+fmt(inf.pending,0)+(inferStale? ` · ${fmt(inf.age_s,0)}s前`:''),
-         '推理引擎每秒处理多少个局面（瞬时值，用相邻两条日志的 total 之差算）。batch 均值 = 每次前向一起算几个局面，越大越省 GPU。排队 = 已进队列、还没被凑进 batch 的请求数。'),
-    card('每批推理耗时', fmt(inf.fwd,2)+' ms'+spark(fwdSer,'#e08a4e',54,16), '等凑批 '+fmt(inf.window,2)+' ms',
-         'GPU 算完一批（约 1500 个局面）的纯计算时间；等凑批 = 发车前为攒大批多等的时间。一次请求全程=排队+等凑批+本耗时+回传。GPU 每批固定开销高，批越大摊到每个局面越便宜。'),
     card('每手模拟', (sims? fmt(sims,0) : '—') + (sims? hb(100*(sims-400)/400, '#3aa6a0') : ''),
          'K='+ fmt(s.meta.batch_leaves,0) + ' · 爬坡 400→800',
          'MCTS 的每一步搜索多少次（随代数从 400 爬到 800）。K = 一手棋同时挂起的并行 leaf 数（virtual loss），决定 batch 能凑多大。'),
