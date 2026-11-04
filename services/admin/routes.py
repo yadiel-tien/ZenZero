@@ -577,7 +577,7 @@ def arena_start():
         mode=str(data.get('mode') or 'smart'),
         games=int(data.get('games') or 30),
         sims=int(data.get('sims') or 300),
-        tables=int(data.get('tables') or 5),
+        tables=(int(data['tables']) if data.get('tables') else None),
         pair=data.get('pair') or None)
     return jsonify(res), (200 if res.get('ok') else 400)
 

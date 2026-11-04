@@ -1747,14 +1747,14 @@ function liveCard(here, hereDone, st, P, nm, FCOL){
       <b style="font-size:13px">${here?'<span class="pulse"></span> '+esc(mode)+' 进行中':'上批已结束'}</b>
       <span class="hint" style="margin:0">第 ${doneN}/${total} 局 · ${pct}%</span>
       ${here&&st.started_ts?`<span class="hint" style="margin:0" id="ar_elapsed">已用 ${fmtElapsed(Date.now()/1000-st.started_ts)}</span>`:''}
-      <span class="mono" style="margin-left:auto"><b style="color:#2e8b57">${w}</b> 胜 · <b style="color:#9a917d">${d}</b> 和 · <b style="color:#c0392b">${l}</b> 负</span></div>
+    </div>
     <div class="pb"><i style="width:${pct}%;background:#3aa6a0"></i></div>`;
   return (duel || head)
     + (here ? tablesHtml(st, P) : (pairs? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="hint" style="margin:0;font-size:10px;letter-spacing:.5px">本波对阵</span>${pairs}</div>`:''))
     + (st.feed&&st.feed.length? `<div style="margin-top:7px;display:flex;align-items:center;gap:8px"><span class="hint" style="margin:0">全批进程</span>${feedHtml(st.feed,FCOL)}</div>`:'')
     + metrics;
 }
-function feedHtml(feed,FCOL){ return `<span class="ar-feed">${(feed||[]).map(f=>`<i style="background:${FCOL[f]}" title="${{w:'先手胜',d:'和',l:'先手负'}[f]}"></i>`).join('')}</span>`; }
+function feedHtml(feed,FCOL){ return `<span class="ar-feed">${(feed||[]).map(f=>`<i style="background:${FCOL[f]}" title="${{w:'左方胜',d:'和',l:'右方胜'}[f]}"></i>`).join('')}</span>`; }
 function duelHtml(a,b,ea,st,FCOL,nm){
   const [w,d,l]=st.tally||[0,0,0];
   return `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
@@ -1763,7 +1763,7 @@ function duelHtml(a,b,ea,st,FCOL,nm){
       <b style="width:${(ea*100).toFixed(0)}%;background:${netColor(a.split('/')[0])}"> ${(ea*100).toFixed(0)}% 预期</b><b style="background:${netColor(b.split('/')[0])}">${((1-ea)*100).toFixed(0)}%</b></div>
     <div style="font-size:15px">${nm(b)}</div></div>
     <div style="margin-top:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <span class="mono" style="font-size:15px"><b style="color:#2e8b57">${w}</b> 胜 · <b style="color:#9a917d">${d}</b> 和 · <b style="color:#c0392b">${l}</b> 负</span>
+      <span class="mono" style="font-size:15px"><span class="hint" style="margin:0">${esc(pretty(a))} 战绩</span> <b style="color:#2e8b57">${w}</b> 胜 · <b style="color:#9a917d">${d}</b> 和 · <b style="color:#c0392b">${l}</b> 负</span>
       ${feedHtml(st.feed,FCOL)}<span class="hint" style="margin:0">第 ${st.done}/${st.total} 局</span></div>
     <div class="pb"><i style="width:${(100*(st.done||0)/Math.max(st.total||1,1)).toFixed(0)}%;background:#3aa6a0"></i></div>`;
 }
