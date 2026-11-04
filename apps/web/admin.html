@@ -1670,7 +1670,7 @@ function updExpect(){ const P=(ARENA.ranks&&ARENA.ranks.players)||[];
 function arenaPoll(on){ if(ARENA.timer){clearInterval(ARENA.timer);ARENA.timer=null;}
   if(on) ARENA.timer=arenaFetch, setInterval(()=>{ if(tab==='arena') arenaFetch(); }, 3000); }
 $('ar_game').addEventListener('change',()=>{ ARENA.game=$('ar_game').value; ARENA.arena='default'; arenaReloadAll(); });
-$('ar_arena').addEventListener('change',()=>{ ARENA.arena=$('ar_arena').value; arenaFetch(); });
+$('ar_arena').addEventListener('change',()=>{ ARENA.arena=$('ar_arena').value; arenaReloadAll(); });
 $('ar_new').addEventListener('click',async()=>{ const name=await zzAsk({title:'新建竞技场',placeholder:'名字，如「宇宙对抗」「mini2 内战」',okText:'创建'}); if(!name) return;
   const r=await api('/api/arena/create',{method:'POST',body:JSON.stringify({game:ARENA.game,name})});
   if(r.ok){ ARENA.arena=name; toast(`竞技场「${name}」已创建 — 名册是空的，去名册管理点将`); } else toast(r.error,true); arenaReloadAll(); });
