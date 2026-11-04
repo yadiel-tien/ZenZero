@@ -60,7 +60,7 @@ class ArenaEngine:
             return {'ok': False, 'error': f'「{name}」已存在'}
         os.makedirs(d)
         with open(os.path.join(d, 'candidates.txt'), 'w') as f:
-            f.write('')                                    # 新场空名册，手动点将
+            f.write('')                                    # 新建竞技场默认空名册，手动点将
         self.get(game, name)
         return {'ok': True, 'name': name}
 
@@ -69,7 +69,7 @@ class ArenaEngine:
             return {'ok': False, 'error': 'default 场不可删（清空名册即可）'}
         key = (game, name)
         if key in self._threads and self._threads[key].is_alive():
-            return {'ok': False, 'error': '这场正在打仗，先停'}
+            return {'ok': False, 'error': '这座竞技场正在打仗，先停'}
         d = os.path.join(CONFIG['data_dir'], game, 'rates', name)
         if not os.path.isdir(d):
             return {'ok': False, 'error': '不存在'}
@@ -100,7 +100,7 @@ class ArenaEngine:
               pair: list[str] | None = None) -> dict:
         busy = self._busy()
         if busy:
-            return {'ok': False, 'error': f'「{busy[0]}·{busy[1]}」正在打仗，先停止'}
+            return {'ok': False, 'error': f'「{busy[0]}·{busy[1]}」竞技场正在打仗，先停止'}
         a = self.get(game, arena)
         if not a.rates:
             return {'ok': False, 'error': '名册为空 — 先到「名册管理」添加选手'}
@@ -142,7 +142,7 @@ class ArenaEngine:
         busy = self._busy()
         if busy:
             self._cache[busy].stop_event.set()
-            return {'ok': True, 'note': f'已请求停止「{busy[1]}」：进行中的桌打完本批即收'}
+            return {'ok': True, 'note': f'已请求停止竞技场「{busy[1]}」：进行中的桌打完本批即收'}
         return {'ok': True, 'note': '没有在打的战役'}
 
     # ---------- 查询 ----------

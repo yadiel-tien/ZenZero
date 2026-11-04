@@ -407,8 +407,8 @@
       <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
         <label class="hint" style="margin:0">棋种</label><select id="ar_game" class="rf-sel"><option value="ChineseChess">中国象棋</option><option value="Gomoku">五子棋</option></select>
         <label class="hint" style="margin:0">竞技场</label><select id="ar_arena" class="rf-sel"></select>
-        <button class="mini" id="ar_new">＋ 新建场次</button>
-        <button class="mini" id="ar_del" title="删除当前非 default 场次">删除场次</button>
+        <button class="mini" id="ar_new">＋ 新建竞技场</button>
+        <button class="mini" id="ar_del" title="删除当前非 default 竞技场">删除竞技场</button>
         <span class="hint" id="ar_ameta" style="margin:0"></span>
       </div>
       <details id="ar_roster_w" style="margin-top:6px"><summary class="h2like">名册管理 <span class="lg">在候选里点 = 加入；点名册里的 × = 移出</span></summary>
@@ -1482,7 +1482,7 @@ function renderArena(){
   // 名册面板
   const cand=(R&&R.candidates)||[], rosterIds=P.map(p=>p.id);
   $('ar_rn').textContent = rosterIds.length;
-  $('ar_cur').innerHTML = rosterIds.length? rosterIds.map(x=>chip(x).replace('</span>','<span class="x">×</span></span>')).join('') : '<span class="hint" style="margin:0">空场 — 从右侧候选点击加入</span>';
+  $('ar_cur').innerHTML = rosterIds.length? rosterIds.map(x=>chip(x).replace('</span>','<span class="x">×</span></span>')).join('') : '<span class="hint" style="margin:0">空 — 从右侧候选点击加入</span>';
   $('ar_cand').innerHTML = cand.filter(x=>!rosterIds.includes(x)).map(x=>chip(x)).join('') || '<span class="hint" style="margin:0">候选已全部入册</span>';
   $('ar_cur').querySelectorAll('.chip').forEach(el=>el.onclick=()=>arenaRoster(null,[el.dataset.k]));
   $('ar_cand').querySelectorAll('.chip').forEach(el=>el.onclick=()=>arenaRoster([el.dataset.k],null));
@@ -1500,10 +1500,10 @@ function renderArena(){
     const [w,d,l]=st.tally||[0,0,0], wr=(w+d/2)/Math.max(w+d+l,1);
     live.innerHTML = `<div class="hint" style="margin:0">上批已结束 · ${st.total} 局 ${feedHtml(st.feed,FCOL)} <b style="color:${wr>=0.5?'#2e8b57':'#c0392b'}">先手得分率 ${(wr*100).toFixed(1)}%</b>（胜${w} 和${d} 负${l}）</div>`;
   }
-  else live.innerHTML = '<div class="hint" style="margin:0">暂无对局 — 管好评册，选模式点「开始」。榜上空着是因为这座场还没打过。</div>';
+  else live.innerHTML = '<div class="hint" style="margin:0">暂无对局 — 管好名册，选模式点「开始」。这座竞技场还没打过，榜单自然是空的。</div>';
   // 榜 / 阶梯 / 矩阵
   if(!P.length){
-    $('ar_rsum').textContent=''; $('ar_ranks').innerHTML='<div class="hint" style="margin:0">本场榜单空 · 候选 '+cand.length+' 个检查点可入册</div>';
+    $('ar_rsum').textContent=''; $('ar_ranks').innerHTML='<div class="hint" style="margin:0">这座竞技场还没选手 · 候选 '+cand.length+' 个检查点可入册</div>';
     $('ar_ladder').innerHTML=''; $('ar_matrix').innerHTML='';
   } else {
     const ranked=[...P].sort((x,y)=>y.score-x.score), top=ranked[0].score, floor=ranked[ranked.length-1].score-20;
@@ -1566,8 +1566,8 @@ $('ar_game').addEventListener('change',()=>{ ARENA.game=$('ar_game').value; AREN
 $('ar_arena').addEventListener('change',()=>{ ARENA.arena=$('ar_arena').value; arenaFetch(); });
 $('ar_new').addEventListener('click',async()=>{ const name=prompt('新竞技场名字（如「宇宙对抗」「mini2 内战」）：'); if(!name) return;
   const r=await api('/api/arena/create',{method:'POST',body:JSON.stringify({game:ARENA.game,name})});
-  if(r.ok){ ARENA.arena=name; toast(`竞技场「${name}」已建 — 名册是空的，去名册管理点将`); } else toast(r.error,true); arenaReloadAll(); });
-$('ar_del').addEventListener('click',async()=>{ if(ARENA.arena==='default'){toast('default 不可删',true);return;}
+  if(r.ok){ ARENA.arena=name; toast(`竞技场「${name}」已创建 — 名册是空的，去名册管理点将`); } else toast(r.error,true); arenaReloadAll(); });
+$('ar_del').addEventListener('click',async()=>{ if(ARENA.arena==='default'){toast('default 竞技场不可删',true);return;}
   if(!confirm(`删除竞技场「${ARENA.arena}」？榜单与战绩将一起销毁`)) return;
   const r=await api('/api/arena/delete',{method:'POST',body:JSON.stringify({game:ARENA.game,name:ARENA.arena})});
   if(r.ok){ ARENA.arena='default'; } else toast(r.error,true); arenaReloadAll(); });
