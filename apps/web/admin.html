@@ -76,6 +76,10 @@
   .ss i{height:100%;transition:width .5s ease}
   .spk{vertical-align:-4px;margin-left:6px}
   .ph-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:2px}
+  .card.phase-card{border-top:3px solid var(--phc);background:linear-gradient(180deg, color-mix(in srgb, var(--phc) 7%, var(--card)), var(--card) 46%)}
+  .ph-pill{display:inline-block;font-size:12px;font-weight:700;letter-spacing:1px;padding:2px 10px;border-radius:10px;background:color-mix(in srgb, var(--phc) 18%, transparent);color:var(--phc)}
+  .phase-card .gen{font-size:16px;font-weight:600;margin-top:3px}
+  .phase-card .gen em{font-style:normal;font-size:12px;color:var(--dim);font-weight:400}
   .pb{height:3px;border-radius:2px;background:rgba(128,128,128,.18);margin-top:4px;overflow:hidden}
   .pb i{display:block;height:100%;background:var(--blue);border-radius:2px;transition:width .5s ease}
   .v .ok{color:#2e8b57} .v .bad{color:#c0392b}
@@ -651,16 +655,15 @@ function renderSnapshot(s){
   const inferStale = (inf.age_s||0) > 15;
   const gpmLive = (L.gpm !== undefined && L.gpm !== null) ? L.gpm : null;
   $('cards').innerHTML = [
-    card('当前阶段 · ' + (tr.running ? (PHASE_CN[L.phase] || L.phase || '待命') : '未运行'),
-         `<span class="ph-dot" style="background:${tr.running ? phColor : '#9a917d'}${tr.running?';box-shadow:0 0 6px '+phColor+'66':''}"></span>第 ` + fmt(L.iteration || last.iteration || 0, 0) + ' 代'
-         + ((s.best != null && s.best > -1 && s.best !== (L.iteration || last.iteration))
-             ? ` <span style="font-size:15px;font-weight:600;color:var(--dim)">· 最佳 ${s.best}</span>` : '')
-         + (tr.running && L.progress && L.progress.total
-             ? `<div class="pb"><i style="width:${Math.min(100, 100*(L.progress.done||0)/(L.progress.total||1)).toFixed(0)}%"></i></div>` : ''),
-         tr.running ? ((L.progress && L.progress.done != null)
+    `<div class="card phase-card" style="--phc:${tr.running ? phColor : '#9a917d'}"><div class="k">当前阶段</div><div class="v">`
+      + `<span class="ph-pill">${tr.running ? (PHASE_CN[L.phase] || L.phase) : '未运行'}</span>`
+      + `<div class="gen">第 ${fmt(L.iteration || last.iteration || 0, 0)} 代`
+      + ((s.best != null && s.best > -1 && s.best !== (L.iteration || last.iteration)) ? ` <em>· 最佳 ${s.best}</em>` : '')
+      + (tr.running && L.progress && L.progress.total
+          ? `<div class="pb"><i style="width:${Math.min(100, 100*(L.progress.done||0)/(L.progress.total||1)).toFixed(0)}%;background:var(--phc)"></i></div>` : '')
+      + `</div></div><div class="s">${tr.running ? ((L.progress && L.progress.done != null)
              ? `${L.progress.done}/${L.progress.total || '?'} ${L.phase === 'fit' ? '步' : '局'} · 每轮${fmt(s.meta.games_per_round,0)}` : '心跳中…')
-             : '去训练页启动',
-         '本轮正在做什么（自博弈攒数据 → 训练网络 → 守擂赛），以及当前模型代数。'),
+             : '去训练页启动'}</div></div>`,
     card('引擎吞吐', fmt(inf.req_s,0)+' <span style="font-size:11px">req/s</span>'+spark(reqSer,'#4a90d9',54,16),
          '批 '+fmt(inf.batch,0)+' · 队 '+fmt(inf.pending,0)+(inferStale? ` · ${fmt(inf.age_s,0)}s前`:''),
          '推理引擎每秒处理多少个局面（瞬时值，用相邻两条日志的 total 之差算）。batch 均值 = 每次前向一起算几个局面，越大越省 GPU。排队 = 已进队列、还没被凑进 batch 的请求数。'),
