@@ -1456,6 +1456,7 @@ async function taskShowLog(name){
 /* ================= 竞技场 ================= */
 const NET_C = {mini:'#4a90d9', mini2:'#3aa6a0', s:'#e08a4e', m:'#9575cd'};
 let ARENA = {game:'ChineseChess', arena:'default', ranks:null, state:{running:false}, prev:null, timer:null};
+const pretty = id => String(id).replace('/', ' v');
 function netColor(pf){ if(NET_C[pf]) return NET_C[pf];
   let h=0; for(const ch of pf) h=(h*31+ch.charCodeAt(0))%360; return `hsl(${h} 55% 52%)`; }
 const expRate = (a,b) => 1/(1+Math.pow(10,((b||1500)-(a||1500))/400));
@@ -1541,12 +1542,12 @@ function renderArena(){
         <td class="mono">${p.games}</td><td>${p.hist&&p.hist.length>2?spark(p.hist,'#8a8272',60,16):''}</td></tr>`; }).join('')+'</table>';
     $('ar_ladder').innerHTML = ranked.map(p=>{
       const w=6+(p.score-floor)/Math.max(top-floor,1e-9)*88, c=netColor(p.profile);
-      return `<div class="ladrow"><span class="nm">${esc(p.id)}</span><div class="bar" style="width:${w.toFixed(1)}%;background:${c}"></div><span class="mono">${p.score.toFixed(0)}</span></div>`;
+      return `<div class="ladrow"><span class="nm">${esc(pretty(p.id))}</span><div class="bar" style="width:${w.toFixed(1)}%;background:${c}"></div><span class="mono">${p.score.toFixed(0)}</span></div>`;
     }).join('')+'<div class="hint" style="margin-top:4px">条长=Elo（相对拉伸）；颜色=网络；跨色相邻≈同级，断层=宇宙差</div>';
     const ids=ranked.map(p=>p.id);
     if(ids.length>1){
-      $('ar_matrix').innerHTML = `<table class="mtx"><tr><th></th>${ids.map(x=>`<th>${esc(x)}</th>`).join('')}</tr>`+
-        ids.map(r=>`<tr><th>${esc(r)}</th>${ids.map(c=>{
+      $('ar_matrix').innerHTML = `<table class="mtx"><tr><th></th>${ids.map(x=>`<th>${esc(pretty(x))}</th>`).join('')}</tr>`+
+        ids.map(r=>`<tr><th>${esc(pretty(r))}</th>${ids.map(c=>{
           if(r===c) return '<td class="diag">—</td>';
           const rec=(R.rival[r]||{})[c]; if(!rec||!rec[0]+rec[1]+rec[2]) return '<td style="opacity:.3">·</td>';
           const [w,l,d]=rec, t=w+l+d, wr=w/t;
@@ -1554,7 +1555,7 @@ function renderArena(){
         }).join('')}</tr>`).join('')+'</table>';
     } else $('ar_matrix').innerHTML='<span class="hint" style="margin:0">至少两名选手后生成</span>';
   }
-  const opts=(rosterIds.length?rosterIds:cand).map(x=>`<option>${esc(x)}</option>`).join('');
+  const opts=(rosterIds.length?rosterIds:cand).map(x=>`<option value="${esc(x)}">${esc(pretty(x))}</option>`).join('');
   if($('ar_p1').dataset.sig!==(cand.join(',')+ARENA.arena)){
     const a0=$('ar_p1').value, b0=$('ar_p2').value;
     $('ar_p1').innerHTML=opts; $('ar_p2').innerHTML=opts; $('ar_p1').dataset.sig=cand.join(',')+ARENA.arena;
@@ -1582,7 +1583,7 @@ async function rosterModal(){
       <button class="primary" data-a="done">完成</button></div></div>`;
   document.body.appendChild(box);
   const item=(k,dir)=>`<div class="rz-item" data-k="${esc(k)}" data-d="${dir}"><span>${chipDot(k)}</span><span class="mv">${dir? '→ 入册':'← 移出'}</span></div>`;
-  const chipDot=id=>{const i=id.lastIndexOf('/');return `<span style="color:${netColor(id.slice(0,i))}">●</span> ${esc(id)}`;};
+  const chipDot=id=>{const i=id.lastIndexOf('/');return `<span style="color:${netColor(id.slice(0,i))}">●</span> ${esc(pretty(id))}`;};
   const paint=async()=>{
     const q=($('rz_q',box)?.value||$('rz_q')?.value||'').toLowerCase();
     const c1=cand.filter(k=>!roster.has(k)).filter(k=>!q||k.toLowerCase().includes(q));
