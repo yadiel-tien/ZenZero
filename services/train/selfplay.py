@@ -94,6 +94,30 @@ class SelfPlayManager:
         #   stop_after_round=True = 收尾后停（自博弈→fit→评估 全做完，再退出，不丢本轮成果）
         self.stop_after_round = False
 
+    def _auto_tune_k(self, infer: dict) -> None:
+        """按引擎实测把并行叶子 K 收敛到当前"网络×设备"的甜点（每轮一次，双向半步）。
+
+        原理（2026-11-04 A/B）：K 决定每手搜索要往返引擎几次，但批太大（前向变慢）
+        又会把单轮延迟拉长。同一台 5090 上，小网络 mini2 甜点 K=64（84~92 局/分），
+        换 256×15 的大网络前向会慢一倍多，甜点自动回落到更小的 K；CPU 上同理。
+        因此不写死数值，用"批大小 + 前向耗时"两个可测信号闭环调节。
+        """
+        k = int(CONFIG.get('mcts_batch_leaves', 8))
+        fwd = float(infer.get('fwd_ms_mean') or 0.0)
+        batch = float(infer.get('batch_mean') or 0.0)
+        if fwd <= 0 or batch <= 0:
+            return
+        new = k
+        if fwd > 15 or batch > 2400:       # 批太大/前向太慢：往返延迟已经吃掉收益
+            new = max(8, k // 2)
+        elif batch < 900 and fwd < 10:     # 批没吃饱、前向还有余量：加并行叶子
+            new = min(128, k * 2)
+        if new != k:
+            CONFIG['mcts_batch_leaves'] = new
+            msg = f'[auto] 推理批 {batch:.0f} · 前向 {fwd:.1f}ms → 并行叶子 K {k}→{new}'
+            self.logger.info(msg)
+            print(msg, flush=True)
+
     def run(self, n_games: int) -> None:
         """训练入口
         :param n_games: 每轮的游戏数量"""
@@ -401,11 +425,13 @@ class SelfPlayManager:
             mcts_txt = {'select_ms_per_sim': round(sel_s / sims_count * 1e3, 3),
                         'wait_ms_per_sim': round(wait_s / sims_count * 1e3, 3),
                         'select_ratio': round(sel_s / max(sel_s + wait_s, 1e-9), 3)}
+        infer_stats = self.train_server.infer_stats()
         self._last_sp = {'games': completed, 'samples': data_count, 'sims': sims_count,
                          'wall': time.time() - start, 'n_sims': n_simulations,
                          'mcts': mcts_txt,
                          'batch_leaves': batch_leaves,
-                         'infer': self.train_server.infer_stats()}
+                         'infer': infer_stats}
+        self._auto_tune_k(infer_stats)
         self.buffer.save()
         self.val_buffer.save()
         # 命名仓元数据回写（default 原位仓自动跳过；失败静默——训练永远优先）
