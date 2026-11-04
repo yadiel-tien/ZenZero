@@ -9,6 +9,7 @@ from core.utils.types import EnvName
 from services.inference.engine import InferenceEngine
 from services.inference.hub import ServerHub
 from .player import Player
+from core.utils.config import CONFIG
 from core.utils.logger import get_logger
 
 logger = get_logger('ai_server')
@@ -118,7 +119,11 @@ class AIServer(Player):
             else:  # state与当前state不匹配，新建root节点
                 self.mcts.set_root(state, last_action, player_to_move)
 
-        self.mcts.run(self._n_simulation)
+        # 虚拟损失批量：K>1 时一次入队 K 个 leaf，每手往返数 300 次 → ceil(300/K) 次。
+        # 对弈/竞技场这条路径此前漏传批次（K 默认 1），一场 10 桌的 300 sims 对局
+        # 要 2-3 万次单条推理往返，一局 10 分钟——正是"7 分钟一局没出"的真凶。
+        k = max(1, min(int(CONFIG.get('mcts_batch_leaves', 1)), int(self._n_simulation)))
+        self.mcts.run(self._n_simulation, batch_leaves=k)
         # 统一树协议：win_rate 恒在 root=我方视角（任何推进动作之前）计算——
         # 旧代码把取值放在 temp>0 分支 apply 之后，root 已是对手视角却按我方口径写，
         # 心跳撞上就把翻转值泄漏上界面（红优局黑条发黑的真凶）。
