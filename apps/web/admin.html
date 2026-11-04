@@ -1774,8 +1774,9 @@ function renderStrip(){ /* 硬件卡由 renderSnapshot 直接写 #strip_cards */
 function renderTask(){
   const ph = $('phase'); if(!ph) return;
   const a = window.__arena || {}, tr = window.__trTask || {running:false, text:'未运行', cls:'pill'};
-  const busy = !!(a.running || tr.running);
-  $('meta').style.display = busy ? '' : 'none';   // 没任务就别占地方显示网络配置
+  // 配置行是「训练」的参数（网络/设备/K/sims），竞技场有自己的配置，跟它无关：
+  // 只有训练在跑时才显示，竞技场跑着就只显示竞技场任务本身。
+  $('meta').style.display = tr.running ? '' : 'none';
   const MODE = {smart:'智能约架',gauntlet:'车轮战',duel:'自定义对决'};
   if(a.running){
     ph.className = 'tstate arena';
