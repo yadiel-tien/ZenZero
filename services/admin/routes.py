@@ -99,7 +99,10 @@ def snapshot():
 
 @bp.get('/api/admin/series')
 def series():
-    return jsonify(_m().series())
+    # 级联筛选：?game=ChineseChess&profile=mini（留空=跟随运行中的棋种/全部网络）
+    g = (request.args.get('game') or '').strip() or None
+    pf = (request.args.get('profile') or '').strip() or None
+    return jsonify(_m().series(game=g, profile=pf))
 
 
 def _suggested_target() -> dict:

@@ -97,6 +97,7 @@
   .runfilter .sw{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
   .runfilter .rf-now{color:var(--green);font-weight:600;font-size:10px}
   .runfilter .rf-all{color:var(--blue);cursor:pointer;font-size:11px;text-decoration:underline}
+  .rf-sel{background:var(--panel,#161b22);color:var(--fg);border:1px solid var(--line);border-radius:6px;font-size:11.5px;padding:2px 6px}
   .runfilter .rf-more{display:inline-flex;align-items:center}
   .runfilter .rf-more summary{color:var(--dim);font-size:11.5px;cursor:pointer;list-style:none;padding:2px 8px;border:1px dashed var(--line);border-radius:8px}
   .runfilter .rf-more[open] summary{border-style:solid;color:var(--fg)}
@@ -148,6 +149,13 @@
   <!-- ============ 监控 ============ -->
   <section class="tab on" id="tab-monitor">
     <div class="cards" id="cards"></div>
+    <div class="runfilter" style="margin:2px 0 0">
+      <span class="rf-lb">棋种</span>
+      <select id="mon_game" class="rf-sel"><option>ChineseChess</option><option>Gomoku</option></select>
+      <span class="rf-lb">网络</span>
+      <select id="mon_profile" class="rf-sel"><option value="">全部</option></select>
+      <span class="hint" id="mon_hint"></span>
+    </div>
     <div class="runfilter" id="runfilter"></div>
     <div class="grid">
       <div class="panel"><h2>自博弈吞吐 <span class="lg">局/分钟</span></h2><canvas id="c_gpm"></canvas></div>
@@ -718,9 +726,34 @@ function normSeries(d){
     rounds[g.name] = Object.fromEntries(Object.entries(rn).map(([m,v])=>[m, v.sort((a,b)=>a[0]-b[0])]));
     tb[g.name] = Object.fromEntries(Object.entries(tn).map(([m,v])=>[m, [...v].sort((a,b)=>a[0]-b[0])]));
   }
-  // ——「前世」按**神经网络(profile)**分组各自成线：同网络的历史 run 按代数去重并入
-  //     （只收代数 < 本任务起始代数），不同网络（s/m/mini）永不混线——代数轴互不相干
-  const cur = sessions.find(g => g.running) || sessions[0];
+  // ——整网络合并线：无名历史（如 s 时代十来个重启片段）按代数去重并成一条；
+  //   「前世」= 除当前命名任务外的全部（同 profile 一条线，不同 profile 各一条）
+  let cur = sessions.find(g => g.running) || sessions[0];
+  const profOf0 = g => ((g.members || []).find(m => m.profile) || {}).profile || null;
+  const mergeInto = (gs, NAME, profile, running) => {   // gs: 旧→新，后写覆盖
+    const Rm = {}, Tm = {};
+    let nRuns = 0, startMax = 0;
+    for (const g of gs.slice().sort((a,b)=>a.start-b.start)){
+      nRuns += g.n_runs; startMax = Math.max(startMax, g.start || 0);
+      for (const [m, pts] of Object.entries(rounds[g.name] || {})){
+        const mp = Rm[m] || (Rm[m] = new Map());
+        for (const [x, y] of pts) mp.set(x, y);
+      }
+      for (const [m, pts] of Object.entries(tb[g.name] || {})){
+        const mp = Tm[m] || (Tm[m] = new Map());
+        for (const [x, y] of pts) mp.set(x, y);
+      }
+    }
+    rounds[NAME] = Object.fromEntries(Object.entries(Rm).map(([m,v])=>[m,[...v].sort((a,b)=>a[0]-b[0])]));
+    tb[NAME] = Object.fromEntries(Object.entries(Tm).map(([m,v])=>[m,[...v].sort((a,b)=>a[0]-b[0])]));
+    return {name: NAME, start: startMax, running: !!running, kind: null, profile,
+            n_runs: nRuns, legacy: false, named: true, elder: true, members: []};
+  };
+  if (cur && !cur.named){          // 当前任务本身无名 → 整网络就是一条线
+    const pr = profOf0(cur);
+    const m = mergeInto(sessions, `__all__:${pr}`, pr, sessions.some(g=>g.running));
+    sessions = [m]; cur = m;
+  }
   const g0 = cur && cur.start_iter;
   const profOf = g => ((g.members || []).find(m => m.profile) || {}).profile || null;
   const curProf = cur ? profOf(cur) : null;
@@ -736,8 +769,8 @@ function normSeries(d){
     for (const g of gs.slice().sort((a,b)=>a.start-b.start)){           // 旧→新，后写覆盖
       const rr = rounds[g.name] || {};
       for (const [m, pts] of Object.entries(rr)){
-        // 同网络：只收本任务起始代之前的代数；异网络：整条线自足，全保留
-        const keep = (pr === curProf && g0) ? pts.filter(([x]) => x <= g0) : pts;   // 含起始代（本任务从 g0+1 开始练）
+        // 同网络：只收本任务起始代之前的代数（含起始代，本任务从 g0+1 练起）；异网络：整线保留
+        const keep = (pr === curProf && g0) ? pts.filter(([x]) => x <= g0) : pts;
         if (!keep.length) continue;
         const mp = Rm[m] || (Rm[m] = new Map());
         for (const [x, y] of keep){ mp.set(x, y); any = true; }
@@ -770,7 +803,7 @@ function runLabel(r){
 }
 function renderRunFilter(runs){
   const el = $('runfilter'); if(!el) return;
-  if(!runs || runs.length < 2){ el.innerHTML = ''; return; }
+  if(!runs || !runs.length){ el.innerHTML = ''; return; }
   const vis = RUN_STATE.vis;
   const box = r => `<label><input type="checkbox" ${(!vis||vis.has(r.name))?'checked':''} data-run="${esc(r.name)}">
       <span class="sw" style="background:${RUN_COLOR[r.name]||PAL.blue}"></span>${runLabel(r)}
@@ -779,7 +812,7 @@ function renderRunFilter(runs){
   const off = runs.filter(r =>  vis && !vis.has(r.name)).map(box);
   el.innerHTML = `<span class="rf-lb">任务</span>${on.join('')}`
     + (off.length ? `<details class="rf-more"><summary>＋${off.length} 个历史</summary><span class="rf-more-in">${off.join('')}</span></details>` : '')
-    + (vis !== null ? '<a class="rf-all" href="javascript:void(0)">全部</a>' : '');
+    + (vis !== null && runs.length > 1 ? '<a class="rf-all" href="javascript:void(0)">全部</a>' : '');
   el.querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
     const all = new Set(runs.map(r => r.name));
     const names = new Set([...el.querySelectorAll('input[data-run]')]
@@ -801,7 +834,9 @@ function renderCharts(d){
       || RUN_STATE.vis === undefined || ![...RUN_STATE.vis].some(n => runs0.some(r => r.name === n)))) {
     const cur = runs0.find(r => r.running) || runs0[0];
     if (cur) { RUN_STATE.vis = new Set([cur.name]);
-      const e = runs0.find(r => r.elder && r.sameProfile); if (e) RUN_STATE.vis.add(e.name); }
+      const e = runs0.find(r => r.elder && r.sameProfile); if (e) RUN_STATE.vis.add(e.name);
+      if (runs0.length === 1) RUN_STATE.vis = null;      // 单线网络：唯一选项自动可见
+    }
     else RUN_STATE.vis = null;
   }
   runs0 = runs0.slice();
@@ -1264,12 +1299,44 @@ async function tick(){
     const s = await api('/api/admin/snapshot'); renderSnapshot(s);
   }catch(e){ $('phase').textContent = '拉取失败: '+e.message; }
 }
+const MON_KEY = 'zz_mon_target';
 async function tickSeries(){
   if(tab!=='monitor') return;
-  try{ renderCharts(await api('/api/admin/series')); }catch(e){ /* 静默 */ }
+  try{
+    let t = {}; try{ t = JSON.parse(localStorage.getItem(MON_KEY)||'{}'); }catch(e){}
+    const q = new URLSearchParams();
+    if(t.game) q.set('game', t.game);
+    if(t.profile) q.set('profile', t.profile);
+    const d = await api('/api/admin/series' + (q.toString()? '?'+q : ''));
+    // 级联第二层：网络列表随数据走；默认选中 = 当前训练的网络
+    const sel = $('mon_profile'), gs = $('mon_game');
+    if(gs && !t.game && d.game) gs.value = d.game;
+    if(sel){
+      const want = t.profile || '';
+      const key = (d.game||'') + '|' + (d.profiles||[]).join(',');
+      if(sel.dataset.sig !== key){
+        sel.dataset.sig = key;
+        sel.innerHTML = '<option value="">全部网络</option>' +
+          (d.profiles||[]).map(pf=>`<option>${esc(pf)}</option>`).join('');
+        sel.value = want;
+      }
+    }
+    renderCharts(d);
+  }catch(e){ /* 静默 */ }
+}
+function monReload(which){
+  let t = {}; try{ t = JSON.parse(localStorage.getItem(MON_KEY)||'{}'); }catch(e){}
+  if(which==='game'){ t.game = $('mon_game').value; t.profile = ''; }
+  else t.profile = $('mon_profile').value;
+  try{ localStorage.setItem(MON_KEY, JSON.stringify(t)); }catch(e){}
+  RUN_STATE.vis = undefined;          // 换筛选范围 → 回到"当前任务+同网络前世"自动视图
+  localStorage.removeItem(VIS_KEY);
+  tickSeries();
 }
 $('btn-theme').onclick = () => cycleTheme();
 applyTheme(themeMode(), false);      // 同步按钮文案 + 图表配色（不改 localStorage）
+$('mon_game').addEventListener('change', () => monReload('game'));
+$('mon_profile').addEventListener('change', () => monReload('profile'));
 $('btn-start2').onclick = startTraining;
 $('btn-stop').onclick = () => stopTraining('kill');
 $('btn-stop-round').onclick = () => stopTraining('interrupt');

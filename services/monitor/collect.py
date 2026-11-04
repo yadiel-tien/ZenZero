@@ -718,7 +718,8 @@ class Monitor:
             'crashes': self._crashes(),
         }
 
-    def series(self, max_runs: int = 14) -> dict:
+    def series(self, max_runs: int = 14, game: str | None = None,
+               profile: str | None = None) -> dict:
         """按训练批次返回曲线（每个批次一个自己的横轴，互不粘连）。
 
         返回：
@@ -731,12 +732,21 @@ class Monitor:
         旧批次后面、分不出哪段是哪次训练；现在前端按批次分色绘制并可筛选。
         """
         rt = self._heartbeat()
-        game = self._running_profile(rt)[0]
+        game = game or self._running_profile(rt)[0]
         runs = list_runs(game)
         groups, profiles = self._rounds_by_run(runs)
 
-        tb_out = self.tb.series_by_run(game, max_runs=max_runs)
+        tb_out = self.tb.series_by_run(game, max_runs=max_runs * 3)
         tb_runs = {r['name'] for r in tb_out['runs']}
+
+        # 级联筛选第二层：指定神经网络时只看它（各网络的代数互不相干）
+        all_profiles = sorted({p for p in profiles.values() if p})
+        if profile:
+            runs = [r for r in runs if profiles.get(r['name']) == profile]
+            tb_out['tb'] = {k: v for k, v in tb_out['tb'].items()
+                            if profiles.get(k) == profile}
+            tb_out['runs'] = [r for r in tb_out['runs'] if profiles.get(r['name']) == profile]
+            tb_runs = {r['name'] for r in tb_out['runs']}
 
         # 有数据的批次（轮次记录或 TB 标量），取最近 max_runs 个
         kept = [r for r in runs if groups.get(r['name']) or r['name'] in tb_runs][-max_runs:]
@@ -780,6 +790,8 @@ class Monitor:
         } for run in reversed(kept)]
 
         return {
+            'game': game,
+            'profiles': all_profiles,
             'runs': runs_out,
             'rounds': rounds_out,
             'tb': {r['name']: tb_out['tb'].get(r['name'], {}) for r in kept},
