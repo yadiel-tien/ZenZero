@@ -36,11 +36,6 @@ TASKS: dict[str, dict] = {
         'opts': {'port': {'flag': '--port', 'type': 'int', 'default': 12345},
                  'host': {'flag': '--host', 'type': 'str', 'default': '0.0.0.0'}},
     },
-    'arena': {
-        'module': 'scripts.arena', 'kind': 'once',
-        'desc': 'ELO 天梯：对 data/<棋种>/rates/candidates.txt 名单批量互赛并更新等级分',
-        'opts': {},
-    },
     'bench': {
         'script': 'scripts/bench_batch_sweep.py', 'kind': 'once',
         'desc': '引擎批扫描：实测前向成本模型 t(b)，核对凑批上限（占 GPU，勿与训练并发）',
