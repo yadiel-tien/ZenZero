@@ -1,14 +1,13 @@
-"""竞技场执行引擎：admin 服务内的进程级单例（线程跑批 + 内存心跳）。
+"""竞技场执行引擎：admin 服务内的进程级管理器（多场次、线程跑批、内存心跳）。
 
-设计：
-- 与训练 runner 不同，arena 直接在服务进程起线程——它复用服务已有的推理 hub（同进程
-  AIServer 同代自动共享引擎），没必要再付一次 CUDA 初始化 + 模型加载。
-- 心跳双写：内存（本进程 API 直读，零延迟）+ logs/_state/arena.json（服务重启后的
-  事后取证，与 trainer.json 同族）。
-- 同一时刻只允许一场战役；训练在跑时拒绝启动（GPU 抢占策略，除非显式 allow_busy）。
+场次模型：棋种 → N 个竞技场（default 恒在，可新建/删除）；每场独立名册、Elo 榜、历史。
+同一时刻全局只跑一场战役（GPU 单卡），心跳带 (game, arena) 标识，前端按场过滤。
+arena 线程复用服务进程的推理 hub（同代模型自动共享引擎），不再另起子进程。
 """
 import json
 import os
+import re
+import shutil
 import threading
 import time
 
@@ -16,83 +15,153 @@ from core.utils.config import CONFIG
 from core.utils.arena import Arena
 
 _STATE_FILE = os.path.join(CONFIG.get('log_dir', 'logs'), '_state', 'arena.json')
+_NAME_OK = re.compile(r'^[\w\u4e00-\u9fff+-]{1,32}$')
 
 
 class ArenaEngine:
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._thread: threading.Thread | None = None
-        self._arena: Arena | None = None
+        self._threads: dict[tuple[str, str], threading.Thread] = {}
+        self._cache: dict[tuple[str, str], Arena] = {}
         self._state: dict = {'running': False}
 
-    # ---------- 控制 ----------
-    def start(self, game: str, mode: str = 'smart', keys: list[str] | None = None,
+    # ---------- 场次缓存 ----------
+    def get(self, game: str, arena: str = 'default') -> Arena:
+        key = (game, arena or 'default')
+        with self._lock:
+            if key not in self._cache:
+                self._cache[key] = Arena(game, key[1])
+            return self._cache[key]
+
+    # ---------- 场次 CRUD ----------
+    def list_arenas(self, game: str) -> list[dict]:
+        base = os.path.join(CONFIG['data_dir'], game, 'rates')
+        names = {'default'}
+        try:
+            names |= {d for d in os.listdir(base) if os.path.isdir(os.path.join(base, d))}
+        except OSError:
+            pass
+        out = []
+        for n in sorted(names, key=lambda x: (x != 'default', x)):
+            try:
+                a = self.get(game, n)
+                out.append({'name': n, 'players': len(a.rates),
+                            'total_games': sum(e.n_games_played for e in a.rates.values()) // 2})
+            except Exception:                             # noqa: BLE001 目录残缺不炸列表
+                out.append({'name': n, 'players': 0, 'total_games': 0})
+        return out
+
+    def create(self, game: str, name: str) -> dict:
+        name = (name or '').strip()
+        if not _NAME_OK.match(name):
+            return {'ok': False, 'error': '名字只许中英文数字 + - ，≤32 字'}
+        d = os.path.join(CONFIG['data_dir'], game, 'rates', name)
+        if os.path.exists(d):
+            return {'ok': False, 'error': f'「{name}」已存在'}
+        os.makedirs(d)
+        with open(os.path.join(d, 'candidates.txt'), 'w') as f:
+            f.write('')                                    # 新场空名册，手动点将
+        self.get(game, name)
+        return {'ok': True, 'name': name}
+
+    def delete(self, game: str, name: str) -> dict:
+        if name in ('', 'default'):
+            return {'ok': False, 'error': 'default 场不可删（清空名册即可）'}
+        key = (game, name)
+        if key in self._threads and self._threads[key].is_alive():
+            return {'ok': False, 'error': '这场正在打仗，先停'}
+        d = os.path.join(CONFIG['data_dir'], game, 'rates', name)
+        if not os.path.isdir(d):
+            return {'ok': False, 'error': '不存在'}
+        shutil.rmtree(d)
+        self._cache.pop(key, None)
+        return {'ok': True}
+
+    # ---------- 名册 ----------
+    def roster(self, game: str, arena: str, add: list[str] | None = None,
+               remove: list[str] | None = None) -> dict:
+        a = self.get(game, arena)
+        cur = set(a.rates)
+        cur |= set(add or [])
+        cur -= set(remove or [])
+        keys = sorted(cur)
+        a.sync_roster(keys)
+        return {'ok': True, 'roster': keys, 'candidates': a.discover()}
+
+    # ---------- 战役 ----------
+    def _busy(self) -> tuple[str, str] | None:
+        for k, t in self._threads.items():
+            if t.is_alive():
+                return k
+        return None
+
+    def start(self, game: str, arena: str = 'default', mode: str = 'smart',
               games: int = 30, sims: int = 300, tables: int = 5,
               pair: list[str] | None = None) -> dict:
-        with self._lock:
-            if self._thread and self._thread.is_alive():
-                return {'ok': False, 'error': '已有战役在打，先停止'}
-            arena = self._arena if self._arena and self._arena.env_name == game else Arena(game)
-            self._arena = arena
-            roster = arena.sync_roster(keys if keys else None)
-            if len(roster) < 2:
-                return {'ok': False, 'error': f'名册只有 {roster}，至少 2 名选手'}
-            pr = None
-            if mode == 'duel':
-                if not pair or len(pair) != 2 or pair[0] not in roster or pair[1] not in roster:
-                    return {'ok': False, 'error': '自定义对决需在名册中选两名选手'}
-                pr = (pair[0], pair[1])
+        busy = self._busy()
+        if busy:
+            return {'ok': False, 'error': f'「{busy[0]}·{busy[1]}」正在打仗，先停止'}
+        a = self.get(game, arena)
+        if not a.rates:
+            return {'ok': False, 'error': '名册为空 — 先到「名册管理」添加选手'}
+        pr = None
+        if mode == 'duel':
+            if not pair or len(pair) != 2 or any(x not in a.rates for x in pair):
+                return {'ok': False, 'error': '自定义对决需从本场名册中选两名选手'}
+            pr = (pair[0], pair[1])
+        started = time.time()
 
-            def beat(st: dict) -> None:
-                st.update({'started_ts': started, 'mode': mode, 'sims': sims,
-                           'tables': tables, 'roster': len(roster)})
-                self._state = st
-                try:
-                    os.makedirs(os.path.dirname(_STATE_FILE), exist_ok=True)
-                    tmp = _STATE_FILE + '.tmp'
-                    with open(tmp, 'w', encoding='utf-8') as f:
-                        json.dump(st, f, ensure_ascii=False)
-                    os.replace(tmp, _STATE_FILE)
-                except OSError:
-                    pass
+        def beat(st: dict) -> None:
+            st.update({'game': game, 'arena': arena, 'started_ts': started,
+                       'mode': mode, 'sims': sims, 'tables': tables, 'roster': len(a.rates)})
+            self._state = st
+            try:
+                os.makedirs(os.path.dirname(_STATE_FILE), exist_ok=True)
+                tmp = _STATE_FILE + '.tmp'
+                with open(tmp, 'w', encoding='utf-8') as f:
+                    json.dump(st, f, ensure_ascii=False)
+                os.replace(tmp, _STATE_FILE)
+            except OSError:
+                pass
 
-            started = time.time()
+        def _run():
+            try:
+                a.run_batch(games=int(games), n_sim=int(sims), tables=int(tables),
+                            mode=mode, pair=pr, on_state=beat)
+            except Exception as exc:                        # noqa: BLE001 线程兜底留痕
+                self._state = {**self._state, 'running': False, 'error': str(exc)[:200]}
 
-            def _run():
-                try:
-                    arena.run_batch(games=int(games), n_sim=int(sims), tables=int(tables),
-                                    mode=mode, pair=pr, on_state=beat)
-                except Exception as exc:                    # noqa: BLE001 线程兜底留痕
-                    self._state = {**self._state, 'running': False, 'error': str(exc)[:200]}
-
-            beat({'running': True, 'mode': mode, 'pair': list(pr) if pr else None,
-                  'done': 0, 'total': games, 'tally': [0, 0, 0], 'feed': [], 'gpm': 0})
-            self._thread = threading.Thread(target=_run, name='arena-batch', daemon=True)
-            self._thread.start()
-            return {'ok': True, 'roster': roster, 'games': games}
+        beat({'running': True, 'mode': mode, 'pair': list(pr) if pr else None,
+              'done': 0, 'total': games, 'tally': [0, 0, 0], 'feed': [], 'gpm': 0})
+        t = threading.Thread(target=_run, name=f'arena-{game}-{arena}', daemon=True)
+        self._threads[(game, arena)] = t
+        t.start()
+        return {'ok': True, 'roster': len(a.rates), 'games': games}
 
     def stop(self) -> dict:
-        if self._arena:
-            self._arena.stop_event.set()
-        return {'ok': True, 'note': '已请求停止：进行中的桌打完本批即收'}
+        busy = self._busy()
+        if busy:
+            self._cache[busy].stop_event.set()
+            return {'ok': True, 'note': f'已请求停止「{busy[1]}」：进行中的桌打完本批即收'}
+        return {'ok': True, 'note': '没有在打的战役'}
 
     # ---------- 查询 ----------
     def state(self) -> dict:
         st = dict(self._state)
-        st['age_s'] = round(time.time() - (st.get('started_ts') or 0), 1) if st.get('running') else None
+        st['running'] = bool(self._busy())
+        if st['running'] and st.get('started_ts'):
+            st['age_s'] = round(time.time() - st['started_ts'], 1)
         return st
 
-    def ranks(self, game: str) -> dict:
-        arena = self._arena if (self._arena and self._arena.env_name == game) else Arena(game)
-        if not arena.rates:
-            arena.sync_roster(None)
-        players = arena.ranks()
-        rival: dict[str, dict] = {}
-        for e_key, recs in ((p['id'], p['records']) for p in players):
-            for rk, wld in recs.items():
-                rival.setdefault(e_key, {})[rk] = wld
-        return {'game': game, 'players': players, 'rival': rival,
-                'candidates': arena.discover(), 'running': bool(self._thread and self._thread.is_alive())}
+    def ranks(self, game: str, arena: str = 'default') -> dict:
+        a = self.get(game, arena)
+        if not a.rates:
+            a.load()
+        players = a.ranks()
+        rival = {p['id']: p['records'] for p in players if p['records']}
+        return {'game': game, 'arena': arena, 'players': players, 'rival': rival,
+                'candidates': a.discover(),
+                'running': self._busy() == (game, arena)}
 
 
 _engine: ArenaEngine | None = None

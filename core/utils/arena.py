@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import pickle
 import random
@@ -33,8 +34,18 @@ def parse_key(key: str) -> tuple[str, int]:
     return p, int(i)
 
 
+_ARENA_NAME = re.compile(r'^[\w\u4e00-\u9fff+-]{1,32}$')
+
+
 class Arena:
-    def __init__(self, env_name: EnvName) -> None:
+    """一座竞技场 = 一个独立榜单（名册/Elo/历史各自成目录）。
+    default 场每棋种自动存在；新建场按名字落 data/<Game>/rates/<name>/。"""
+
+    def __init__(self, env_name: EnvName, arena: str = 'default') -> None:
+        arena = (arena or 'default').strip()
+        if not _ARENA_NAME.match(arena):
+            raise ValueError('竞技场名只许中英文数字 + -，≤32 字')
+        self.arena = arena
         self.env_name = env_name
         self.logger = get_logger('arena')
         self.rates: dict[str, Elo] = {}
@@ -221,16 +232,20 @@ class Arena:
                     self.rates.setdefault(k, Elo(k))
 
     @property
+    def _dir(self) -> str:
+        return os.path.join(CONFIG['data_dir'], self.env_name, 'rates', self.arena)
+
+    @property
     def rates_path(self) -> str:
-        return os.path.join(CONFIG['data_dir'], self.env_name, 'rates', 'rates_v2.pkl')
+        return os.path.join(self._dir, 'rates_v2.pkl')
 
     @property
     def list_path(self) -> str:
-        return os.path.join(CONFIG['data_dir'], self.env_name, 'rates', 'candidates.txt')
+        return os.path.join(self._dir, 'candidates.txt')
 
     @property
     def history_path(self) -> str:
-        return os.path.join(CONFIG['data_dir'], self.env_name, 'rates', 'history.json')
+        return os.path.join(self._dir, 'history.json')
 
     # ---------- 展示 ----------
     def ranks(self) -> list[dict]:

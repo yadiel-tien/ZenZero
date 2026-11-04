@@ -507,13 +507,20 @@ def health():
         'cpu': (snap.get('hardware') or {}).get('cpu'),
     })
 
-# ================= 竞技场（Arena v2） =================
+# ================= 竞技场（多场次） =================
+@bp.get('/api/arena/list')
+def arena_list():
+    from .arena_engine import get_engine
+    game = str(request.args.get('game') or CONFIG['game_name'])
+    return jsonify({'game': game, 'arenas': get_engine().list_arenas(game)})
+
+
 @bp.get('/api/arena/ranks')
 def arena_ranks():
     from .arena_engine import get_engine
     game = str(request.args.get('game') or CONFIG['game_name'])
     try:
-        return jsonify(get_engine().ranks(game))
+        return jsonify(get_engine().ranks(game, str(request.args.get('arena') or 'default')))
     except Exception as e:                                    # noqa: BLE001
         return jsonify({'ok': False, 'error': str(e)[:200]}), 500
 
@@ -524,17 +531,50 @@ def arena_state():
     return jsonify(get_engine().state())
 
 
+@bp.post('/api/arena/create')
+def arena_create():
+    err, data = _guard()
+    if err:
+        return err
+    from .arena_engine import get_engine
+    res = get_engine().create(str(data.get('game') or CONFIG['game_name']),
+                              str(data.get('name') or ''))
+    return jsonify(res), (200 if res.get('ok') else 400)
+
+
+@bp.post('/api/arena/delete')
+def arena_delete():
+    err, data = _guard()
+    if err:
+        return err
+    from .arena_engine import get_engine
+    res = get_engine().delete(str(data.get('game') or CONFIG['game_name']),
+                              str(data.get('name') or ''))
+    return jsonify(res), (200 if res.get('ok') else 400)
+
+
+@bp.post('/api/arena/roster')
+def arena_roster():
+    err, data = _guard()
+    if err:
+        return err
+    from .arena_engine import get_engine
+    res = get_engine().roster(str(data.get('game') or CONFIG['game_name']),
+                              str(data.get('arena') or 'default'),
+                              add=data.get('add') or None, remove=data.get('remove') or None)
+    return jsonify(res), (200 if res.get('ok') else 400)
+
+
 @bp.post('/api/arena/start')
 def arena_start():
     err, data = _guard()
     if err:
         return err
     from .arena_engine import get_engine
-    game = str(data.get('game') or CONFIG['game_name'])
     res = get_engine().start(
-        game,
+        str(data.get('game') or CONFIG['game_name']),
+        arena=str(data.get('arena') or 'default'),
         mode=str(data.get('mode') or 'smart'),
-        keys=data.get('keys') or None,
         games=int(data.get('games') or 30),
         sims=int(data.get('sims') or 300),
         tables=int(data.get('tables') or 5),
@@ -549,4 +589,3 @@ def arena_stop():
         return err
     from .arena_engine import get_engine
     return jsonify(get_engine().stop())
-

@@ -80,6 +80,10 @@
   .ph-pill{display:inline-block;font-size:12px;font-weight:700;letter-spacing:1px;padding:2px 10px;border-radius:10px;background:color-mix(in srgb, var(--phc) 18%, transparent);color:var(--phc)}
   .phase-card .gen{font-size:16px;font-weight:600;margin-top:3px}
   .phase-card .gen em{font-style:normal;font-size:12px;color:var(--dim);font-weight:400}
+  .chipbox{display:flex;flex-wrap:wrap;gap:4px;max-height:132px;overflow:auto}
+  .chip{border:1px solid var(--line);border-radius:11px;padding:1px 9px;font-size:11px;cursor:pointer;user-select:none;background:var(--card)}
+  .chip:hover{border-color:var(--blue)}
+  .chip .x{color:#c0392b;font-weight:700;margin-left:3px}
   .h2like{font-size:14px;font-weight:600;margin:0;cursor:pointer;list-style:none}
   .h2like::before{content:"▸ ";color:var(--dim)} details[open] .h2like::before{content:"▾ "}
   .ar-feed{display:inline-flex;gap:3px;vertical-align:2px}
@@ -399,6 +403,21 @@
     </div>
   </section>
   <section class="tab" id="tab-arena">
+    <div class="panel">
+      <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
+        <label class="hint" style="margin:0">棋种</label><select id="ar_game" class="rf-sel"><option value="ChineseChess">中国象棋</option><option value="Gomoku">五子棋</option></select>
+        <label class="hint" style="margin:0">竞技场</label><select id="ar_arena" class="rf-sel"></select>
+        <button class="mini" id="ar_new">＋ 新建场次</button>
+        <button class="mini" id="ar_del" title="删除当前非 default 场次">删除场次</button>
+        <span class="hint" id="ar_ameta" style="margin:0"></span>
+      </div>
+      <details id="ar_roster_w" style="margin-top:6px"><summary class="h2like">名册管理 <span class="lg">在候选里点 = 加入；点名册里的 × = 移出</span></summary>
+        <div class="grid" style="margin-top:8px">
+          <div><div class="p-label" style="font-size:11px">当前名册 · <b id="ar_rn">0</b> 人</div><div id="ar_cur" class="chipbox"></div></div>
+          <div><div class="p-label" style="font-size:11px">候选（磁盘上全部检查点）</div><div id="ar_cand" class="chipbox"></div></div>
+        </div>
+      </details>
+    </div>
     <div class="panel">
       <h2>对阵直播 <span class="lg" id="ar_status">空闲</span></h2>
       <div id="ar_live"></div>
@@ -1429,39 +1448,62 @@ async function taskShowLog(name){
 
 /* ================= 竞技场 ================= */
 const NET_C = {mini:'#4a90d9', mini2:'#3aa6a0', s:'#e08a4e', m:'#9575cd'};
-let ARENA = {ranks:null, state:{running:false}, prev:null, timer:null};
+let ARENA = {game:'ChineseChess', arena:'default', ranks:null, state:{running:false}, prev:null, timer:null};
 function netColor(pf){ if(NET_C[pf]) return NET_C[pf];
   let h=0; for(const ch of pf) h=(h*31+ch.charCodeAt(0))%360; return `hsl(${h} 55% 52%)`; }
 const expRate = (a,b) => 1/(1+Math.pow(10,((b||1500)-(a||1500))/400));
+function chip(id){ const i=id.lastIndexOf('/'), pf=id.slice(0,i);
+  return `<span class="chip" data-k="${esc(id)}"><span style="color:${netColor(pf)}">●</span>${esc(id)}</span>`; }
+async function arenaLoadList(){
+  const d = await api('/api/arena/list?game='+ARENA.game);
+  const sel = $('ar_arena'); const names=(d.arenas||[]).map(a=>a.name);
+  sel.innerHTML = names.map(n=>`<option${n===ARENA.arena?' selected':''}>${esc(n)}</option>`).join('');
+  if(!names.includes(ARENA.arena)){ ARENA.arena='default'; sel.value='default'; }
+  const cur=(d.arenas||[]).find(a=>a.name===ARENA.arena);
+  $('ar_ameta').textContent = cur? `${cur.players} 名选手 · ${cur.total_games} 局战绩` : '';
+}
 async function arenaFetch(){
   try{
-    const game = (document.getElementById('mon_game')||{}).value || 'ChineseChess';
-    const [r,s] = await Promise.all([api('/api/arena/ranks?game='+game), api('/api/arena/state')]);
-    ARENA.prev = ARENA.ranks; ARENA.ranks = r; ARENA.state = s;
-  }catch(e){ /* 服务未升级时静默 */ }
+    const q = '?game='+ARENA.game+'&arena='+encodeURIComponent(ARENA.arena);
+    const [r,s] = await Promise.all([api('/api/arena/ranks'+q), api('/api/arena/state')]);
+    ARENA.prev = ARENA.ranks && ARENA.ranks.arena===r.arena ? ARENA.ranks : null;
+    ARENA.ranks = r; ARENA.state = s;
+  }catch(e){ return; }
   renderArena();
 }
+async function arenaReloadAll(){ await arenaLoadList(); await arenaFetch(); }
 function renderArena(){
-  const R = ARENA.ranks, st = ARENA.state || {running:false};
+  const R = ARENA.ranks, st = ARENA.state || {};
+  const here = st.running && st.game===ARENA.game && st.arena===ARENA.arena;
+  const hereDone = !st.running && st.done && st.game===ARENA.game && st.arena===ARENA.arena;
   const P = (R && R.players) || [];
   const nm = id => { const i=id.lastIndexOf('/'); const pf=id.slice(0,i), v=id.slice(i+1);
     return `<span style="color:${netColor(pf)}">●</span> <b style="font-size:11px">${esc(pf)}</b> v${v}`; };
-  $('ar_status').innerHTML = st.running
+  // 名册面板
+  const cand=(R&&R.candidates)||[], rosterIds=P.map(p=>p.id);
+  $('ar_rn').textContent = rosterIds.length;
+  $('ar_cur').innerHTML = rosterIds.length? rosterIds.map(x=>chip(x).replace('</span>','<span class="x">×</span></span>')).join('') : '<span class="hint" style="margin:0">空场 — 从右侧候选点击加入</span>';
+  $('ar_cand').innerHTML = cand.filter(x=>!rosterIds.includes(x)).map(x=>chip(x)).join('') || '<span class="hint" style="margin:0">候选已全部入册</span>';
+  $('ar_cur').querySelectorAll('.chip').forEach(el=>el.onclick=()=>arenaRoster(null,[el.dataset.k]));
+  $('ar_cand').querySelectorAll('.chip').forEach(el=>el.onclick=()=>arenaRoster([el.dataset.k],null));
+  // 直播
+  $('ar_status').innerHTML = here
     ? `<span style="color:#3aa6a0">● 对阵中</span> · ${fmt(st.gpm,1)} 局/分 · ${st.tables} 桌`
-    : (st.done ? `空闲 · 上批 ${st.done} 局打完` : '空闲 · 等待开赛');
+    : (hereDone ? `空闲 · 上批 ${st.done} 局打完` : '空闲');
   const FCOL = {w:'#2e8b57', d:'#9a917d', l:'#c0392b'};
   const live = $('ar_live');
-  if(st.running && st.pair){
+  if(here && st.pair){
     const [a,b]=st.pair, ea=expRate(P.find(x=>x.id===a)?.score, P.find(x=>x.id===b)?.score);
     live.innerHTML = duelHtml(a,b,ea,st,FCOL,nm);
-  } else if(st.running){ live.innerHTML = `<div class="hint" style="margin:0">智能约架进行中 · 第 ${st.done}/${st.total} 局 ${feedHtml(st.feed,FCOL)}</div>`; }
-  else if(st.done){
+  } else if(here){ live.innerHTML = `<div class="hint" style="margin:0">智能约架进行中 · 第 ${st.done}/${st.total} 局 ${feedHtml(st.feed,FCOL)}</div>`; }
+  else if(hereDone){
     const [w,d,l]=st.tally||[0,0,0], wr=(w+d/2)/Math.max(w+d+l,1);
     live.innerHTML = `<div class="hint" style="margin:0">上批已结束 · ${st.total} 局 ${feedHtml(st.feed,FCOL)} <b style="color:${wr>=0.5?'#2e8b57':'#c0392b'}">先手得分率 ${(wr*100).toFixed(1)}%</b>（胜${w} 和${d} 负${l}）</div>`;
   }
-  else live.innerHTML = '<div class="hint" style="margin:0">暂无对局 — 名册将自动发现全部检查点，选模式点「开始」。榜单空着是因为还没打过：首战即定级。</div>';
+  else live.innerHTML = '<div class="hint" style="margin:0">暂无对局 — 管好评册，选模式点「开始」。榜上空着是因为这座场还没打过。</div>';
+  // 榜 / 阶梯 / 矩阵
   if(!P.length){
-    $('ar_rsum').textContent=''; $('ar_ranks').innerHTML='<div class="hint" style="margin:0">榜单空 · 候选 '+(R&&R.candidates?R.candidates.length:'—')+' 个检查点待入册</div>';
+    $('ar_rsum').textContent=''; $('ar_ranks').innerHTML='<div class="hint" style="margin:0">本场榜单空 · 候选 '+cand.length+' 个检查点可入册</div>';
     $('ar_ladder').innerHTML=''; $('ar_matrix').innerHTML='';
   } else {
     const ranked=[...P].sort((x,y)=>y.score-x.score), top=ranked[0].score, floor=ranked[ranked.length-1].score-20;
@@ -1478,22 +1520,28 @@ function renderArena(){
       return `<div class="ladrow"><span class="nm">${esc(p.id)}</span><div class="bar" style="width:${w.toFixed(1)}%;background:${c}"></div><span class="mono">${p.score.toFixed(0)}</span></div>`;
     }).join('')+'<div class="hint" style="margin-top:4px">条长=Elo（相对拉伸）；颜色=网络；跨色相邻≈同级，断层=宇宙差</div>';
     const ids=ranked.map(p=>p.id);
-    $('ar_matrix').innerHTML = `<table class="mtx"><tr><th></th>${ids.map(x=>`<th>${esc(x)}</th>`).join('')}</tr>`+
-      ids.map(r=>`<tr><th>${esc(r)}</th>${ids.map(c=>{
-        if(r===c) return '<td class="diag">—</td>';
-        const rec=(R.rival[r]||{})[c]; if(!rec||!rec[0]+rec[1]+rec[2]) return '<td style="opacity:.3">·</td>';
-        const [w,l,d]=rec, t=w+l+d, wr=w/t;
-        return `<td style="background:rgba(46,139,87,${(wr*0.7).toFixed(2)})" title="${w}胜${l}负${d}和">${(wr*100).toFixed(0)}%</td>`;
-      }).join('')}</tr>`).join('')+'</table>';
+    if(ids.length>1){
+      $('ar_matrix').innerHTML = `<table class="mtx"><tr><th></th>${ids.map(x=>`<th>${esc(x)}</th>`).join('')}</tr>`+
+        ids.map(r=>`<tr><th>${esc(r)}</th>${ids.map(c=>{
+          if(r===c) return '<td class="diag">—</td>';
+          const rec=(R.rival[r]||{})[c]; if(!rec||!rec[0]+rec[1]+rec[2]) return '<td style="opacity:.3">·</td>';
+          const [w,l,d]=rec, t=w+l+d, wr=w/t;
+          return `<td style="background:rgba(46,139,87,${(wr*0.7).toFixed(2)})" title="${w}胜${l}负${d}和">${(wr*100).toFixed(0)}%</td>`;
+        }).join('')}</tr>`).join('')+'</table>';
+    } else $('ar_matrix').innerHTML='<span class="hint" style="margin:0">至少两名选手后生成</span>';
   }
-  const cand = (R&&R.candidates&&R.candidates.length?R.candidates:P.map(p=>p.id));
-  const opts = cand.map(x=>`<option>${esc(x)}</option>`).join('');
-  if(!$('ar_p1').options.length || $('ar_p1').dataset.n!==String(cand.length)){
+  const opts=(rosterIds.length?rosterIds:cand).map(x=>`<option>${esc(x)}</option>`).join('');
+  if($('ar_p1').dataset.sig!==(cand.join(',')+ARENA.arena)){
     const a0=$('ar_p1').value, b0=$('ar_p2').value;
-    $('ar_p1').innerHTML=opts; $('ar_p2').innerHTML=opts; $('ar_p1').dataset.n=String(cand.length);
-    if(a0&&cand.includes(a0))$('ar_p1').value=a0; if(b0&&cand.includes(b0))$('ar_p2').value=b0; else $('ar_p2').selectedIndex=Math.min(1,cand.length-1);
+    $('ar_p1').innerHTML=opts; $('ar_p2').innerHTML=opts; $('ar_p1').dataset.sig=cand.join(',')+ARENA.arena;
+    if(a0&&opts.includes(a0))$('ar_p1').value=a0; if(b0&&opts.includes(b0))$('ar_p2').value=b0; else $('ar_p2').selectedIndex=Math.min(1,opts?1:0);
     updExpect();
   }
+}
+async function arenaRoster(add, remove){
+  const r = await api('/api/arena/roster',{method:'POST',body:JSON.stringify({game:ARENA.game,arena:ARENA.arena,add,remove})});
+  if(!r.ok) toast(r.error||'名册操作失败',true);
+  arenaFetch();
 }
 function feedHtml(feed,FCOL){ return `<span class="ar-feed">${(feed||[]).map(f=>`<i style="background:${FCOL[f]}" title="${{w:'先手胜',d:'和',l:'先手负'}[f]}"></i>`).join('')}</span>`; }
 function duelHtml(a,b,ea,st,FCOL,nm){
@@ -1513,15 +1561,24 @@ function updExpect(){ const P=(ARENA.ranks&&ARENA.ranks.players)||[];
   const ea=expRate(a&&a.score, b&&b.score);
   $('ar_expect').textContent=`预期 ${(ea*100).toFixed(0)} : ${(100-ea*100).toFixed(0)}`; }
 function arenaPoll(on){ if(ARENA.timer){clearInterval(ARENA.timer);ARENA.timer=null;}
-  if(on) ARENA.timer=setInterval(arenaFetch, 3000); }
+  if(on) ARENA.timer=arenaFetch, setInterval(()=>{ if(tab==='arena') arenaFetch(); }, 3000); }
+$('ar_game').addEventListener('change',()=>{ ARENA.game=$('ar_game').value; ARENA.arena='default'; arenaReloadAll(); });
+$('ar_arena').addEventListener('change',()=>{ ARENA.arena=$('ar_arena').value; arenaFetch(); });
+$('ar_new').addEventListener('click',async()=>{ const name=prompt('新竞技场名字（如「宇宙对抗」「mini2 内战」）：'); if(!name) return;
+  const r=await api('/api/arena/create',{method:'POST',body:JSON.stringify({game:ARENA.game,name})});
+  if(r.ok){ ARENA.arena=name; toast(`竞技场「${name}」已建 — 名册是空的，去名册管理点将`); } else toast(r.error,true); arenaReloadAll(); });
+$('ar_del').addEventListener('click',async()=>{ if(ARENA.arena==='default'){toast('default 不可删',true);return;}
+  if(!confirm(`删除竞技场「${ARENA.arena}」？榜单与战绩将一起销毁`)) return;
+  const r=await api('/api/arena/delete',{method:'POST',body:JSON.stringify({game:ARENA.game,name:ARENA.arena})});
+  if(r.ok){ ARENA.arena='default'; } else toast(r.error,true); arenaReloadAll(); });
 $('ar_mode').addEventListener('change',()=>{ $('ar_duel').classList.toggle('hidden',$('ar_mode').value!=='duel');
   $('ar_hint').textContent={smart:'全场循环约架直到停止',gauntlet:'按名次轮流传桌',duel:'只打点将的这一对'}[$('ar_mode').value]; });
 $('ar_p1').addEventListener('change',updExpect); $('ar_p2').addEventListener('change',updExpect);
-$('ar_go').addEventListener('click',async()=>{ const body={mode:$('ar_mode').value,games:+$('ar_games').value,sims:+$('ar_sims').value,tables:+$('ar_tables').value};
+$('ar_go').addEventListener('click',async()=>{ const body={game:ARENA.game,arena:ARENA.arena,mode:$('ar_mode').value,games:+$('ar_games').value,sims:+$('ar_sims').value,tables:+$('ar_tables').value};
   if(body.mode==='duel') body.pair=[$('ar_p1').value,$('ar_p2').value];
   const r=await api('/api/arena/start',{method:'POST',body:JSON.stringify(body)});
-  toast(r.ok?`开赛：${body.games} 局 × ${body.sims}sims`:(r.error||'启动失败'),!r.ok); if(r.ok) arenaFetch(); });
-$('ar_stop').addEventListener('click',async()=>{ await api('/api/arena/stop',{method:'POST',body:'{}'}); toast('停止中：本批桌完成即收'); });
+  toast(r.ok?`开赛：${ARENA.arena} · ${body.games} 局 × ${body.sims}sims`:(r.error||'启动失败'),!r.ok); if(r.ok) arenaFetch(); });
+$('ar_stop').addEventListener('click',async()=>{ const r=await api('/api/arena/stop',{method:'POST',body:'{}'}); toast(r.note||'停止中'); });
 
 /* ---------- 主循环 ---------- */
 let tab = 'monitor';
@@ -1534,7 +1591,7 @@ function switchTab(name){
   if(name==='artifacts') loadArtifacts();
   if(name==='logs'){ loadLogList(); }
   if(name==='tasks') loadTasks(true);
-  if(name==='arena'){ arenaFetch(); arenaPoll(true); } else arenaPoll(false);
+  if(name==='arena'){ $('ar_game').value=ARENA.game; arenaReloadAll(); }
 }
 document.querySelectorAll('nav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault(); switchTab(a.dataset.tab);}));
 async function tick(){
