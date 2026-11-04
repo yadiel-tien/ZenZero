@@ -199,6 +199,8 @@ class HardwareSampler:
         cpu, cores = self._cpu_pct()
         sample = {'t': time.time(), 'cpu': round(cpu, 1), 'mem': self._mem(),
                   'load': [round(x, 2) for x in os.getloadavg()], 'cores': len(cores),
+                  # 每核瞬时占用（码表用）；psutil 失败时为空列表，前端自动退回纯数字
+                  'cores_pct': [round(float(c), 0) for c in cores][:64] if isinstance(cores, list) else [],
                   'gpu': self._gpu()}
         with self._lock:
             self._hist.append(sample)
