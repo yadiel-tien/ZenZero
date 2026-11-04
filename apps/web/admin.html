@@ -1751,10 +1751,20 @@ function liveCard(here, hereDone, st, P, nm, FCOL){
     <div class="pb"><i style="width:${pct}%;background:#3aa6a0"></i></div>`;
   return (duel || head)
     + (here ? tablesHtml(st, P) : (pairs? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="hint" style="margin:0;font-size:10px;letter-spacing:.5px">本波对阵</span>${pairs}</div>`:''))
-    + (st.feed&&st.feed.length? `<div style="margin-top:7px;display:flex;align-items:center;gap:8px"><span class="hint" style="margin:0">全批进程</span>${feedHtml(st.feed,FCOL)}</div>`:'')
+    + (st.feed&&st.feed.length? (()=>{
+        const duelMode = st.mode==='duel';
+        const legend = duelMode ? '绿=甲方胜 · 灰=和 · 红=甲方负' : '蓝=决胜局 · 灰=和棋';
+        return `<div style="margin-top:7px;display:flex;align-items:center;gap:8px"><span class="hint" style="margin:0">全批进程</span>${feedHtml(st.feed, FCOL, !duelMode)}<span class="hint" style="margin:0;font-size:10px">${legend}</span></div>`;
+      })() : '')
     + metrics;
 }
-function feedHtml(feed,FCOL){ return `<span class="ar-feed">${(feed||[]).map(f=>`<i style="background:${FCOL[f]}" title="${{w:'左方胜',d:'和',l:'右方胜'}[f]}"></i>`).join('')}</span>`; }
+// decisiveOnly=true（智能约架/车轮战）：配对每局都换，胜负归属无统一点义，
+// 只讲"决胜/和棋"才不撒谎；duel 才用甲乙方胜负三色。
+function feedHtml(feed, FCOL, decisiveOnly){
+  if(decisiveOnly) return `<span class="ar-feed">${(feed||[]).map(f=>
+      `<i style="background:${f==='d'?'#9a917d':'#4a90d9'}" title="${f==='d'?'和棋':'决胜局'}"></i>`).join('')}</span>`;
+  return `<span class="ar-feed">${(feed||[]).map(f=>`<i style="background:${FCOL[f]}" title="${{w:'甲方胜',d:'和棋',l:'甲方负'}[f]}"></i>`).join('')}</span>`;
+}
 function duelHtml(a,b,ea,st,FCOL,nm){
   const [w,d,l]=st.tally||[0,0,0];
   return `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
