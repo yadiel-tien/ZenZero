@@ -126,40 +126,113 @@ class Arena:
         self.logger.info(f'{k1} vs {k2}: {result}  [{e1.scores:.0f}/{e2.scores:.0f}]')
         return result
 
-    def run_batch(self, games: int, n_sim: int = 300, tables: int = 5,
+    def _hub_stats(self) -> dict:
+        """取本 arena 名下引擎里“批最大”的一台的实时统计（两选手两台引擎时看最忙者）。"""
+        best: dict = {}
+        for eng in list(self.hub.engines.values()):
+            try:
+                st = eng.infer_stats()
+            except Exception:                             # noqa: BLE001
+                continue
+            if not best or st.get('batch_mean', 0) >= best.get('batch_mean', 0):
+                best = st
+        return best
+
+    def _auto_tune_tables(self, t: int, st: dict) -> int:
+        """桌数自适应：与 selfplay 的 K 同一信号学（桌数×每桌在途=批的供给量）。
+        m 档前向 15ms+ 时 5 桌就顶满 GPU，mini 档 10 桌也喂不饱——固定值必有一边错。"""
+        fwd = float(st.get('fwd_ms_mean') or 0)
+        batch = float(st.get('batch_recent_mean') or st.get('batch_mean') or 0)
+        if not st or fwd <= 0:
+            return t
+        if fwd > 15 or batch > 2400:
+            return max(2, t - 2 if t > 4 else t - 1)
+        if batch < 700 and fwd < 8:
+            return min(12, t + 2)
+        return t
+
+    def run_batch(self, games: int, n_sim: int = 300, tables: int | None = None,
                   mode: str = 'smart', pair: tuple[str, str] | None = None,
                   on_state=None) -> dict:
         """跑一批天梯赛。mode: smart=自动约架 / duel=指定 pair 连打。
-        on_state(dict) 每局回调（直播心跳）。返回 tally。"""
+        tables=None 自动（初始 4，按每波实测增减 2）；on_state 每局回调（直播心跳）。"""
         self.stop_event.clear()
         tally = {'w': 0, 'd': 0, 'l': 0}
         feed: list[str] = []
         done = 0
         t0 = time.time()
-        with ThreadPoolExecutor(max_workers=max(1, min(tables, 10))) as pool:
-            futs = []
-            for _ in range(games):
-                if self.stop_event.is_set():
-                    break
-                pr = pair if (mode == 'duel' and pair) else self.pick_pair()
+        t = int(tables) if tables else 4
+        auto = not tables
+        dev0 = str(CONFIG.get('device', ''))
+        while done < games and not self.stop_event.is_set():
+            # 显存不足 -> Network 会把全局 device 降成 cpu（m 档在 CPU 上一局要几小时），
+            # 批次就此中止并明确报错，绝不静默爬行（2026-11-04 实测坑）。
+            if dev0.startswith('cuda') and not str(CONFIG.get('device', '')).startswith('cuda'):
+                err = '显存不足被降级 CPU，批次已中止（重网络常驻显存不够，先停常驻大脑或移出名册）'
+                self.logger.error(err)
+                if on_state:
+                    on_state({'running': False, 'mode': mode, 'pair': None, 'done': done,
+                              'total': games, 'tally': [tally['w'], tally['d'], tally['l']],
+                              'feed': feed[-40:], 'gpm': 0, 'error': err,
+                              'infer': self._hub_stats(), 'device': str(CONFIG.get('device'))})
+                self.save()
+                return tally
+            wave = min(t, games - done)
+            prs, seen = [], set()
+            for _ in range(wave):
+                if mode == 'duel' and pair:
+                    pr = pair
+                else:
+                    pr = None
+                    for _try in range(8):    # 一波内不排同一对阵（4 桌里出现两桌一样的纯属浪费）
+                        cand = self.pick_pair()
+                        if cand is None:
+                            break
+                        key = tuple(sorted(cand))
+                        if key not in seen:
+                            pr = cand
+                            break
+                        pr = cand
                 if pr is None:
                     break
-                futs.append(pool.submit(self._safe_versus, pr[0], pr[1], n_sim))
-            for fut in as_completed(futs):
-                r = fut.result()
-                if r is None:
-                    continue
-                tally[r] += 1
-                feed.append(r)
-                done += 1
-                if on_state:
-                    el = time.time() - t0
-                    on_state({'running': True, 'mode': mode,
-                              'pair': list(pair) if pair else None,
-                              'done': done, 'total': games,
-                              'tally': [tally['w'], tally['d'], tally['l']],
-                              'feed': feed[-40:],
-                              'gpm': round(done / max(el, 1e-9) * 60, 1)})
+                seen.add(tuple(sorted(pr)))
+                prs.append(pr)
+            if not prs:
+                break
+            if on_state:     # 波次开打即回报：前端据此立刻画当前对阵与桌数
+                on_state({'running': True, 'mode': mode, 'pair': None, 'done': done,
+                          'total': games, 'tally': [tally['w'], tally['d'], tally['l']],
+                          'feed': feed[-40:], 'tables': t if not auto else f'自动{t}',
+                          'pairs': [list(x) for x in prs], 'infer': self._hub_stats(),
+                          'device': str(CONFIG.get('device', '')),
+                          'gpm': round(done / max(time.time() - t0, 1e-9) * 60, 1)})
+            with ThreadPoolExecutor(max_workers=len(prs)) as pool:
+                futs = [pool.submit(self._safe_versus, a, b, n_sim) for a, b in prs]
+                for fut in as_completed(futs):
+                    r = fut.result()
+                    if r is None:
+                        continue
+                    tally[r] += 1
+                    feed.append(r)
+                    done += 1
+                    if on_state:
+                        el = time.time() - t0
+                        on_state({'running': True, 'mode': mode,
+                                  'pair': list(pair) if pair else None,
+                                  'done': done, 'total': games,
+                                  'tally': [tally['w'], tally['d'], tally['l']],
+                                  'feed': feed[-40:],
+                                  'tables': t if not auto else f'自动{t}',
+                                  'pairs': [list(x) for x in prs],
+                                  'infer': self._hub_stats(),
+                                  'device': str(CONFIG.get('device', '')),
+                                  'gpm': round(done / max(el, 1e-9) * 60, 1)})
+            if auto:
+                new_t = self._auto_tune_tables(t, self._hub_stats())
+                if new_t != t:
+                    self.logger.info(f'[auto] 均批{self._hub_stats().get("batch_recent_mean", 0):.0f} '
+                                     f'前向{self._hub_stats().get("fwd_ms_mean", 0):.1f}ms → 桌数 {t}→{new_t}')
+                    t = new_t
         self.save()
         if on_state:
             on_state({'running': False, 'mode': mode, 'pair': None, 'done': done,

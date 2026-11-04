@@ -88,6 +88,40 @@ class ArenaEngine:
         a.sync_roster(keys)
         return {'ok': True, 'roster': keys, 'candidates': a.discover()}
 
+    def _preflight(self, game: str, keys: list[str]) -> str | None:
+        """开赛前显存预检：名册模型常驻需求 > 空闲显存就明确拒绝。
+
+        Network 载不动会静默降级 CPU——m 档在 CPU 上一局要几小时，用户只会看到
+        “点了开始没反应”。宁可开赛前一次说清楚（2026-11-04 实测坑）。"""
+        try:
+            import torch
+            from core.utils.config import net_dir
+        except Exception:                                  # noqa: BLE001
+            return None
+        if not str(CONFIG.get('device', '')).startswith('cuda') or not torch.cuda.is_available():
+            return None
+        try:
+            free, _ = torch.cuda.mem_get_info(torch.device(CONFIG['device']).index or 0)
+        except Exception:                                  # noqa: BLE001
+            return None
+        need, detail = 0, []
+        for k in keys:
+            prof, _, idx = k.rpartition('/')
+            d = net_dir(game, prof)
+            path = next((os.path.join(d, f) for f in (f'checkpoint_{idx}.pt', f'model_{idx}.pt')
+                         if os.path.exists(os.path.join(d, f))), None)
+            if not path:
+                continue
+            n = os.path.getsize(path) * 1.35 + 600 * 1024 * 1024
+            need += n
+            detail.append((k, n))
+        if need > free * 0.95:
+            top = '、'.join(f'{k}≈{n / 2 ** 30:.1f}G' for k, n in sorted(detail, key=lambda x: -x[1])[:3])
+            return (f'显存不够开赛：名册 {len(detail)} 个模型需常驻 ≈{need / 2 ** 30:.1f}G，'
+                    f'当前空闲 {free / 2 ** 30:.1f}G（大块头：{top}）。'
+                    '先停常驻大脑，或把重网络移出这场名册。')
+        return None
+
     # ---------- 战役 ----------
     def _busy(self) -> tuple[str, str] | None:
         for k, t in self._threads.items():
@@ -96,7 +130,7 @@ class ArenaEngine:
         return None
 
     def start(self, game: str, arena: str = 'default', mode: str = 'smart',
-              games: int = 30, sims: int = 300, tables: int = 5,
+              games: int = 30, sims: int = 300, tables: int | None = None,
               pair: list[str] | None = None) -> dict:
         busy = self._busy()
         if busy:
@@ -104,6 +138,9 @@ class ArenaEngine:
         a = self.get(game, arena)
         if not a.rates:
             return {'ok': False, 'error': '名册为空 — 先到「名册管理」添加选手'}
+        bad = self._preflight(game, sorted(a.rates))
+        if bad:
+            return {'ok': False, 'error': bad}
         pr = None
         if mode == 'duel':
             if not pair or len(pair) != 2 or any(x not in a.rates for x in pair):
@@ -113,7 +150,8 @@ class ArenaEngine:
 
         def beat(st: dict) -> None:
             st.update({'game': game, 'arena': arena, 'started_ts': started,
-                       'mode': mode, 'sims': sims, 'tables': tables, 'roster': len(a.rates)})
+                       'mode': mode, 'sims': sims, 'roster': len(a.rates)})
+            st.setdefault('tables', int(tables) if tables else '自动')  # 波内回调已带实时桌数，别覆盖
             self._state = st
             try:
                 os.makedirs(os.path.dirname(_STATE_FILE), exist_ok=True)
@@ -126,7 +164,8 @@ class ArenaEngine:
 
         def _run():
             try:
-                a.run_batch(games=int(games), n_sim=int(sims), tables=int(tables),
+                a.run_batch(games=int(games), n_sim=int(sims),
+                            tables=int(tables) if tables else None,
                             mode=mode, pair=pr, on_state=beat)
             except Exception as exc:                        # noqa: BLE001 线程兜底留痕
                 self._state = {**self._state, 'running': False, 'error': str(exc)[:200]}

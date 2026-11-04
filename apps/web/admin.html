@@ -439,7 +439,7 @@
         </select>
         <label class="hint" style="margin:0">局数 <input id="ar_games" type="number" value="30" min="2" max="500" style="width:56px"></label>
         <label class="hint" style="margin:0">sims <input id="ar_sims" type="number" value="300" min="50" max="5000" style="width:56px"></label>
-        <label class="hint" style="margin:0">并行桌 <input id="ar_tables" type="number" value="5" min="1" max="10" style="width:44px"></label>
+        <label class="hint" style="margin:0">并行桌 <input id="ar_tables" type="number" placeholder="自动" min="1" max="12" style="width:52px"></label>
         <button class="primary" id="ar_go">开始</button>
         <button id="ar_stop" class="mini">停止</button>
         <span class="hint" id="ar_hint" style="margin:0"></span>
@@ -1483,6 +1483,11 @@ function zzAsk(opts){
     box.addEventListener('keydown',e=>{ if(e.key==='Enter'&&inp){const v=inp.value.trim(); done(v||null);} if(e.key==='Escape') done(null); });
   });
 }
+const fmtElapsed = s => { s=Math.max(0,Math.round(s)); const m=Math.floor(s/60), r=s%60;
+  return m? `${m} 分 ${r} 秒` : `${r} 秒`; };
+setInterval(()=>{ const el=document.getElementById('ar_elapsed');
+  if(el && ARENA.state && ARENA.state.running && ARENA.state.started_ts)
+    el.textContent=`已用 ${fmtElapsed(Date.now()/1000-ARENA.state.started_ts)}`; }, 1000);
 function chip(id){ const i=id.lastIndexOf('/'), pf=id.slice(0,i);
   return `<span class="chip" data-k="${esc(id)}"><span style="color:${netColor(pf)}">●</span>${esc(id)}</span>`; }
 async function arenaLoadList(){
@@ -1514,20 +1519,15 @@ function renderArena(){
   const cand=(R&&R.candidates)||[], rosterIds=P.map(p=>p.id);
   $('ar_rsum2').textContent = `名册 ${rosterIds.length} / 候选 ${cand.length}`;
   // 直播
+  const MODE_CN = {smart:'智能约架', gauntlet:'车轮战', duel:'自定义对决'};
   $('ar_status').innerHTML = here
-    ? `<span style="color:#3aa6a0">● 对阵中</span> · ${fmt(st.gpm,1)} 局/分 · ${st.tables} 桌`
-    : (hereDone ? `空闲 · 上批 ${st.done} 局打完` : '空闲');
+    ? `<span style="color:#3aa6a0">● 对阵中</span> · ${MODE_CN[st.mode]||''} · ${st.tables||''} 桌 · ${fmt(st.gpm,1)} 局/分`
+    : (st.error ? `<span style="color:#c0392b">● 已中止</span>` : (hereDone ? `空闲 · 上批 ${st.done} 局打完` : '空闲'));
+  $('ar_go').disabled = here;
+  $('ar_go').textContent = here ? '对阵中…' : '开始';
   const FCOL = {w:'#2e8b57', d:'#9a917d', l:'#c0392b'};
   const live = $('ar_live');
-  if(here && st.pair){
-    const [a,b]=st.pair, ea=expRate(P.find(x=>x.id===a)?.score, P.find(x=>x.id===b)?.score);
-    live.innerHTML = duelHtml(a,b,ea,st,FCOL,nm);
-  } else if(here){ live.innerHTML = `<div class="hint" style="margin:0">智能约架进行中 · 第 ${st.done}/${st.total} 局 ${feedHtml(st.feed,FCOL)}</div>`; }
-  else if(hereDone){
-    const [w,d,l]=st.tally||[0,0,0], wr=(w+d/2)/Math.max(w+d+l,1);
-    live.innerHTML = `<div class="hint" style="margin:0">上批已结束 · ${st.total} 局 ${feedHtml(st.feed,FCOL)} <b style="color:${wr>=0.5?'#2e8b57':'#c0392b'}">先手得分率 ${(wr*100).toFixed(1)}%</b>（胜${w} 和${d} 负${l}）</div>`;
-  }
-  else live.innerHTML = '<div class="hint" style="margin:0">暂无对局 — 管好名册，选模式点「开始」。这座竞技场还没打过，榜单自然是空的。</div>';
+  live.innerHTML = liveCard(here, hereDone, st, P, nm, FCOL);
   // 榜 / 阶梯 / 矩阵
   if(!P.length){
     $('ar_rsum').textContent=''; $('ar_ranks').innerHTML='<div class="hint" style="margin:0">这座竞技场还没选手 · 候选 '+cand.length+' 个检查点可入册</div>';
@@ -1620,6 +1620,36 @@ async function arenaRoster(add, remove){
   if(!r.ok) toast(r.error||'名册操作失败',true);
   arenaFetch();
 }
+function liveCard(here, hereDone, st, P, nm, FCOL){
+  if(st.error && st.done !== undefined && !st.running)
+    return `<div style="color:#c0392b;font-size:12.5px">✕ ${esc(st.error)}</div>` + (st.done? `<div class="hint" style="margin-top:6px">已完成的 ${st.done} 局计入榜单</div>`:'');
+  if(!here && !hereDone)
+    return '<div class="hint" style="margin:0">暂无对局 — 管好名册，选模式点「开始」。这座竞技场还没打过，榜单自然是空的。</div>';
+  const infer = st.infer || {};
+  const [w,d,l] = st.tally || [0,0,0];
+  const total = st.total || 0, doneN = st.done || 0;
+  const pct = total ? Math.round(100*doneN/total) : 0;
+  const mode = {smart:'智能约架', gauntlet:'车轮战', duel:'自定义对决'}[st.mode]||st.mode||'';
+  const metrics = `<div class="hint" style="margin-top:7px;display:flex;gap:14px;flex-wrap:wrap">
+      <span>桌数 <b>${esc(String(st.tables==null?'—':st.tables))}</b></span>
+      <span>均批 <b>${fmt(infer.batch_recent_mean||infer.batch_mean,0)}</b></span>
+      <span>每批推理 <b>${fmt(infer.fwd_ms_mean,2)}ms</b></span>
+      <span>引擎吞吐 <b>${fmt(infer.req_per_s,0)}</b> req/s</span>
+      <span>设备 <b>${esc(st.device||'—')}</b></span></div>`;
+  const pairs = (st.pairs||[]).map(x=>`<span class="chip" style="cursor:default">${esc(pretty(x[0]))} <span style="color:var(--dim)">vs</span> ${esc(pretty(x[1]))}</span>`).join('');
+  const duel = st.mode==='duel' && st.pair
+    ? (()=>{ const [a,b]=st.pair, ea=expRate(P.find(x=>x.id===a)?.score, P.find(x=>x.id===b)?.score);
+        return duelHtml(a,b,ea,st,FCOL,nm); })() : '';
+  const head = `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <b style="font-size:13px">${here?'<span style="color:#3aa6a0">●</span> '+esc(mode)+' 进行中':'上批已结束'}</b>
+      <span class="hint" style="margin:0">第 ${doneN}/${total} 局 · ${pct}%</span>
+      ${here&&st.started_ts?`<span class="hint" style="margin:0" id="ar_elapsed">已用 ${fmtElapsed(Date.now()/1000-st.started_ts)}</span>`:''}
+      <span class="mono" style="margin-left:auto"><b style="color:#2e8b57">${w}</b> 胜 · <b style="color:#9a917d">${d}</b> 和 · <b style="color:#c0392b">${l}</b> 负</span></div>
+    <div class="pb"><i style="width:${pct}%;background:#3aa6a0"></i></div>`;
+  return (duel || head) + (pairs? `<div style="margin-top:8px;display:flex;gap:5px;flex-wrap:wrap">${pairs}</div>`:'')
+    + (st.feed&&st.feed.length? `<div style="margin-top:7px;display:flex;align-items:center;gap:8px"><span class="hint" style="margin:0">最近</span>${feedHtml(st.feed,FCOL)}</div>`:'')
+    + metrics;
+}
 function feedHtml(feed,FCOL){ return `<span class="ar-feed">${(feed||[]).map(f=>`<i style="background:${FCOL[f]}" title="${{w:'先手胜',d:'和',l:'先手负'}[f]}"></i>`).join('')}</span>`; }
 function duelHtml(a,b,ea,st,FCOL,nm){
   const [w,d,l]=st.tally||[0,0,0];
@@ -1652,10 +1682,17 @@ $('ar_del').addEventListener('click',async()=>{ if(ARENA.arena==='default'){toas
 $('ar_mode').addEventListener('change',()=>{ $('ar_duel').classList.toggle('hidden',$('ar_mode').value!=='duel');
   $('ar_hint').textContent={smart:'全场循环约架直到停止',gauntlet:'按名次轮流传桌',duel:'只打点将的这一对'}[$('ar_mode').value]; });
 $('ar_p1').addEventListener('change',updExpect); $('ar_p2').addEventListener('change',updExpect);
-$('ar_go').addEventListener('click',async()=>{ const body={game:ARENA.game,arena:ARENA.arena,mode:$('ar_mode').value,games:+$('ar_games').value,sims:+$('ar_sims').value,tables:+$('ar_tables').value};
+$('ar_go').addEventListener('click',async()=>{ const body={game:ARENA.game,arena:ARENA.arena,mode:$('ar_mode').value,games:+$('ar_games').value,sims:+$('ar_sims').value};
+  if($('ar_tables').value) body.tables=+$('ar_tables').value;
   if(body.mode==='duel') body.pair=[$('ar_p1').value,$('ar_p2').value];
+  $('ar_go').disabled = true; $('ar_go').textContent = '启动中…';
   const r=await api('/api/arena/start',{method:'POST',body:JSON.stringify(body)});
-  toast(r.ok?`开赛：${ARENA.arena} · ${body.games} 局 × ${body.sims}sims`:(r.error||'启动失败'),!r.ok); if(r.ok) arenaFetch(); });
+  if(r.ok){
+    ARENA.state = {running:true, game:ARENA.game, arena:ARENA.arena, mode:body.mode, done:0,
+                   total:body.games, tally:[0,0,0], feed:[], pairs:[], infer:{}, gpm:0, tables:'…'};
+    renderArena(); toast(`开赛：${ARENA.arena} · ${body.games} 局 × ${body.sims}sims`);
+  } else { toast(r.error||'启动失败', true); $('ar_go').disabled = false; $('ar_go').textContent = '开始'; }
+  arenaFetch(); });
 $('ar_stop').addEventListener('click',async()=>{ const r=await api('/api/arena/stop',{method:'POST',body:'{}'}); toast(r.note||'停止中'); });
 
 /* ---------- 主循环 ---------- */
