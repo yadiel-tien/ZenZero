@@ -318,6 +318,11 @@ class PlayApiServer:
                                       profile=profile, temperature=temp)
                     self.ai_players[pid] = player
                 device = app_config.CONFIG['device']
+                # 模型加载可能刚把设备降级成 CPU（n_sim 档位判定发生在构造前，读到的还是 cuda）：
+                # 事后补降档，否则 m 档 CPU 1000 sims ≈ 5 分钟一手，整机 CPU 被打满形同死机
+                if n_sim_req <= 0 and str(device) == 'cpu' and player._n_simulation > 60:
+                    player._n_simulation = 60
+                    n_sim = 60
                 note = app_config.DEVICE_NOTE
                 if note:
                     self.logger.warning(f'Session {pid[:8]} running on {device}: {note}')
