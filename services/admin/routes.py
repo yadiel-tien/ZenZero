@@ -506,3 +506,47 @@ def health():
         'gpu': (snap.get('hardware') or {}).get('gpu'),
         'cpu': (snap.get('hardware') or {}).get('cpu'),
     })
+
+# ================= 竞技场（Arena v2） =================
+@bp.get('/api/arena/ranks')
+def arena_ranks():
+    from .arena_engine import get_engine
+    game = str(request.args.get('game') or CONFIG['game_name'])
+    try:
+        return jsonify(get_engine().ranks(game))
+    except Exception as e:                                    # noqa: BLE001
+        return jsonify({'ok': False, 'error': str(e)[:200]}), 500
+
+
+@bp.get('/api/arena/state')
+def arena_state():
+    from .arena_engine import get_engine
+    return jsonify(get_engine().state())
+
+
+@bp.post('/api/arena/start')
+def arena_start():
+    err, data = _guard()
+    if err:
+        return err
+    from .arena_engine import get_engine
+    game = str(data.get('game') or CONFIG['game_name'])
+    res = get_engine().start(
+        game,
+        mode=str(data.get('mode') or 'smart'),
+        keys=data.get('keys') or None,
+        games=int(data.get('games') or 30),
+        sims=int(data.get('sims') or 300),
+        tables=int(data.get('tables') or 5),
+        pair=data.get('pair') or None)
+    return jsonify(res), (200 if res.get('ok') else 400)
+
+
+@bp.post('/api/arena/stop')
+def arena_stop():
+    err, _ = _guard()
+    if err:
+        return err
+    from .arena_engine import get_engine
+    return jsonify(get_engine().stop())
+

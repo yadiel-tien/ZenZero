@@ -6,6 +6,13 @@
 
 ## Unreleased
 
+- **竞技场 v2 上线（独立标签页 + 真实 API + 首测完成）**：选手键升级为 `profile/index`（旧 int 键跨网络撞车、
+  AIServer 没传 profile 多网络没法同台）；`AIServer.reset()` 语义修复——旧版在 reset 里置 `_dead`，
+  把 env.run 的每局重置和「再来一局」打成永死会话（竞技场 KeyError -1 与对弈页"会话失效"toast 同根）；
+  rates 写入加锁+原子替换+5 局节流；gauntlet 的 `hero_idx<56` 残留清除。新 API：
+  `GET /api/arena/ranks|state`、`POST /api/arena/start|stop`（引擎线程跑批 + 内存/文件双心跳）；
+  前端竞技场页从 mock 切至真实轮询：直播卡、预期胜率条、金色擂主榜单、实力阶梯、对阵矩阵。
+  首测 mini2/50 vs mini/97 两局（100 sims）皆和，管道全绿。
 - **并行叶子 K 自适应（换网络/换设备自动找甜点）**：不再写死 64——每轮 selfplay 结束后用引擎实测的
   「批大小 + 前向耗时」闭环调节：前向 >15ms 或批 >2400 时 K 减半，批 <900 且前向 <10ms 时 K 加倍
   （8~128 双向半步，稳态不折腾）。所以小网络+空闲 GPU 会升到 64~128，256×15 这类大网络前向变慢会

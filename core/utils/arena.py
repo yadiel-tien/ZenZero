@@ -1,9 +1,9 @@
 import os
+import json
 import pickle
 import random
 import threading
-
-from tqdm import tqdm
+import time
 
 from core.env.functions import get_class
 from core.player.ai_server import AIServer
@@ -14,185 +14,246 @@ from core.utils.logger import get_logger
 from core.utils.types import EnvName
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+# v2（2026-11-04）：跨网络天梯。
+# - 选手键从纯 int 升级为 "profile/index"（mini/50 与 mini2/50 是两个不同模型，旧键会撞车，
+#   且旧 versus 不给 AIServer 传 profile，多网络根本没法同台）。
+# - 修复两个并发雷：多线程同时 pickle.dump 同一个 rates 文件（加锁+原子替换）；每局全量落盘
+#   （节流：5 局一存 + 批尾必存）。
+# - 移除 run_gauntlet 里 `hero_idx < 56: continue` 的实验残留。
+# - 新增：名册自动发现（扫 checkpoint 目录）、逐局状态回调（前端直播卡）、比分历史（sparkline 数据源）。
+# 旧 rates.pkl（int 键）不再读取，文件原地保留。
+
+
+def key_of(profile: str, index: int) -> str:
+    return f'{profile}/{index}'
+
+
+def parse_key(key: str) -> tuple[str, int]:
+    p, _, i = key.rpartition('/')
+    return p, int(i)
+
 
 class Arena:
     def __init__(self, env_name: EnvName) -> None:
-        self.rates: dict[int, Elo] = {}
-        self.logger = get_logger('arena')
         self.env_name = env_name
-        self.load()
+        self.logger = get_logger('arena')
+        self.rates: dict[str, Elo] = {}
+        self.history: list[dict] = []          # [{t, scores:{key:score}}] 最近 200
+        self._save_lock = threading.Lock()     # pkl 串行写（旧版 10 桌并发 dump 同一文件必竞态）
+        self._delta_lock = threading.Lock()    # Elo 更新串行
+        self._games_since_save = 0
         self.stop_event = threading.Event()
-        # 进程内推理引擎管理中心，多个AIServer共享引擎
+        # 进程内推理引擎管理中心，多个 AIServer 共享引擎（同网同代自动复用）
         self.hub = ServerHub()
+        self.load()
 
-    def run(self, n_games: int) -> None:
-        """随机选择对手进行n局对弈"""
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(self.vs_worker) for _ in range(n_games)]
-            for future in tqdm(as_completed(futures), total=n_games):
-                future.result()
-
-    def run_gauntlet(self, games_per_model=15) -> None:
-        """
-        【新增方法】车轮战模式：
-        遍历每一个模型当'擂主'，让它去打 N 局随机对手。
-        这样能保证每个模型都有足够的曝光度。
-        """
-        # 获取所有模型ID并排序
-        all_models = sorted(list(self.rates.keys()))
-
-        print(f"开始车轮战！共 {len(all_models)} 个模型，每人打 {games_per_model} 局...")
-
-        for hero_idx in all_models:
-            if hero_idx < 56:
+    # ---------- 名册 ----------
+    def discover(self) -> list[str]:
+        """棋盘目录下所有 profile/checkpoint_*.pt → 候选键（自动发现，不等人工登记）。"""
+        base = os.path.join(CONFIG['data_dir'], self.env_name)
+        out = []
+        try:
+            profiles = sorted(d for d in os.listdir(base)
+                              if os.path.isdir(os.path.join(base, d)) and d != 'rates')
+        except OSError:
+            return []
+        for prof in profiles:
+            try:
+                files = os.listdir(os.path.join(base, prof))
+            except OSError:
                 continue
-            self.logger.info(f"=== 当前擂主: Model {hero_idx} ===")
-            # 专门为这个擂主跑 N 局
-            self.run_for_specific_hero(hero_idx, n_games=games_per_model)
+            for f in files:
+                if f.startswith('checkpoint_') and f.endswith('.pt'):
+                    try:
+                        out.append(key_of(prof, int(f[len('checkpoint_'):-3])))
+                    except ValueError:
+                        pass
+        return sorted(out)
 
-            # 每测完一个擂主，显示一次排名，反馈感很强
-            self.show_rank(limit=10, ascend=True)
-            self.show_rank(limit=10, ascend=False)
+    def sync_roster(self, keys: list[str] | None) -> list[str]:
+        """设定参赛名册并落 candidates.txt；keys=None 表示沿用现有名册（空则全发现）。"""
+        if keys is None:
+            if os.path.exists(self.list_path):
+                with open(self.list_path) as f:
+                    keys = [x.strip() for ln in f for x in ln.split(',') if x.strip()]
+            if not keys:
+                keys = self.discover()
+        os.makedirs(os.path.dirname(self.list_path), exist_ok=True)
+        with open(self.list_path, 'w') as f:
+            f.write(','.join(keys) + '\n')
+        for k in keys:
+            self.rates.setdefault(k, Elo(k))
+        for stale in set(self.rates) - set(keys):
+            self.rates.pop(stale)
+        return sorted(self.rates)
 
-    def run_for_specific_hero(self, hero_idx: int, n_games: int) -> None:
-        """为指定擂主启动多线程对战"""
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            # 提交任务时，把 hero_idx 传进去
-            futures = [executor.submit(self.vs_worker, hero_idx) for _ in range(n_games)]
-            for future in tqdm(as_completed(futures), total=n_games, desc=f"Model {hero_idx} vs All"):
-                future.result()
+    # ---------- 对弈 ----------
+    def pick_pair(self) -> tuple[str, str] | None:
+        """智能约架：出场少者优先 × 分近者优先（沿用旧权重策略，键升级版）。"""
+        keys = list(self.rates)
+        if len(keys) < 2:
+            return None
+        w1 = [1 / (self.rates[k].n_games_played + 1) for k in keys]
+        a = random.choices(keys, weights=w1, k=1)[0]
+        rest = [k for k in keys if k != a]
+        w2 = [1 / (abs(self.rates[k].scores - self.rates[a].scores) + 40) for k in rest]
+        b = random.choices(rest, weights=w2, k=1)[0]
+        return a, b
 
-    def vs_worker(self, hero_idx: int = None) -> None:
-        """
-        修改后的工作线程：
-        如果传入了 hero_idx，就固定它为一方，另一方随机。
-        如果没有传入（None），就还是全随机（兼容旧模式）。
-        """
-        if hero_idx is not None:
-            # 【车轮战逻辑】
-            index1 = hero_idx
-            # 为擂主挑选一个合适的对手 (排除了擂主自己)
-            index2 = self.get_rival_for_hero(hero_idx)
-        else:
-            # 【旧逻辑】全随机
-            index1, index2 = self.get_random_models()
+    def versus(self, k1: str, k2: str, n_sim: int = 300) -> str:
+        """一局对弈，返回 'w'（k1 胜）/'l'/'d'，并按结果更新 Elo。"""
+        prof1, i1 = parse_key(k1)
+        prof2, i2 = parse_key(k2)
+        env = get_class(self.env_name)()
+        with AIServer(self.env_name, i1, n_simulation=n_sim, verbose=False,
+                      hub=self.hub, profile=prof1) as p1, \
+             AIServer(self.env_name, i2, n_simulation=n_sim, verbose=False,
+                      hub=self.hub, profile=prof2) as p2:
+            outcome = env.random_order_play((p1, p2), silent=True)
+        e1, e2 = self.rates[k1], self.rates[k2]
+        with self._delta_lock:
+            if outcome == 1:
+                e1.defeat(e2); result = 'w'
+            elif outcome == 0:
+                e2.defeat(e1); result = 'l'
+            else:
+                e1.draw(e2); result = 'd'
+            self._games_since_save += 1
+            if self._games_since_save >= 5:
+                self.save()
+        self.logger.info(f'{k1} vs {k2}: {result}  [{e1.scores:.0f}/{e2.scores:.0f}]')
+        return result
 
-        self.versus(index1, index2)
+    def run_batch(self, games: int, n_sim: int = 300, tables: int = 5,
+                  mode: str = 'smart', pair: tuple[str, str] | None = None,
+                  on_state=None) -> dict:
+        """跑一批天梯赛。mode: smart=自动约架 / duel=指定 pair 连打。
+        on_state(dict) 每局回调（直播心跳）。返回 tally。"""
+        self.stop_event.clear()
+        tally = {'w': 0, 'd': 0, 'l': 0}
+        feed: list[str] = []
+        done = 0
+        t0 = time.time()
+        with ThreadPoolExecutor(max_workers=max(1, min(tables, 10))) as pool:
+            futs = []
+            for _ in range(games):
+                if self.stop_event.is_set():
+                    break
+                pr = pair if (mode == 'duel' and pair) else self.pick_pair()
+                if pr is None:
+                    break
+                futs.append(pool.submit(self._safe_versus, pr[0], pr[1], n_sim))
+            for fut in as_completed(futs):
+                r = fut.result()
+                if r is None:
+                    continue
+                tally[r] += 1
+                feed.append(r)
+                done += 1
+                if on_state:
+                    el = time.time() - t0
+                    on_state({'running': True, 'mode': mode,
+                              'pair': list(pair) if pair else None,
+                              'done': done, 'total': games,
+                              'tally': [tally['w'], tally['d'], tally['l']],
+                              'feed': feed[-40:],
+                              'gpm': round(done / max(el, 1e-9) * 60, 1)})
+        self.save()
+        if on_state:
+            on_state({'running': False, 'mode': mode, 'pair': None, 'done': done,
+                      'total': games, 'tally': [tally['w'], tally['d'], tally['l']],
+                      'feed': feed[-40:], 'gpm': 0})
+        return tally
 
-    def get_rival_for_hero(self, hero_idx: int) -> int:
-        """为擂主挑选对手"""
-        # 候选人列表（排除自己）
-        candidates = list(self.rates.keys())
-        if hero_idx in candidates:
-            candidates.remove(hero_idx)
+    def _safe_versus(self, k1: str, k2: str, n_sim: int) -> str | None:
+        try:
+            if self.stop_event.is_set():
+                return None
+            return self.versus(k1, k2, n_sim)
+        except Exception as exc:                            # noqa: BLE001 单局失败不折整批
+            self.logger.error(f'对局失败 {k1} vs {k2}: {exc}')
+            return None
 
-        if not candidates:
-            raise ValueError("没有足够的对手！")
+    # CLI 兼容（scripts/arena.py）
+    def run(self, n_games: int) -> None:
+        self.run_batch(n_games)
 
-        # 策略A：完全随机挑选 (简单粗暴，覆盖面广)
-        # return random.choice(candidates)
-
-        # 策略B：优先挑分数接近的 (收敛最快，推荐)
-        hero_score = self.rates[hero_idx].scores
-        weights = [1 / (abs(self.rates[c].scores - hero_score) + 1e-6) for c in candidates]
-        return random.choices(candidates, weights=weights, k=1)[0]
-
-    def get_random_models(self) -> tuple[int, int]:
-        """选择两个model id 以供比赛"""
-        if len(self.rates) < 2:
-            raise ValueError(f'No enough candidates,please check {self.list_path}.')
-        model_indices = list(self.rates.keys())
-        # 根据比赛次数多少随机，次数越多，选中概率越低
-        weights = [1 / (self.rates[i].n_games_played + 1) for i in model_indices]
-        chosen_index = random.choices(model_indices, weights=weights, k=1)[0]
-        model_indices.remove(chosen_index)
-        # 选择得分相近的对手，权重为1/abs(a-b)
-        diff_weight = [1 / (
-                abs(self.rates[idx].scores - self.rates[chosen_index].scores) + 1e-6
-        ) for idx in model_indices]
-        chosen_rival_index = random.choices(model_indices, weights=diff_weight, k=1)[0]
-        return chosen_index, chosen_rival_index
-
-    def versus(self, index1: int, index2: int) -> None:
-        """index1与index2进行一局对弈，根据胜负结果调整ELO"""
-        if index1 in self.rates and index2 in self.rates:
-            self.logger.info(f'{index1} VS {index2}: Pre_game:{self.rates[index1]}  {self.rates[index2]}')
-            env = get_class(self.env_name)()
-            # 对弈
-            with AIServer(self.env_name, index1, n_simulation=300, verbose=False, hub=self.hub) as p1, AIServer(
-                    self.env_name, index2, n_simulation=300, verbose=False, hub=self.hub) as p2:
-                outcome = env.random_order_play((p1, p2), silent=True)
-            # 更新score
-            e1, e2 = self.rates[index1], self.rates[index2]
-            result = ''
-            if outcome == 0:
-                e1.defeat(e2)
-                result = 'win'
-            elif outcome == 1:
-                e2.defeat(e1)
-                result = 'lose'
-            elif outcome == -1:
-                e1.draw(e2)
-                result = 'draw'
-
-            self.save()
-            self.logger.info(f'{index1} VS {index2}: {result}')
-            self.logger.info(f'----{e1}')
-            self.logger.info(f'----{e2}')
-        else:
-            self.logger.info(f'{index1} or {index2} not found.')
+    # ---------- 持久化 ----------
+    def snapshot_history(self) -> None:
+        self.history.append({'t': int(time.time()),
+                             'scores': {k: round(e.scores, 1) for k, e in self.rates.items()}})
+        self.history = self.history[-200:]
+        try:
+            with open(self.history_path, 'w', encoding='utf-8') as f:
+                json.dump(self.history, f, ensure_ascii=False)
+        except OSError:
+            pass
 
     def save(self) -> None:
-        os.makedirs(os.path.dirname(self.list_path), exist_ok=True)
-        with open(self.rates_path, "wb") as f:
-            pickle.dump(self.rates, f, protocol=4)  # type: ignore
-            self.logger.info(f'Arena scores have been saved at {self.rates_path}.')
+        with self._save_lock:                  # 串行 + 原子替换：杀在半路不毁档
+            self._games_since_save = 0
+            os.makedirs(os.path.dirname(self.list_path), exist_ok=True)
+            tmp = self.rates_path + '.tmp'
+            with open(tmp, 'wb') as f:
+                pickle.dump(self.rates, f, protocol=4)
+            os.replace(tmp, self.rates_path)
+            self.snapshot_history()
 
     def load(self) -> None:
-        # 读取rates
+        self.rates = {}
         if os.path.exists(self.rates_path):
-            with open(self.rates_path, "rb") as f:
-                self.rates = pickle.load(f)
-            self.logger.info(f'loaded rates from {self.rates_path}')
-        else:
-            self.logger.info(f'Failed to load data from "{self.rates_path}",file not exist.')
-        # 根据
+            try:
+                with open(self.rates_path, 'rb') as f:
+                    r = pickle.load(f)
+                if r and all(isinstance(k, str) for k in r):
+                    self.rates = r             # v2 键（str）；旧 int 键档忽略重开
+            except Exception as exc:                        # noqa: BLE001
+                self.logger.warning(f'rates 读取失败，重开空榜：{exc}')
+        if os.path.exists(self.history_path):
+            try:
+                with open(self.history_path, encoding='utf-8') as f:
+                    self.history = json.load(f)
+            except (OSError, ValueError):
+                self.history = []
         if os.path.exists(self.list_path):
-            self.logger.info(f'Adjusting candidate list from {self.list_path}.')
-            with open(self.list_path, "r") as f:
-                line = f.readline().strip()
-                lst_set = set(int(x) for x in line.split(',') if x.strip())
-                for i in lst_set:
-                    if i not in self.rates:
-                        self.rates[i] = Elo(i)
-                        self.logger.info(f'index:{i} joined arena.')
-                for i in set(self.rates) - lst_set:
-                    self.rates.pop(i)
-                    self.logger.info(f'index:{i} was deleted from arena.')
+            with open(self.list_path) as f:
+                for k in [x.strip() for ln in f for x in ln.split(',') if x.strip()]:
+                    self.rates.setdefault(k, Elo(k))
 
     @property
     def rates_path(self) -> str:
-        return os.path.join(CONFIG['data_dir'], self.env_name, 'rates', 'rates.pkl')
+        return os.path.join(CONFIG['data_dir'], self.env_name, 'rates', 'rates_v2.pkl')
 
     @property
     def list_path(self) -> str:
         return os.path.join(CONFIG['data_dir'], self.env_name, 'rates', 'candidates.txt')
 
+    @property
+    def history_path(self) -> str:
+        return os.path.join(CONFIG['data_dir'], self.env_name, 'rates', 'history.json')
+
+    # ---------- 展示 ----------
+    def ranks(self) -> list[dict]:
+        """榜单序列化（前端直接吃）。hist 从 history.json 逐存快照抽各自轨迹。"""
+        trails: dict[str, list[float]] = {}
+        for snap in self.history[-30:]:
+            for k, v in snap['scores'].items():
+                t = trails.setdefault(k, [])
+                if not t or t[-1] != v:
+                    t.append(v)
+                    trails[k] = t[-14:]
+        ranked = sorted(self.rates.values(), key=lambda e: e.scores, reverse=True)
+        return [{'id': e.index, 'profile': parse_key(e.index)[0], 'index': parse_key(e.index)[1],
+                 'score': round(e.scores, 1), 'games': e.n_games_played,
+                 'records': {k: v for k, v in list(e.records.items())[:60]},
+                 'hist': trails.get(e.index, [])}
+                for e in ranked]
+
     def show_rank(self, limit: int = 10, ascend=True) -> None:
-        """从高到低显示所有排名情况"""
         if not self.rates:
             print('No candidate rates to show.')
             return
-        if ascend:
-            print('=' * 15 + f' Top {limit} ' + '=' * 15)
-        else:
-            print('=' * 15 + f' Bottom {limit} ' + '=' * 15)
         for idx, (_, v) in enumerate(sorted(self.rates.items(), key=lambda x: x[1].scores, reverse=ascend)):
-            print(f'{idx + 1:>3} {v}')
-            if idx + 1 >= limit:
+            if idx >= limit:
                 break
-
-    def scheduled_show(self, interval: int) -> None:
-        while not self.stop_event.wait(interval):
-            self.show_rank(10, True)
-            self.show_rank(10, False)
+            print(f'{idx + 1:>3}  {v.index:<14} score={v.scores:7.1f}  games={v.n_games_played}')

@@ -133,13 +133,21 @@ class AIServer(Player):
         self.is_thinking = False
 
     def reset(self) -> None:
+        """回合重置（env.run 每局开头、对弈页「再来一局」调用）：拆树释放引擎，
+        **玩家保持存活**——2026-11-04 修复：旧版在这里置 _dead，把竞技场与
+        「再来一局」打成永死 404 会话（销毁语义属于 shutdown）。"""
         with self._op_lock:
             super().reset()
-            self._dead = True   # 已销毁：后续在途 /update 返回 404，避免 500
-            self.shutdown()
+            self._teardown()
             self.win_rate = -1.0
+            self.wd_probs = None
 
     def shutdown(self) -> None:
+        """会话销毁：释放全部资源并打 _dead——在途/后续 /update 据此快速 404。"""
+        self._teardown()
+        self._dead = True
+
+    def _teardown(self) -> None:
         if self.mcts:
             self.mcts.shutdown()
             self.mcts = None

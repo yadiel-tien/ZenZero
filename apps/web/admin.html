@@ -1427,76 +1427,101 @@ async function taskShowLog(name){
   }catch(e){ $('task-log').textContent = '日志读取失败: '+e.message; }
 }
 
-/* ================= 竞技场（原型：mock 数据，接口契约 = /api/arena/ranks|state） ================= */
-const NET_C = {mini:'#4a90d9', mini2:'#3aa6a0', s:'#e08a4e'};
-const ARENA_MOCK = {
-  state: { running:true, mode:'smart', pair:['mini2/50','mini/97'], expect:0.58, done:6, total:30, tally:[3,1,2],
-           feed:['w','d','l','w','w','d'], rate_gpm: 12.4 },
-  players: [
-    {id:'mini2/50', score:1638, delta:14, games:41, hist:[1500,1517,1542,1556,1571,1568,1585,1602,1611,1626,1632,1638]},
-    {id:'mini2/49', score:1602, delta:6,  games:33, hist:[1500,1512,1528,1541,1555,1570,1596,1602]},
-    {id:'mini/97',  score:1588, delta:-11, games:88, hist:[1500,1532,1521,1545,1562,1571,1599,1588]},
-    {id:'mini/94',  score:1559, delta:-3, games:76, hist:[1500,1524,1538,1551,1546,1563,1562]},
-    {id:'mini2/45', score:1548, delta:0,  games:18, hist:[1500,1517,1533,1551,1548]},
-    {id:'mini/93',  score:1535, delta:2,  games:64, hist:[1500,1519,1512,1528,1533,1533]},
-    {id:'mini/62',  score:1478, delta:-18, games:52, hist:[1500,1489,1496,1483,1496,1496]},
-    {id:'s/3',      score:1452, delta:-8, games:24, hist:[1500,1478,1489,1460,1460]},
-  ],
-  rival: {'mini2/50':{'mini/97':[2,1,1]},'mini/97':{'mini/94':[4,2,3]},'mini2/49':{'mini2/50':[0,2,0]},'mini/62':{'mini/93':[1,4,0]}},
-};
-const expRate = (a,b) => 1/(1+Math.pow(10,(b-a)/400));
-function renderArena(){
-  const M = ARENA_MOCK, st = M.state, P = M.players;
-  const nm = id => { const [p,v]=id.split('/'); return `<span style="color:${NET_C[p]||'#999'}">●</span> ${p==='s'?'S':p==='mini'?'Mini':'Mini2'} <b>v${v}</b>`; };
-  $('ar_status').innerHTML = st.running ? `<span style="color:#3aa6a0">● 对阵中</span> · ${fmt(st.rate_gpm,1)} 局/分` : '空闲';
-  const FCOL = {w:'#2e8b57', d:'#9a917d', l:'#c0392b'};
-  $('ar_live').innerHTML = st.running ? `
-    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-      <div style="font-size:15px">${nm(st.pair[0])}</div>
-      <div style="flex:1;min-width:130px" class="ar-exp">
-        <b style="width:${(st.expect*100).toFixed(0)}%;background:${NET_C[st.pair[0].split('/')[0]]}"> ${(st.expect*100).toFixed(0)}% 预期</b><b style="background:${NET_C[st.pair[1].split('/')[0]]}">${((1-st.expect)*100).toFixed(0)}%</b>
-      </div>
-      <div style="font-size:15px">${nm(st.pair[1])}</div>
-    </div>
-    <div style="margin-top:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <span class="mono" style="font-size:15px"><b style="color:#2e8b57">${st.tally[0]}</b> 胜 · <b style="color:#9a917d">${st.tally[1]}</b> 和 · <b style="color:#c0392b">${st.tally[2]}</b> 负</span>
-      <span class="ar-feed">${st.feed.map(f=>`<i style="background:${FCOL[f]}" title="${{w:'本方胜',d:'和',l:'本方负'}[f]}"></i>`).join('')}</span>
-      <span class="hint" style="margin:0">第 ${st.done}/${st.total} 局</span>
-    </div>
-    <div class="pb"><i style="width:${(100*st.done/st.total).toFixed(0)}%;background:#3aa6a0"></i></div>`
-    : '<div class="hint" style="margin:0">暂无对局 — 选择模式后点「开始」。</div>';
-  const ranked = [...P].sort((a,b)=>b.score-a.score), top=ranked[0].score, floor=ranked[ranked.length-1].score-20;
-  $('ar_rsum').textContent = `${ranked.length} 名选手 · ${P.reduce((a,p)=>a+p.games,0)} 局已记录`;
-  $('ar_ranks').innerHTML = `<table class="rank-tb"><tr><th>#</th><th>选手</th><th>Elo</th><th>Δ</th><th>局</th><th>趋势</th></tr>` + ranked.map((p,i)=>{
-    const w = expRate(p.score, top)*100;
-    return `<tr class="${i===0?'champ':''}"><td class="mono">${i+1}</td><td>${nm(p.id)}</td>
-      <td class="mono"><b>${p.score.toFixed(0)}</b>${p.games<20?' <span class="hint" style="margin:0">考察期</span>':''}</td>
-      <td class="mono" style="color:${p.delta>0?'#2e8b57':p.delta<0?'#c0392b':'var(--dim)'}">${p.delta>0?'▲+':p.delta<0?'▼':''}${p.delta}</td>
-      <td class="mono">${p.games}</td><td>${spark(p.hist,'#8a8272',60,16)}</td></tr>`;
-  }).join('') + '</table>';
-  $('ar_ladder').innerHTML = ranked.map(p=>{
-    const w = 6 + (p.score-floor)/(top-floor+1e-9)*88;
-    const c = NET_C[p.id.split('/')[0]]||'#999';
-    return `<div class="ladrow"><span class="nm">${p.id.replace('/',' v')}</span><div class="bar" style="width:${w.toFixed(1)}%;background:${c}"></div><span class="mono">${p.score.toFixed(0)}</span></div>`;
-  }).join('') + '<div class="hint" style="margin-top:4px">条长=Elo（相对拉伸）；跨颜色相邻≈同级，断层=代差宇宙</div>';
-  const ids = ranked.map(p=>p.id);
-  $('ar_matrix').innerHTML = `<table class="mtx"><tr><th></th>${ids.map(x=>`<th>${x}</th>`).join('')}</tr>` +
-    ids.map(r=>`<tr><th>${r}</th>${ids.map(c=>{
-      if(r===c) return '<td class="diag">—</td>';
-      const rec=(M.rival[r]||{})[c]; if(!rec) return '<td class="hint" style="margin:0;opacity:.35">·</td>';
-      const [w,l,d]=rec, t=w+l+d, wr=w/t;
-      return `<td style="background:rgba(46,139,87,${(wr*0.75).toFixed(2)})" title="${w}胜${l}负${d}和">${(wr*100).toFixed(0)}%</td>`;
-    }).join('')}</tr>`).join('') + '</table>';
-  const psel = ranked.map(p=>`<option>${p.id}</option>`).join('');
-  if(!$('ar_p1').options.length){ $('ar_p1').innerHTML=$('ar_p2').innerHTML=psel; $('ar_p2').selectedIndex=2; updExpect(); }
+/* ================= 竞技场 ================= */
+const NET_C = {mini:'#4a90d9', mini2:'#3aa6a0', s:'#e08a4e', m:'#9575cd'};
+let ARENA = {ranks:null, state:{running:false}, prev:null, timer:null};
+function netColor(pf){ if(NET_C[pf]) return NET_C[pf];
+  let h=0; for(const ch of pf) h=(h*31+ch.charCodeAt(0))%360; return `hsl(${h} 55% 52%)`; }
+const expRate = (a,b) => 1/(1+Math.pow(10,((b||1500)-(a||1500))/400));
+async function arenaFetch(){
+  try{
+    const game = (document.getElementById('mon_game')||{}).value || 'ChineseChess';
+    const [r,s] = await Promise.all([api('/api/arena/ranks?game='+game), api('/api/arena/state')]);
+    ARENA.prev = ARENA.ranks; ARENA.ranks = r; ARENA.state = s;
+  }catch(e){ /* 服务未升级时静默 */ }
+  renderArena();
 }
-function updExpect(){ const M=ARENA_MOCK, a=M.players.find(x=>x.id===$('ar_p1').value), b=M.players.find(x=>x.id===$('ar_p2').value);
-  if(a&&b) $('ar_expect').textContent=`预期 ${(expRate(a.score,b.score)*100).toFixed(0)} : ${(expRate(b.score,a.score)*100).toFixed(0)}`; }
-$('ar_mode').addEventListener('change',()=>{ $('ar_duel').classList.toggle('hidden', $('ar_mode').value!=='duel');
-  $('ar_hint').textContent = {smart:'全场循环约架直到停止', gauntlet:'按名次轮流传桌', duel:'只打点将的这一对'}[$('ar_mode').value]; });
+function renderArena(){
+  const R = ARENA.ranks, st = ARENA.state || {running:false};
+  const P = (R && R.players) || [];
+  const nm = id => { const i=id.lastIndexOf('/'); const pf=id.slice(0,i), v=id.slice(i+1);
+    return `<span style="color:${netColor(pf)}">●</span> <b style="font-size:11px">${esc(pf)}</b> v${v}`; };
+  $('ar_status').innerHTML = st.running
+    ? `<span style="color:#3aa6a0">● 对阵中</span> · ${fmt(st.gpm,1)} 局/分 · ${st.tables} 桌`
+    : (st.done ? `空闲 · 上批 ${st.done} 局打完` : '空闲 · 等待开赛');
+  const FCOL = {w:'#2e8b57', d:'#9a917d', l:'#c0392b'};
+  const live = $('ar_live');
+  if(st.running && st.pair){
+    const [a,b]=st.pair, ea=expRate(P.find(x=>x.id===a)?.score, P.find(x=>x.id===b)?.score);
+    live.innerHTML = duelHtml(a,b,ea,st,FCOL,nm);
+  } else if(st.running){ live.innerHTML = `<div class="hint" style="margin:0">智能约架进行中 · 第 ${st.done}/${st.total} 局 ${feedHtml(st.feed,FCOL)}</div>`; }
+  else if(st.done){
+    const [w,d,l]=st.tally||[0,0,0], wr=(w+d/2)/Math.max(w+d+l,1);
+    live.innerHTML = `<div class="hint" style="margin:0">上批已结束 · ${st.total} 局 ${feedHtml(st.feed,FCOL)} <b style="color:${wr>=0.5?'#2e8b57':'#c0392b'}">先手得分率 ${(wr*100).toFixed(1)}%</b>（胜${w} 和${d} 负${l}）</div>`;
+  }
+  else live.innerHTML = '<div class="hint" style="margin:0">暂无对局 — 名册将自动发现全部检查点，选模式点「开始」。榜单空着是因为还没打过：首战即定级。</div>';
+  if(!P.length){
+    $('ar_rsum').textContent=''; $('ar_ranks').innerHTML='<div class="hint" style="margin:0">榜单空 · 候选 '+(R&&R.candidates?R.candidates.length:'—')+' 个检查点待入册</div>';
+    $('ar_ladder').innerHTML=''; $('ar_matrix').innerHTML='';
+  } else {
+    const ranked=[...P].sort((x,y)=>y.score-x.score), top=ranked[0].score, floor=ranked[ranked.length-1].score-20;
+    const prevMap={}; (ARENA.prev&&ARENA.prev.players||P).forEach(x=>prevMap[x.id]=x.score);
+    $('ar_rsum').textContent=`${ranked.length} 名 · ${ranked.reduce((a,p)=>a+p.games,0)} 局`;
+    $('ar_ranks').innerHTML = `<table class="rank-tb"><tr><th>#</th><th>选手</th><th>Elo</th><th>Δ</th><th>局</th><th>趋势</th></tr>` +
+      ranked.map((p,i)=>{ const dl = +(p.score-(prevMap[p.id]??p.score)).toFixed(1);
+        return `<tr class="${i===0?'champ':''}"><td class="mono">${i+1}</td><td>${nm(p.id)}</td>
+        <td class="mono"><b>${p.score.toFixed(0)}</b>${p.games<20?' <span class="hint" style="margin:0;font-size:9px">考察期</span>':''}</td>
+        <td class="mono" style="color:${dl>0?'#2e8b57':dl<0?'#c0392b':'var(--dim)'}">${dl>0?'▲+':dl<0?'▼':''}${dl?dl.toFixed(1):''}</td>
+        <td class="mono">${p.games}</td><td>${p.hist&&p.hist.length>2?spark(p.hist,'#8a8272',60,16):''}</td></tr>`; }).join('')+'</table>';
+    $('ar_ladder').innerHTML = ranked.map(p=>{
+      const w=6+(p.score-floor)/Math.max(top-floor,1e-9)*88, c=netColor(p.profile);
+      return `<div class="ladrow"><span class="nm">${esc(p.id)}</span><div class="bar" style="width:${w.toFixed(1)}%;background:${c}"></div><span class="mono">${p.score.toFixed(0)}</span></div>`;
+    }).join('')+'<div class="hint" style="margin-top:4px">条长=Elo（相对拉伸）；颜色=网络；跨色相邻≈同级，断层=宇宙差</div>';
+    const ids=ranked.map(p=>p.id);
+    $('ar_matrix').innerHTML = `<table class="mtx"><tr><th></th>${ids.map(x=>`<th>${esc(x)}</th>`).join('')}</tr>`+
+      ids.map(r=>`<tr><th>${esc(r)}</th>${ids.map(c=>{
+        if(r===c) return '<td class="diag">—</td>';
+        const rec=(R.rival[r]||{})[c]; if(!rec||!rec[0]+rec[1]+rec[2]) return '<td style="opacity:.3">·</td>';
+        const [w,l,d]=rec, t=w+l+d, wr=w/t;
+        return `<td style="background:rgba(46,139,87,${(wr*0.7).toFixed(2)})" title="${w}胜${l}负${d}和">${(wr*100).toFixed(0)}%</td>`;
+      }).join('')}</tr>`).join('')+'</table>';
+  }
+  const cand = (R&&R.candidates&&R.candidates.length?R.candidates:P.map(p=>p.id));
+  const opts = cand.map(x=>`<option>${esc(x)}</option>`).join('');
+  if(!$('ar_p1').options.length || $('ar_p1').dataset.n!==String(cand.length)){
+    const a0=$('ar_p1').value, b0=$('ar_p2').value;
+    $('ar_p1').innerHTML=opts; $('ar_p2').innerHTML=opts; $('ar_p1').dataset.n=String(cand.length);
+    if(a0&&cand.includes(a0))$('ar_p1').value=a0; if(b0&&cand.includes(b0))$('ar_p2').value=b0; else $('ar_p2').selectedIndex=Math.min(1,cand.length-1);
+    updExpect();
+  }
+}
+function feedHtml(feed,FCOL){ return `<span class="ar-feed">${(feed||[]).map(f=>`<i style="background:${FCOL[f]}" title="${{w:'先手胜',d:'和',l:'先手负'}[f]}"></i>`).join('')}</span>`; }
+function duelHtml(a,b,ea,st,FCOL,nm){
+  const [w,d,l]=st.tally||[0,0,0];
+  return `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <div style="font-size:15px">${nm(a)}</div>
+    <div class="ar-exp" style="flex:1;min-width:130px">
+      <b style="width:${(ea*100).toFixed(0)}%;background:${netColor(a.split('/')[0])}"> ${(ea*100).toFixed(0)}% 预期</b><b style="background:${netColor(b.split('/')[0])}">${((1-ea)*100).toFixed(0)}%</b></div>
+    <div style="font-size:15px">${nm(b)}</div></div>
+    <div style="margin-top:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span class="mono" style="font-size:15px"><b style="color:#2e8b57">${w}</b> 胜 · <b style="color:#9a917d">${d}</b> 和 · <b style="color:#c0392b">${l}</b> 负</span>
+      ${feedHtml(st.feed,FCOL)}<span class="hint" style="margin:0">第 ${st.done}/${st.total} 局</span></div>
+    <div class="pb"><i style="width:${(100*(st.done||0)/Math.max(st.total||1,1)).toFixed(0)}%;background:#3aa6a0"></i></div>`;
+}
+function updExpect(){ const P=(ARENA.ranks&&ARENA.ranks.players)||[];
+  const a=P.find(x=>x.id===$('ar_p1').value), b=P.find(x=>x.id===$('ar_p2').value);
+  const ea=expRate(a&&a.score, b&&b.score);
+  $('ar_expect').textContent=`预期 ${(ea*100).toFixed(0)} : ${(100-ea*100).toFixed(0)}`; }
+function arenaPoll(on){ if(ARENA.timer){clearInterval(ARENA.timer);ARENA.timer=null;}
+  if(on) ARENA.timer=setInterval(arenaFetch, 3000); }
+$('ar_mode').addEventListener('change',()=>{ $('ar_duel').classList.toggle('hidden',$('ar_mode').value!=='duel');
+  $('ar_hint').textContent={smart:'全场循环约架直到停止',gauntlet:'按名次轮流传桌',duel:'只打点将的这一对'}[$('ar_mode').value]; });
 $('ar_p1').addEventListener('change',updExpect); $('ar_p2').addEventListener('change',updExpect);
-$('ar_go').addEventListener('click',()=>toast('原型阶段：接入 /api/arena/start 后生效'));
-$('ar_stop').addEventListener('click',()=>toast('原型阶段'));
+$('ar_go').addEventListener('click',async()=>{ const body={mode:$('ar_mode').value,games:+$('ar_games').value,sims:+$('ar_sims').value,tables:+$('ar_tables').value};
+  if(body.mode==='duel') body.pair=[$('ar_p1').value,$('ar_p2').value];
+  const r=await api('/api/arena/start',{method:'POST',body:JSON.stringify(body)});
+  toast(r.ok?`开赛：${body.games} 局 × ${body.sims}sims`:(r.error||'启动失败'),!r.ok); if(r.ok) arenaFetch(); });
+$('ar_stop').addEventListener('click',async()=>{ await api('/api/arena/stop',{method:'POST',body:'{}'}); toast('停止中：本批桌完成即收'); });
 
 /* ---------- 主循环 ---------- */
 let tab = 'monitor';
@@ -1509,7 +1534,7 @@ function switchTab(name){
   if(name==='artifacts') loadArtifacts();
   if(name==='logs'){ loadLogList(); }
   if(name==='tasks') loadTasks(true);
-  if(name==='arena') renderArena();
+  if(name==='arena'){ arenaFetch(); arenaPoll(true); } else arenaPoll(false);
 }
 document.querySelectorAll('nav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault(); switchTab(a.dataset.tab);}));
 async function tick(){
