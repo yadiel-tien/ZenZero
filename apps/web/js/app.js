@@ -554,25 +554,22 @@
   }
 
   function updateWr() {
+    const blocks = document.querySelectorAll('.wr-block');
     for (const s of [0, 1]) {
       const p = G.players[s];
-      const v = p.type === 'ai' ? p._wrShown : -1;
-      const w = p._wdlShown;
-      if (w) {   // 胜/和/负三段：不出数字（防溢出），颜色图例说明（随红黑各自色板）
-        $('wr-' + s + '-w').style.width = (w[0] * 100).toFixed(1) + '%';
-        $('wr-' + s + '-d').style.width = (w[1] * 100).toFixed(1) + '%';
-        $('wr-' + s + '-l').style.width = (w[2] * 100).toFixed(1) + '%';
-        $('wr-val-' + s).textContent = '';
-        $('wr-legend-' + s).classList.add('on');
-        $('wr-bar-' + s).title = `胜 ${Math.round(w[0] * 100)}% · 和 ${Math.round(w[1] * 100)}% · 负 ${Math.round(w[2] * 100)}%`;
-      } else {
-        $('wr-legend-' + s).classList.remove('on');
-        $('wr-' + s + '-w').style.width = v === -1 ? '50%' : clamp(v * 100, 2, 100) + '%';
-        $('wr-' + s + '-d').style.width = '0';
-        $('wr-' + s + '-l').style.width = '0';
-        $('wr-val-' + s).textContent = v === -1 ? '--' : (v * 100).toFixed(1) + '%';
-        $('wr-bar-' + s).removeAttribute('title');
-      }
+      const blk = blocks[s]; if (!blk) continue;
+      blk.classList.toggle('gomoku', G.name === 'Gomoku');
+      blk.style.display = p.type === 'ai' ? '' : 'none';   // 人类方没有 AI 判断，整条隐藏
+      if (p.type !== 'ai') continue;
+      const v = p._wrShown;
+      // 统一胜/和/负三段形态：老架构（无 WDL 头）不判和，和段恒 0，仍走同一条三色条
+      const w = p._wdlShown || (v === -1 ? [0.5, 0, 0.5] : [Math.max(v, 0), 0, Math.max(1 - v, 0)]);
+      $('wr-' + s + '-w').style.width = (w[0] * 100).toFixed(1) + '%';
+      $('wr-' + s + '-d').style.width = (w[1] * 100).toFixed(1) + '%';
+      $('wr-' + s + '-l').style.width = (w[2] * 100).toFixed(1) + '%';
+      $('wr-val-' + s).textContent = '';
+      $('wr-legend-' + s).classList.add('on');
+      $('wr-bar-' + s).title = `胜 ${Math.round(w[0] * 100)}% · 和 ${Math.round(w[1] * 100)}% · 负 ${Math.round(w[2] * 100)}%`;
     }
   }
 
