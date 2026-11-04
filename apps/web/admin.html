@@ -102,6 +102,19 @@
   .pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:#3aa6a0;
     box-shadow:0 0 0 0 rgba(58,166,160,.55);animation:pulse 1.6s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(58,166,160,.5)}70%{box-shadow:0 0 0 7px rgba(58,166,160,0)}100%{box-shadow:0 0 0 0 rgba(58,166,160,0)}}
+  #strip{display:flex;gap:14px;align-items:center;padding:5px 16px;border-bottom:1px solid var(--line);
+    background:color-mix(in srgb, var(--bg) 88%, transparent);position:sticky;top:0;z-index:30;
+    backdrop-filter:blur(8px);font-size:11.5px;flex-wrap:wrap;min-height:34px}
+  .st{display:flex;align-items:center;gap:7px;color:var(--dim);white-space:nowrap}
+  .st b{color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums}
+  .st .kb{width:74px;height:4px;border-radius:2px;background:color-mix(in srgb,var(--line) 70%, transparent);overflow:hidden}
+  .st .kb i{display:block;height:100%;border-radius:2px;transition:width .5s}
+  .stgap{flex:1}
+  .tchip{display:inline-flex;align-items:center;gap:7px;padding:3px 10px;border-radius:999px;
+    border:1px solid var(--line);text-decoration:none;color:var(--fg);font-size:11.5px;background:var(--card)}
+  .tchip:hover{border-color:var(--blue)}
+  .tchip .dot{width:7px;height:7px;border-radius:50%}
+  .tchip.idle{display:none}
   .chipbox{display:flex;flex-wrap:wrap;gap:4px;max-height:132px;overflow:auto}
   .chip{border:1px solid var(--line);border-radius:11px;padding:1px 9px;font-size:11px;cursor:pointer;user-select:none;background:var(--card)}
   .chip:hover{border-color:var(--blue)}
@@ -213,6 +226,15 @@
   <a href="/" class="pill" style="text-decoration:none">← 对弈</a>
   <a class="pill" href="/docs/" title="项目文档集：环境 / MCTS / 推理引擎 / 训练管线 / 架构与 API" style="text-decoration:none">📖 文档</a>
 </header>
+<div id="strip">
+  <span class="st" title="整机 CPU 占用">CPU <span class="kb"><i id="st_cpu_bar" style="width:0;background:#4a90d9"></i></span> <b id="st_cpu">—</b></span>
+  <span class="st" title="物理内存占用">内存 <span class="kb"><i id="st_ram_bar" style="width:0;background:#3aa6a0"></i></span> <b id="st_ram">—</b></span>
+  <span class="st" title="GPU 计算核占用">GPU <span class="kb"><i id="st_gpu_bar" style="width:0;background:#e08a4e"></i></span> <b id="st_gpu">—</b></span>
+  <span class="st" title="显存占用（含常驻大模型与 Buffer）">显存 <span class="kb"><i id="st_vram_bar" style="width:0;background:#7e57c2"></i></span> <b id="st_vram">—</b></span>
+  <span class="stgap"></span>
+  <a class="tchip idle" id="st_train" href="#monitor" title="训练在跑，点此看监控"><span class="dot" style="background:#4a90d9"></span><span id="st_train_t">训练</span></a>
+  <a class="tchip idle" id="st_arena" href="#arena" title="竞技场在打，点此看直播"><span class="dot" style="background:#3aa6a0"></span><span id="st_arena_t">竞技场</span></a>
+</div>
 <nav>
   <a href="#monitor" class="on" data-tab="monitor">监控</a>
   <a href="#train" data-tab="train">训练</a>
@@ -817,6 +839,7 @@ function renderSnapshot(s){
   $('meta').textContent = `${s.meta.game} · ${s.meta.profile} · ${s.meta.device} · ${s.meta.net.n_filters}x${s.meta.net.n_res_blocks}`
       + ` · K=${s.meta.batch_leaves}` + (sims? ` · ${fmt(sims,0)} sims/手` : '')
       + (s.meta.profile_source==='default'? '（神经网络取面板默认值，训练未在跑）' : '');
+  renderStrip(s);
   window.__lastProgress = L.progress || {};
   const ph = L.phase || 'idle', p = L.progress, running = tr.running;
   let chip = 'pill ' + (ph==='stalled'?'stalled':''), txt;
@@ -1731,10 +1754,45 @@ function switchTab(name){
 }
 document.querySelectorAll('nav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault(); switchTab(a.dataset.tab);}));
 async function tick(){
-  if(tab!=='monitor' && tab!=='train' && tab!=='logs') return;
+  // 全局状态条：所有标签页都要硬件与任务心跳（快照本身很轻）
   try{
     const s = await api('/api/admin/snapshot'); renderSnapshot(s);
   }catch(e){ $('phase').textContent = '拉取失败: '+e.message; }
+  try{ renderArenaChip(await api('/api/arena/state')); }catch(e){ /* 服务未升级 */ }
+}
+function stBar(id, pct, color){
+  const el = document.getElementById(id); if(!el) return;
+  el.style.width = Math.max(0, Math.min(100, pct)).toFixed(0) + '%';
+  if(color) el.style.background = color;
+}
+function renderStrip(s){
+  const hw = s.hardware || {}, gpu = hw.gpu || {}, mem = hw.mem || {};
+  const cpu = hw.cpu||0, ram = mem.pct||0;
+  $('st_cpu').textContent = fmt(cpu,0)+'%'; stBar('st_cpu_bar', cpu, cpu>90?'#c0392b':'#4a90d9');
+  $('st_ram').textContent = fmt(ram,0)+'%'; stBar('st_ram_bar', ram, ram>90?'#c0392b':'#3aa6a0');
+  $('st_gpu').textContent = gpu.util==null? '—' : fmt(gpu.util,0)+'%';
+  stBar('st_gpu_bar', gpu.util||0, (gpu.util||0)>95?'#c0392b':'#e08a4e');
+  const vp = gpu.mem_total_mb? 100*gpu.mem_used_mb/gpu.mem_total_mb : 0;
+  $('st_vram').textContent = gpu.mem_total_mb? `${fmt(gpu.mem_used_mb/1024,1)}/${fmt(gpu.mem_total_mb/1024,0)}G` : '—';
+  stBar('st_vram_bar', vp, vp>92?'#c0392b':'#7e57c2');
+  const tr = s.trainer || {}, L = s.live || {}, p = L.progress || {};
+  const runT = !!tr.running;
+  $('st_train').classList.toggle('idle', !runT);
+  if(runT){
+    const ph = PHASE_CN[L.phase] || L.phase || '运行';
+    $('st_train_t').textContent = `训练 · ${ph}` + (p.done!=null? ` ${p.done}/${p.total||'?'}` : '');
+  }
+}
+$('st_arena').addEventListener('click',e=>{ e.preventDefault(); switchTab('arena'); });
+$('st_train').addEventListener('click',e=>{ e.preventDefault(); switchTab('monitor'); });
+function renderArenaChip(st){
+  const el = $('st_arena'); if(!el) return;
+  const on = !!(st && st.running);
+  el.classList.toggle('idle', !on);
+  if(on){
+    const mode = {smart:'智能约架',gauntlet:'车轮战',duel:'自定义对决'}[st.mode]||st.mode||'';
+    $('st_arena_t').textContent = `竞技场 · ${st.arena||''} · ${mode} · ${st.done||0}/${st.total||0}`;
+  }
 }
 const MON_KEY = 'zz_mon_target';
 async function tickSeries(){
