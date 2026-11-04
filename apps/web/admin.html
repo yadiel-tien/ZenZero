@@ -61,6 +61,18 @@
   nav a.on{color:var(--fg);background:var(--card);border-color:var(--line);border-bottom-color:var(--card)}
   main{padding:14px 20px 40px}
   .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;margin-bottom:14px}
+  /* 显示顺序按语义重排：第一行=训练进程与成果，第二行=引擎性能与硬件 */
+  #cards .card{order:99}
+  #cards .card:nth-child(1){order:1}  #cards .card:nth-child(5){order:2}
+  #cards .card:nth-child(4){order:3}  #cards .card:nth-child(7){order:4}
+  #cards .card:nth-child(8){order:5}  #cards .card:nth-child(9){order:6}
+  #cards .card:nth-child(14){order:7} #cards .card:nth-child(2){order:8}
+  #cards .card:nth-child(3){order:9}  #cards .card:nth-child(6){order:10}
+  #cards .card:nth-child(10){order:11} #cards .card:nth-child(13){order:12}
+  #cards .card:nth-child(11){order:13} #cards .card:nth-child(12){order:14}
+  .pb{height:3px;border-radius:2px;background:rgba(128,128,128,.18);margin-top:4px;overflow:hidden}
+  .pb i{display:block;height:100%;background:var(--blue);border-radius:2px;transition:width .5s ease}
+  .v .ok{color:#2e8b57} .v .bad{color:#c0392b}
   .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;height:106px;display:flex;flex-direction:column;box-shadow:var(--shadow);transition:transform .12s, box-shadow .12s, background-color .18s ease, border-color .18s ease}
   .card:hover{transform:translateY(-1px)}
   .card .k{font-size:11px;line-height:1.25;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto}
@@ -616,7 +628,9 @@ function renderSnapshot(s){
     card('当前阶段 · ' + (tr.running ? (PHASE_CN[L.phase] || L.phase || '待命') : '未运行'),
          '第 ' + fmt(L.iteration || last.iteration || 0, 0) + ' 代'
          + ((s.best != null && s.best > -1 && s.best !== (L.iteration || last.iteration))
-             ? ` <span style="font-size:15px;font-weight:600;color:var(--dim)">· 最佳 ${s.best}</span>` : ''),
+             ? ` <span style="font-size:15px;font-weight:600;color:var(--dim)">· 最佳 ${s.best}</span>` : '')
+         + (tr.running && L.progress && L.progress.total
+             ? `<div class="pb"><i style="width:${Math.min(100, 100*(L.progress.done||0)/(L.progress.total||1)).toFixed(0)}%"></i></div>` : ''),
          tr.running ? ((L.progress && L.progress.done != null)
              ? `${L.progress.done}/${L.progress.total || '?'} ${L.phase === 'fit' ? '步' : '局'} · 每轮${fmt(s.meta.games_per_round,0)}` : '心跳中…')
              : '去训练页启动',
@@ -648,7 +662,8 @@ function renderSnapshot(s){
                   + (fit.val.stale? ' · 上一代' : ((fit.val.age_s||0) > 600? ` · ${fmt((fit.val.age_s||0)/60,0)}min前` : '')) : '—'),
          '验证集（holdout，永不参与训练）上的 loss。policy 是交叉熵，其中约 85% 是目标自身熵的下限，真正能学的是 KL。'
          + ' value 是价值头 MSE。标“上一代”表示本轮 fit 还没跑完，显示的是上一个模型的测量值。'),
-    card('评估胜率', (!ev.batch_stale && ev.win_rate!==undefined)?(ev.win_rate*100).toFixed(1)+'%':'—',
+    card('评估胜率', (!ev.batch_stale && ev.win_rate!==undefined)
+         ? `<span class="${ev.win_rate >= ((s.meta||{}).win_threshold||0.52) ? 'ok' : 'bad'}">${(ev.win_rate*100).toFixed(1)}%</span>` : '—',
          ev.batch_stale? `本批未打 · 上条第${fmt(ev.new,0)}代`
          : (ev.games? `胜${ev.win} 负${ev.lose} 和${ev.draw} · 得分${fmt(ev.win + ev.draw/2,1)}`
              : '—'),
