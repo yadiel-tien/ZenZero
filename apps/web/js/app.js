@@ -560,8 +560,14 @@
       blk.style.display = p.type === 'ai' ? '' : 'none';   // 人类方没有 AI 判断，整条隐藏
       if (p.type !== 'ai') continue;
       const v = p._wrShown;
-      // 统一胜/和/负三段形态：老架构（无 WDL 头）不判和，和段恒 0，仍走同一条三色条
-      const w = p._wdlShown || (v === -1 ? [0.5, 0, 0.5] : [Math.max(v, 0), 0, Math.max(1 - v, 0)]);
+      // 终局定格为事实：不再展示 AI 生前的预测，按结果画满对应段（胜=己方色，负=对方色）
+      let w;
+      if (G.status === 'finished' && G.winner !== 2) {
+        w = G.winner === -1 ? [0, 1, 0] : (G.winner === s ? [1, 0, 0] : [0, 0, 1]);
+      } else {
+        // 统一胜/和/负三段形态：老架构（无 WDL 头）不判和，和段恒 0，仍走同一条三色条
+        w = p._wdlShown || (v === -1 ? [0.5, 0, 0.5] : [Math.max(v, 0), 0, Math.max(1 - v, 0)]);
+      }
       $('wr-' + s + '-w').style.width = (w[0] * 100).toFixed(1) + '%';
       $('wr-' + s + '-d').style.width = (w[1] * 100).toFixed(1) + '%';
       $('wr-' + s + '-l').style.width = (w[2] * 100).toFixed(1) + '%';
