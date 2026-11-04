@@ -100,26 +100,34 @@ class AIServer(Player):
                 planes_version=engine.feature_version  # 人机对战：按所选模型的 feature_version 布局生成特征面
             )
         else:  # 扩展并裁剪
-            child_state = self.mcts.root.get_child(last_action).state
-            if np.array_equal(state, child_state):  # state匹配，向下裁剪树
+            reuse = False
+            if last_action >= 0:
+                try:  # 对手这着可能不在我们探索过的 child 集里（没探到就是没有），容错重建
+                    reuse = np.array_equal(state, self.mcts.root.get_child(last_action).state)
+                except ValueError:
+                    reuse = False
+            if reuse:  # state匹配，向下裁剪树
                 self.mcts.apply_action(last_action)
-                rival_win_rate = self._root_win_rate(self.mcts)  # root是对手视角
-                # -1代表无数据，其他情况计算对手胜率
-                self.win_rate = 1 - rival_win_rate if rival_win_rate != -1 else -1.0
-                rival_p = self._root_wdl(self.mcts, rival_win_rate)
-                self.wd_probs = (rival_p[2], rival_p[1], rival_p[0]) if rival_p else None
+                # 裁剪后 root 即我方视角（上回合末已推进到对手行棋）：先写一份正确自评，
+                # 防 run 期间 heartbeat 读到上一回合旧值/半成品（历史上这里做错过 1-r 反向换算）
+                w0 = self._root_win_rate(self.mcts)
+                self.win_rate = w0
+                self.wd_probs = self._root_wdl(self.mcts, w0)
             else:  # state与当前state不匹配，新建root节点
                 self.mcts.set_root(state, last_action, player_to_move)
 
         self.mcts.run(self._n_simulation)
+        # 统一树协议：win_rate 恒在 root=我方视角（任何推进动作之前）计算——
+        # 旧代码把取值放在 temp>0 分支 apply 之后，root 已是对手视角却按我方口径写，
+        # 心跳撞上就把翻转值泄漏上界面（红优局黑条发黑的真凶）。
+        self.win_rate = self._root_win_rate(self.mcts)
+        self.wd_probs = self._root_wdl(self.mcts, self.win_rate)
         if self.temperature > 0:
             pi = self.mcts.get_pi(self.temperature)
             self.pending_action = int(np.random.choice(len(pi), p=pi))
             self.mcts.apply_action(self.pending_action)
         else:
-            self.pending_action = self.mcts.choose_action()
-        self.win_rate = self._root_win_rate(self.mcts)
-        self.wd_probs = self._root_wdl(self.mcts, self.win_rate)
+            self.pending_action = self.mcts.choose_action()   # 自带推进（勿再 apply，会双重推进）
         self.is_thinking = False
 
     def reset(self) -> None:
