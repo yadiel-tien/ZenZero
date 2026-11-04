@@ -1457,6 +1457,9 @@ async function taskShowLog(name){
 const NET_C = {mini:'#4a90d9', mini2:'#3aa6a0', s:'#e08a4e', m:'#9575cd'};
 let ARENA = {game:'ChineseChess', arena:'default', ranks:null, state:{running:false}, prev:null, timer:null};
 const pretty = id => String(id).replace('/', ' v');
+/* 选手键排序：网络名升序，同网络代数降序（大的在上，数字比较非字符串） */
+const kpf = id => id.slice(0, id.lastIndexOf('/')), kix = id => +id.slice(id.lastIndexOf('/') + 1);
+const cmpKey = (a,b) => kpf(a) < kpf(b) ? -1 : kpf(a) > kpf(b) ? 1 : kix(b) - kix(a);
 function netColor(pf){ if(NET_C[pf]) return NET_C[pf];
   let h=0; for(const ch of pf) h=(h*31+ch.charCodeAt(0))%360; return `hsl(${h} 55% 52%)`; }
 const expRate = (a,b) => 1/(1+Math.pow(10,((b||1500)-(a||1500))/400));
@@ -1554,7 +1557,7 @@ function renderArena(){
         }).join('')}</tr>`).join('')+'</table>';
     } else $('ar_matrix').innerHTML='<span class="hint" style="margin:0">至少两名选手后生成</span>';
   }
-  const opts=(rosterIds.length?rosterIds:cand).map(x=>`<option value="${esc(x)}">${esc(pretty(x))}</option>`).join('');
+  const opts=(rosterIds.length?[...rosterIds].sort(cmpKey):[...cand].sort(cmpKey)).map(x=>`<option value="${esc(x)}">${esc(pretty(x))}</option>`).join('');
   if($('ar_p1').dataset.sig!==(cand.join(',')+ARENA.arena)){
     const a0=$('ar_p1').value, b0=$('ar_p2').value;
     $('ar_p1').innerHTML=opts; $('ar_p2').innerHTML=opts; $('ar_p1').dataset.sig=cand.join(',')+ARENA.arena;
@@ -1585,9 +1588,9 @@ async function rosterModal(){
   const chipDot=id=>{const i=id.lastIndexOf('/');return `<span style="color:${netColor(id.slice(0,i))}">●</span> ${esc(pretty(id))}`;};
   const paint=async()=>{
     const q=($('rz_q',box)?.value||$('rz_q')?.value||'').toLowerCase();
-    const c1=cand.filter(k=>!roster.has(k)).filter(k=>!q||k.toLowerCase().includes(q));
+    const c1=cand.filter(k=>!roster.has(k)).filter(k=>!q||k.toLowerCase().includes(q)).sort(cmpKey);
     $('rz_list1').innerHTML = c1.map(k=>item(k,1)).join('') || `<span class="hint" style="margin:8px;display:block">${cand.length?'候选都已入册':'磁盘没有检查点'}</span>`;
-    $('rz_list0').innerHTML = [...roster].sort().map(k=>item(k,0)).join('') || '<span class="hint" style="margin:8px;display:block">空 — 从左边点将</span>';
+    $('rz_list0').innerHTML = [...roster].sort(cmpKey).map(k=>item(k,0)).join('') || '<span class="hint" style="margin:8px;display:block">空 — 从左边点将</span>';
     $('rz_n0').textContent = roster.size; $('rz_n1').textContent = `${c1.length} 可选`;
   };
   const move=async(add,remove)=>{

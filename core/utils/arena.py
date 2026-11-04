@@ -79,7 +79,8 @@ class Arena:
                         out.append(key_of(prof, int(f[len('checkpoint_'):-3])))
                     except ValueError:
                         pass
-        return sorted(out)
+        # 网络名升序、代数降序（数字序，mini/2 排在 mini/12 前会乱，这里大代在前）
+        return sorted(out, key=lambda k: (k.rsplit('/', 1)[0], -int(k.rsplit('/', 1)[1])))
 
     def sync_roster(self, keys: list[str] | None) -> list[str]:
         """设定参赛名册并落 candidates.txt；keys=None 表示沿用现有名册（空则全发现）。"""
