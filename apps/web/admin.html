@@ -658,7 +658,7 @@ function renderSnapshot(s){
     `<div class="card phase-card" style="--phc:${tr.running ? phColor : '#9a917d'}"><div class="k">当前阶段</div><div class="v">`
       + `<span class="ph-pill">${tr.running ? (PHASE_CN[L.phase] || L.phase) : '未运行'}</span>`
       + `<div class="gen">第 ${fmt(L.iteration || last.iteration || 0, 0)} 代`
-      + ((s.best != null && s.best > -1) ? ` <em>· 最佳 ${s.best}${s.best === (L.iteration || last.iteration) ? '（即当前）' : ''}</em>` : '')
+      + ((s.best != null && s.best > -1) ? ` <em>· 最佳 ${s.best}</em>` : '')
       + (tr.running && L.progress && L.progress.total
           ? `<div class="pb"><i style="width:${Math.min(100, 100*(L.progress.done||0)/(L.progress.total||1)).toFixed(0)}%;background:var(--phc)"></i></div>` : '')
       + `</div></div><div class="s">${tr.running ? ((L.progress && L.progress.done != null)
