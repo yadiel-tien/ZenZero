@@ -101,14 +101,9 @@
   .fadv summary::before{content:"▸ ";color:var(--dim)}
   .fadv[open] summary::before{content:"▾ "}
   .fadv > .row{margin-top:8px}
-  .cg { display: flex; flex-wrap: wrap; gap: 2px; max-width: 178px; }
-  .cg i { width: 9px; height: 9px; border-radius: 2px; background: rgba(128,128,128,.14); transition: background .4s; }
-  .card .v.cgv { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .card .v.cgv .pv { font-size: 17px; }
-  .cgwrap { display: flex; flex-direction: column; gap: 3px; }
-  .cgwrap .row { display: flex; align-items: center; gap: 6px; }
-  .cgwrap .row em { font-style: normal; font-size: 10px; color: var(--dim); width: 30px; }
-  .cg.small { max-width: 122px; }
+  .card .v.cgv { display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap; padding: 2px 0 0; }
+  .gauge { flex: 0 0 auto; }
+  .card .v .gauge text { font-family: ui-monospace, monospace; }
   .rf-sel{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:6px;font-size:11.5px;padding:2px 6px;color-scheme:dark}
   .rf-sel option{background:var(--card);color:var(--fg)}
   :root[data-theme="light"] .rf-sel{color-scheme:light}
@@ -579,18 +574,32 @@ function draw(id, cfg){
 }
 
 /* ---------- 监控 ---------- */
-const heat = v => v < 8 ? '' : v < 30 ? '#6ea85c' : v < 50 ? '#b7c94a' : v < 70 ? '#e5c05c' : v < 85 ? '#e08a4e' : '#d04a2a';
-function codeGrid(pcts, small){
-  if (!pcts || !pcts.length) return '';
-  const c = c_ => `<i${c_ >= 8 ? ` style="background:${heat(c_)}"` : ''} title="${Math.round(c_)}%"></i>`;
-  return `<div class="cg${small ? ' small' : ''}">${pcts.map(c).join('')}</div>`;
-}
-function codeFill(pct, n, color){
-  n = n || 16;
-  const k = Math.max(0, Math.min(n, Math.round(pct / 100 * n)));
-  let h = `<div class="cg small">`;
-  for (let i = 0; i < n; i++) h += `<i${i < k ? ` style="background:${color || 'var(--blue)'}"` : ''}></i>`;
-  return h + '</div>';
+const heat = v => v < 30 ? '#6ea85c' : v < 50 ? '#b7c94a' : v < 70 ? '#e5c05c' : v < 85 ? '#e08a4e' : '#d04a2a';
+/* 转速表：半圆刻度弧 + 彩色值弧 + 指针。label 在圆心数字下方。 */
+function gauge(pct, label, colorOverride){
+  pct = Math.max(0, Math.min(100, pct || 0));
+  const w = 130, h = 104, r = 50, cx = w / 2, cy = h - 30;
+  const pol = deg => [cx + Math.cos(deg * Math.PI / 180) * r, cy - Math.sin(deg * Math.PI / 180) * r];
+  const [ax, ay] = pol(180), [bx, by] = pol(0);
+  const col = colorOverride || heat(pct);
+  const arcBg = `M ${ax} ${ay} A ${r} ${r} 0 0 1 ${bx} ${by}`;
+  const dash = `${pct / 100 * Math.PI * r} ${Math.PI * r}`;
+  let ticks = '';
+  for (let g = 0; g <= 100; g += 25){
+    const th = (180 - g * 1.8) * Math.PI / 180, cs = Math.cos(th), sn = Math.sin(th);
+    ticks += `<line x1="${cx + (r + 6) * cs}" y1="${cy - (r + 6) * sn}" x2="${cx + (r + (g % 50 ? 9 : 12)) * cs}" y2="${cy - (r + (g % 50 ? 9 : 12)) * sn}" stroke="var(--dim)" stroke-width="${g % 50 ? 1 : 1.6}" opacity=".5"/>`;
+  }
+  const nd = 180 - pct * 1.8, nr = r - 9;
+  const [nx, ny] = [cx + nr * Math.cos(nd * Math.PI / 180), cy - nr * Math.sin(nd * Math.PI / 180)];
+  return `<svg class="gauge" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <path d="${arcBg}" fill="none" stroke="rgba(128,128,128,.22)" stroke-width="7" stroke-linecap="round"/>
+    ${ticks}
+    <path d="${arcBg}" fill="none" stroke="${col}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${dash}" style="transition:stroke-dasharray .6s ease"/>
+    <line x1="${cx - (nx - cx) * 0.08}" y1="${cy - (ny - cy) * 0.08}" x2="${nx}" y2="${ny}" stroke="${col}" stroke-width="2.4" stroke-linecap="round" style="transition:all .6s ease"/>
+    <circle cx="${cx}" cy="${cy}" r="3.4" fill="${col}"/>
+    <text x="${cx}" y="${cy + 18}" text-anchor="middle" font-size="15" font-weight="700" fill="var(--fg)">${Math.round(pct)}<tspan font-size="8.5">%</tspan></text>
+    <text x="${cx}" y="${cy + 28}" text-anchor="middle" font-size="8" fill="var(--dim)">${label || ''}</text>
+  </svg>`;
 }
 function card(k,v,s){ return `<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s||''}</div></div>`; }
 function renderSnapshot(s){
@@ -648,17 +657,15 @@ function renderSnapshot(s){
          `新模型（第 ${fmt(ev.new||0,0)} 代）对守擂模型（第 ${fmt(ev.best||0,0)} 代）的战绩。`
          + `和棋算半分，得分率超过门槛 ${(100*((s.meta||{}).win_threshold||0.52)).toFixed(0)}% 就晋升为新的守擂模型。`
          + ' 例：胜 28 · 负 10 · 和 49 = 得分 52.5/87 = 60.3%。'),
-    card('CPU', `<div class="cgv"><span class="pv">${fmt(hw.cpu,1)}%</span>${codeGrid(hw.cores_pct)}</div>`,
-         (hw.cores||'—')+' 核 · load '+((hw.load||[])[0]||'—')+'（每格=一核，颜色=占用）',
-         '整机 CPU 占用。selfplay 阶段 MCTS 选叶子是主要消耗。格子按核排列：绿<30% 黄<50% 橙<70% 深橙<85% 红≥85%。'),
-    card('GPU', gpu ? `<div class="cgwrap">
-         <div class="row"><em>算力</em><span class="pv" style="font-size:14px">${fmt(gpu.util,0)}%</span>${codeFill(gpu.util, 12, heat(gpu.util) || 'rgba(128,128,128,.3)')}</div>
-         <div class="row"><em>显存</em><span class="pv" style="font-size:14px">${fmt(gpu.mem_used_mb/1024,1)}G</span>${codeFill(100*gpu.mem_used_mb/Math.max(gpu.mem_total_mb,1), 12, '#7e57c2')}</div></div>` : '—',
-         gpu ? `${fmt(gpu.temp_c,0)}°C · ${fmt(gpu.power_w,0)}W · 显存共 ${fmt(gpu.mem_total_mb/1024,0)}G` : '不可用',
+    card('CPU', `<div class="cgv">${gauge(hw.cpu, (hw.cores||'—')+' 核')}</div>`,
+         'load '+((hw.load||[])[0]||'—')+' · 绿<30 黄<50 黄褐<70 橙<85 红≥85',
+         '整机 CPU 占用（转速表：指针=当前值，弧上 0-25-50-75-100 刻度）。selfplay 阶段 MCTS 选叶子是主要消耗。'),
+    card('GPU', gpu ? `<div class="cgv">${gauge(gpu.util, '算力')}${gauge(100*gpu.mem_used_mb/Math.max(gpu.mem_total_mb,1), '显存', '#7e57c2')}</div>` : '—',
+         gpu ? `${fmt(gpu.mem_used_mb/1024,1)}/${fmt(gpu.mem_total_mb/1024,0)}G · ${fmt(gpu.temp_c,0)}°C · ${fmt(gpu.power_w,0)}W` : '不可用',
          'GPU 利用率/显存/温度/功耗。自博弈时推理是间歇的，利用率天然有波动；fit 阶段会拉满。'),
-    card('内存', `<div class="cgv"><span class="pv">${fmt((hw.mem||{}).pct,1)}%</span>${codeFill((hw.mem||{}).pct||0, 16)}</div>`,
-         `${fmt((hw.mem||{}).used_gb,1)}/${fmt((hw.mem||{}).total_gb,1)} GB（每格≈${(((hw.mem||{}).total_gb||0)/16).toFixed(0)}G）`,
-         '物理内存占用（Buffer 常驻内存占大头）。电池式：一格 ≈ 总内存的 1/16。'),
+    card('内存', `<div class="cgv">${gauge((hw.mem||{}).pct||0, 'GB')}</div>`,
+         `${fmt((hw.mem||{}).used_gb,1)}/${fmt((hw.mem||{}).total_gb,1)} GB`,
+         '物理内存占用（Buffer 常驻内存占大头）。'),
     card('Buffer', buf.size==null? '—' : (buf.capacity? `${(buf.size/1000).toFixed(1)}k<span style="font-size:12px;color:var(--dim)"> / ${(buf.capacity/1000).toFixed(0)}k</span>` : fmt(buf.size,0)),
          (buf.capacity? `样本 ${(100*buf.size/buf.capacity).toFixed(0)}% 满 · ` : '样本 · ') + (buf.live? '实时' : '上轮记录'),
          '训练池样本数 / 容量。满了会淘汰最旧的样本。数值来自训练进程心跳，轮内实时增长。'),
