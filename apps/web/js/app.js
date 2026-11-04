@@ -568,7 +568,6 @@
       $('wr-' + s + '-d').style.width = (w[1] * 100).toFixed(1) + '%';
       $('wr-' + s + '-l').style.width = (w[2] * 100).toFixed(1) + '%';
       $('wr-val-' + s).textContent = '';
-      $('wr-legend-' + s).classList.add('on');
       $('wr-bar-' + s).title = `胜 ${Math.round(w[0] * 100)}% · 和 ${Math.round(w[1] * 100)}% · 负 ${Math.round(w[2] * 100)}%`;
     }
   }

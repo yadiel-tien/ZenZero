@@ -503,13 +503,6 @@ body {
 .wr-bar .seg-d { width: 0; background: var(--c-d); }
 .wr-bar .seg-l { width: 0; background: var(--c-l); }
 .wr-val { font-size: 13px; font-family: monospace; text-align: right; }
-.wr-legend { grid-column: 2 / span 2; display: none; gap: 14px; font-size: 10.5px; color: var(--ink-soft); letter-spacing: 1px; margin-top: 1px; }
-.wr-legend.on { display: flex; }
-.wr-legend span { display: inline-flex; align-items: center; gap: 4px; }
-.wr-legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
-.wr-legend .lg-w { background: var(--c-w); }
-.wr-legend .lg-d { background: var(--c-d); }
-.wr-legend .lg-l { background: var(--c-l); }
 
 #moves {
   flex: 1; margin: 0; padding: 4px 4px 4px 26px; overflow: auto;
