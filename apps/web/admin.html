@@ -1509,8 +1509,7 @@ function renderArena(){
     return `<span style="color:${netColor(pf)}">●</span> <b style="font-size:11px">${esc(pf)}</b> v${v}`; };
   // 名册状态行（管理界面是悬浮穿梭窗，见 rosterModal）
   const cand=(R&&R.candidates)||[], rosterIds=P.map(p=>p.id);
-  $('ar_rsum2').textContent = rosterIds.length ? `名册 ${rosterIds.length} / 候选 ${cand.length} — 点「名册管理」调整阵容` : '名册为空 — 点「名册管理」从候选点将'
-    + (cand.length?`（磁盘发现 ${cand.length} 个检查点）`:'（磁盘上没有检查点）');
+  $('ar_rsum2').textContent = `名册 ${rosterIds.length} / 候选 ${cand.length}`;
   // 直播
   $('ar_status').innerHTML = here
     ? `<span style="color:#3aa6a0">● 对阵中</span> · ${fmt(st.gpm,1)} 局/分 · ${st.tables} 桌`
