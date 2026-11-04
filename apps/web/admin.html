@@ -233,6 +233,7 @@
   <span class="pill" id="pending-stop" style="display:none">收尾后停已排定</span>
   <button id="btn-stop-round" title="不中断在跑的对局：正在下的局下完入池后退出，还没开跑的局取消；本轮成果不留遗憾">收尾后停</button>
   <button class="danger" id="btn-stop" title="= kill -9：直接杀进程，本轮已下完的局不会存盘">立即结束</button>
+  <button id="btn-theme" class="mini" title="外观：自动（跟随系统） → 明亮 → 暗色">🌗 自动</button>
   <a href="/" class="pill" style="text-decoration:none">← 对弈</a>
   <a class="pill" href="/docs/" title="项目文档集：环境 / MCTS / 推理引擎 / 训练管线 / 架构与 API" style="text-decoration:none">📖 文档</a>
 </header>
@@ -242,7 +243,6 @@
   <div class="taskcard" id="taskcard" title="当前 GPU 任务（竞技场/训练）；点击跳转">
     <span class="tstate" id="phase">未运行</span>
     <span class="tmeta" id="meta">—</span>
-    <button id="btn-theme" class="mini" title="外观：自动（跟随系统） → 明亮 → 暗色">🌗</button>
   </div>
 </div>
 <nav>
@@ -1774,6 +1774,8 @@ function renderStrip(){ /* 硬件卡由 renderSnapshot 直接写 #strip_cards */
 function renderTask(){
   const ph = $('phase'); if(!ph) return;
   const a = window.__arena || {}, tr = window.__trTask || {running:false, text:'未运行', cls:'pill'};
+  const busy = !!(a.running || tr.running);
+  $('meta').style.display = busy ? '' : 'none';   // 没任务就别占地方显示网络配置
   const MODE = {smart:'智能约架',gauntlet:'车轮战',duel:'自定义对决'};
   if(a.running){
     ph.className = 'tstate arena';
