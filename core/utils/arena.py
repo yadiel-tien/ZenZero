@@ -60,25 +60,15 @@ class Arena:
 
     # ---------- 名册 ----------
     def discover(self) -> list[str]:
-        """棋盘目录下所有 profile/checkpoint_*.pt → 候选键（自动发现，不等人工登记）。"""
-        base = os.path.join(CONFIG['data_dir'], self.env_name)
+        """全部已知档位的检查点 → 候选键。
+
+        必须走 list_all_indices（与资产页同一目录口径）：m 档住 data/<Game>/ 根目录
+        （历史零迁移布局），扫子目录的野路子会把整个 m 网络漏掉——2026-11-04 实测。"""
+        from core.utils.config import available_profiles
+        from core.network.functions import list_all_indices
         out = []
-        try:
-            profiles = sorted(d for d in os.listdir(base)
-                              if os.path.isdir(os.path.join(base, d)) and d != 'rates')
-        except OSError:
-            return []
-        for prof in profiles:
-            try:
-                files = os.listdir(os.path.join(base, prof))
-            except OSError:
-                continue
-            for f in files:
-                if f.startswith('checkpoint_') and f.endswith('.pt'):
-                    try:
-                        out.append(key_of(prof, int(f[len('checkpoint_'):-3])))
-                    except ValueError:
-                        pass
+        for prof in sorted(available_profiles(self.env_name)):
+            out += [key_of(prof, i) for i in list_all_indices(self.env_name, prof)]
         # 网络名升序、代数降序（数字序，mini/2 排在 mini/12 前会乱，这里大代在前）
         return sorted(out, key=lambda k: (k.rsplit('/', 1)[0], -int(k.rsplit('/', 1)[1])))
 
