@@ -68,6 +68,35 @@
   #cards .card:nth-child(2){order:3}  #cards .card:nth-child(4){order:4}
   #cards .card:nth-child(5){order:5}  #cards .card:nth-child(8){order:6}
   #cards .card:nth-child(7){order:7}  #cards .card:nth-child(6){order:8}
+  @media(max-width:720px){
+    header{padding:10px 12px;gap:8px}
+    nav{padding:8px 8px 0;gap:4px;overflow-x:auto;scrollbar-width:none}
+    nav::-webkit-scrollbar{display:none}
+    nav a{flex:0 0 auto;padding:6px 11px;font-size:12.5px;white-space:nowrap}
+    main{padding:10px 10px 48px}
+    /* strip：三组各占整行，表卡两列填满、任务卡独占一行居中（消孤立空行） */
+    #strip{padding:5px 8px;gap:8px}
+    .sdiv{display:none}
+    #strip .sgrp{flex:1 1 100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    #strip .card{width:auto;min-width:0;height:auto;min-height:76px}
+    #strip .card svg{max-width:100%}
+    #strip_task .card,#strip_task .sgrp{grid-column:1/-1}
+    #strip .gauge{width:92px;height:46px;margin:0 auto}
+    /* 卡片区与文字 */
+    .cards{gap:8px}
+    .card .s a{white-space:nowrap}
+    /* 表格类：块级横滚，矩阵给最小宽 */
+    .panel table{display:block;overflow-x:auto;max-width:100%}
+    .mtx{min-width:460px}
+    .tgrid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+    .ladrow{grid-template-columns:64px 1fr 46px}
+    /* 表单条与弹窗 */
+    .field{flex:1 1 42%;min-width:0}
+    .dlg{padding:14px;width:min(520px,94vw);max-height:86vh}
+    .row{gap:8px}
+    /* 名册两栏在窄屏靠内滚 */
+    .rz-col .rz-body{max-height:230px}
+  }
   .hb{height:3px;border-radius:2px;background:rgba(128,128,128,.16);margin-top:5px;overflow:hidden}
   .hb i{display:block;height:100%;border-radius:2px;transition:width .5s ease}
   .ss{display:flex;height:3px;border-radius:2px;overflow:hidden;margin-top:5px;background:rgba(128,128,128,.12)}
@@ -774,7 +803,7 @@ function gauge(pct, label, colorOverride){
     <path d="${arcBg}" fill="none" stroke="${col}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${dash}" style="transition:stroke-dasharray .6s ease"/>
     <line x1="${cx - (nx - cx) * 0.08}" y1="${cy - (ny - cy) * 0.08}" x2="${nx}" y2="${ny}" stroke="${col}" stroke-width="2.4" stroke-linecap="round" style="transition:all .6s ease"/>
     <circle cx="${cx}" cy="${cy}" r="3.4" fill="${col}"/>
-    <text x="${cx}" y="${cy - 10}" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--fg)">${Math.round(pct)}<tspan font-size="7">%</tspan></text>
+    <text x="${cx}" y="${cy - 13}" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--fg)">${Math.round(pct)}<tspan font-size="7">%</tspan></text>
   </svg>`;
 }
 function card(k,v,s){ return `<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s||''}</div></div>`; }

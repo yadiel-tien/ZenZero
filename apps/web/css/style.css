@@ -575,3 +575,23 @@ button, .dd-btn, .dd-list li { touch-action: manipulation; }
   #panel { height: 96vh; }
   @media (min-width: 1041px) { #panel { max-height: 96vh; } }
 }
+
+/* ================= 手机适配补丁 2026-11-05 ================= */
+@media (max-width: 1040px) {
+  /* 角按钮（文档/控制台）抬到抽屉把手上方，堆叠不重叠；触摸目标加大 */
+  #admin-entry { right: 12px !important; bottom: 86px !important; padding: 9px 15px !important; }
+  #docs-entry  { right: 12px !important; bottom: 128px !important; padding: 9px 15px !important; }
+  /* 换边 ⇅ 钮缩小：贴屏幕右缘不再像悬空残件 */
+  #stage #btn-reverse { width: 30px; height: 30px; font-size: 14px; }
+  /* 舞台贴顶居中，剩余空间让给底部抽屉 */
+  #app { align-items: flex-start; }
+  /* 抽屉把手加高一点更好点（同步 JS 里无逻辑，纯视觉）*/
+  #panel { transform: translateY(calc(100% - 80px)); }
+  /* 把手只留一行主标，副标题文字与右侧「棋谱·胜率」提示打架 */
+  #panel .p-head #p-subtitle { display: none; }
+  #panel { transform: translateY(calc(100% - 62px)); }
+  /* 抽屉展开时角按钮隐退（否则压住棋谱/滑杆） */
+  body:has(#panel.open) #admin-entry, body:has(#panel.open) #docs-entry { opacity: 0 !important; pointer-events: none; }
+  #admin-entry { bottom: 68px !important; }
+  #docs-entry { bottom: 110px !important; }
+}
