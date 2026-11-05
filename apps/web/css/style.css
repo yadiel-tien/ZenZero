@@ -555,6 +555,11 @@ button, .dd-btn, .dd-list li { touch-action: manipulation; }
   }
   #panel.hidden { display: none; }
   #panel.open { transform: translateY(0); }
+  /* 修滚动断头：基样式 overflow:hidden + 60vh 高度=超额内容裁死摸不到
+     （认输/求和按钮曾永远在屏外）；把手本就写了 sticky，滚动容器一直是设计本意 */
+  #panel { overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+  /* 展开态把手吸顶，收起用头部点击不变 */
+  #panel .p-head { background: rgba(255, 253, 244, .98); }
   #panel .p-head {
     display: block; text-align: center;
     position: sticky; top: 0; cursor: pointer; padding: 12px 0 8px;
@@ -569,7 +574,9 @@ button, .dd-btn, .dd-list li { touch-action: manipulation; }
     font-size: 11px; color: var(--ink-soft); letter-spacing: 2px;
   }
   #panel.open .p-head::after { content: "\25BE 收起"; }
-  #moves { max-height: 26vh; }
+  /* 单滚动窗：棋谱不再自带小滚窗（双层嵌套触摸滚动=「滑不动」错觉之源），
+     自然撑开，由抽屉整体滚动 */
+  #moves { max-height: none; overflow: visible; }
 }
 @media (max-height: 700px) {
   #panel { height: 96vh; }

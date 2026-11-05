@@ -1212,7 +1212,13 @@ function render() {
 
   // 窄屏：点面板头部展开/收起棋谱抽屉
   document.querySelector('#panel .p-head').addEventListener('click', () => {
-    if (mqNarrow.matches) $('panel').classList.toggle('open');
+    if (!mqNarrow.matches) return;
+    const pn = $('panel');
+    pn.classList.toggle('open');
+    // 展开即落到最新一手（单滚动窗在 panel 上）；稍候动画帧再滚
+    if (pn.classList.contains('open'))
+      setTimeout(() => { const last = $('moves').lastElementChild;
+        last && last.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 120);
   });
   mqNarrow.addEventListener('change', () => $('panel').classList.remove('open'));
 
