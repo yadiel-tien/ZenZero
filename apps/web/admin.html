@@ -82,6 +82,18 @@
     #strip .card svg{max-width:100%}
     #strip_task .card,#strip_task .sgrp{grid-column:1/-1}
     #strip .gauge{width:92px;height:46px;margin:0 auto}
+  /* mini 状态条：只活在中屏以下，一行高度，卡片全收起 */
+  #strip_mini{display:none}
+  @media(max-width:720px){
+    #strip:not(.exp) .sgrp,#strip:not(.exp) .sdiv{display:none}
+    #strip_mini{display:flex !important;align-items:center;gap:10px;flex:1 1 100%;min-width:0;
+      white-space:nowrap;overflow-x:auto;scrollbar-width:none;padding:9px 4px;font-size:11.5px;color:var(--dim);cursor:pointer}
+    #strip_mini::-webkit-scrollbar{display:none}
+    #strip_mini b{flex:0 0 auto;color:var(--blue);font-weight:600}
+    #strip_mini i{font-style:normal;color:var(--fg);font-variant-numeric:tabular-nums}
+    #strip.exp{position:static;padding:8px}
+    #strip.exp #strip_mini b::after{content:""}
+  }
     /* 卡片区与文字 */
     .cards{gap:8px}
     .card .s a{white-space:nowrap}
@@ -129,6 +141,7 @@
   .pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:#3aa6a0;
     box-shadow:0 0 0 0 rgba(58,166,160,.55);animation:pulse 1.6s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(58,166,160,.5)}70%{box-shadow:0 0 0 7px rgba(58,166,160,0)}100%{box-shadow:0 0 0 0 rgba(58,166,160,0)}}
+  @media(min-width:721px){#strip_mini{display:none!important}}
   #strip{display:flex;gap:14px;align-items:center;padding:5px 16px;border-bottom:1px solid var(--line);
     background:color-mix(in srgb, var(--bg) 88%, transparent);position:sticky;top:0;z-index:30;
     backdrop-filter:blur(8px);font-size:11.5px;flex-wrap:wrap;min-height:34px}
@@ -297,6 +310,7 @@
   <a class="pill" href="/docs/" title="项目文档集：环境 / MCTS / 推理引擎 / 训练管线 / 架构与 API" style="text-decoration:none">📖 文档</a>
 </header>
 <div id="strip">
+  <div id="strip_mini"><span id="strip_mini_t">状态读取中…</span><b id="strip_exp">展开 ⌄</b></div>
   <div class="sgrp" id="strip_cards"></div>
   <div class="sdiv"></div>
   <div class="sgrp" id="strip_infer"></div>
@@ -1869,6 +1883,27 @@ async function tick(){
   renderTask();
 }
 function renderStrip(){ /* 硬件卡由 renderSnapshot 直接写 #strip_cards */ }
+/* 手机 mini 状态条：从卡片 DOM 采集「标题 数值」拼一行（数据源唯一，免改各渲染器） */
+function miniSync(){
+  const t = document.getElementById('strip_mini_t');
+  if (!t || innerWidth > 720) return;
+  const parts = [];
+  for (const id of ['strip_task', 'strip_cards', 'strip_infer']) {
+    document.querySelectorAll('#' + id + ' .card').forEach(c => {
+      const k = (c.querySelector('.k')?.textContent || '').replace(/\s+/g, '').trim();
+      const v = (c.querySelector('.v')?.textContent || '').replace(/\s+/g, ' ').trim();
+      if (k) parts.push(`${k}<i>${esc(v || '—')}</i>`);
+    });
+  }
+  if (parts.length) t.innerHTML = parts.join('<span style="color:var(--line)"> · </span>');
+}
+setInterval(miniSync, 1500);
+document.getElementById('strip_mini').addEventListener('click', () => {
+  const st = document.getElementById('strip');
+  st.classList.toggle('exp');
+  document.getElementById('strip_exp').textContent = st.classList.contains('exp') ? '收起 ⌃' : '展开 ⌄';
+  if (st.classList.contains('exp')) scrollTo({ top: 0, behavior: 'smooth' });   // 展开布局变高，滚回顶部看全卡
+});
 /* 任务态：竞技场在打就显示竞技场，否则显示训练，都没有=未运行 */
 window.__INFHIST = window.__INFHIST || {req:[], fwd:[]};
 function pushHist(k, v){ if(v==null || !isFinite(v)) return; const h = window.__INFHIST[k];
