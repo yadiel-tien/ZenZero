@@ -1211,15 +1211,43 @@ function render() {
   document.addEventListener('pointerdown', () => Sound.unlock(), { once: true });
 
   // 窄屏：点面板头部展开/收起棋谱抽屉
-  document.querySelector('#panel .p-head').addEventListener('click', () => {
-    if (!mqNarrow.matches) return;
-    const pn = $('panel');
-    pn.classList.toggle('open');
-    // 展开即落到最新一手（单滚动窗在 panel 上）；稍候动画帧再滚
-    if (pn.classList.contains('open'))
+  // 手机抽屉把手：点按切换 + 直接拖动（bottom-sheet 手感，跟手移动、过半吸附）
+  (function () {
+    const pn = $('panel'), head = document.querySelector('#panel .p-head');
+    const restY = () => Math.max(60, pn.offsetHeight - 62);   // 收起态 translateY
+    const ty0 = () => pn.classList.contains('open') ? 0 : restY();
+    let sy = 0, base = 0, ty = 0, drag = false, moved = 0, skipClick = false;
+    const landOnLatest = () => { if (pn.classList.contains('open'))
       setTimeout(() => { const last = $('moves').lastElementChild;
-        last && last.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 120);
-  });
+        last && last.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 120); };
+    head.addEventListener('click', () => {
+      if (skipClick) { skipClick = false; return; }           // touch 收尾过的不重复切
+      if (!mqNarrow.matches) return;
+      pn.classList.toggle('open'); landOnLatest();
+    });
+    head.addEventListener('touchstart', e => {
+      if (!mqNarrow.matches) return;
+      sy = e.touches[0].clientY; base = ty = ty0(); drag = true; moved = 0;
+      pn.style.transition = 'none';
+    }, { passive: true });
+    head.addEventListener('touchmove', e => {
+      if (!drag) return;
+      const dy = e.touches[0].clientY - sy; moved = Math.abs(dy);
+      ty = Math.max(0, Math.min(restY(), base + dy));
+      pn.style.transform = `translateY(${ty}px)`;
+      if (moved > 4) e.preventDefault();                       // 抢占页面滚动
+    }, { passive: false });
+    const end = () => {
+      if (!drag) return; drag = false; skipClick = true;
+      pn.style.transition = ''; pn.style.transform = '';
+      if (moved < 8) { pn.classList.toggle('open'); }            // 轻点=切换
+      else pn.classList.toggle('open', ty < restY() / 2);        // 拖动过半吸附
+      landOnLatest();
+      setTimeout(() => { skipClick = false; }, 300);
+    };
+    head.addEventListener('touchend', end);
+    head.addEventListener('touchcancel', end);
+  })();
   mqNarrow.addEventListener('change', () => $('panel').classList.remove('open'));
 
   /* ================= 启动 ================= */
