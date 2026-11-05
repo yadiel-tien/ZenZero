@@ -128,7 +128,9 @@ CONFIG: AppConfig = {
             'l': {'arch': 'resnet_wdl_v1', 'n_res_blocks': 19, 'n_value_hidden_channels': 256},
         },
         'selfplay': {
-            'tau_decay_rate': 0.96,
+            # 对齐 AlphaZero 论文：前 30 手恒定 τ=1（原 0.96^n 衰减比论文冷，开局多样性打折），
+            # 30 手后 τ=0.1 近似贪心（论文的小值 ε）。2026-11-05 与 Daniel 评审后定稿。
+            'tau_decay_rate': 1.0,
             'exploration_steps': 30,
             # 认输门槛（仅自博弈；守擂评估不受影响）：轮走方根期望连续多手低于 -threshold
             # 即提前判负。**默认关闭**：value 头未成熟期开启会把理论和棋投毒成必负样本

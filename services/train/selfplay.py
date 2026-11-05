@@ -68,6 +68,10 @@ def resign_update(streak: dict, side: int, value_now: float, cfg: dict, steps: i
 
 class SelfPlayManager:
     def __init__(self, n_workers: int, train_server: TrainServer):
+        # 开局库无放回轮换游标（守擂评估线表协议，2026-11-05）
+        self._book_lock = threading.Lock()
+        self._book_perm = None
+        self._book_pos = 0
         self.logger = get_logger('selfplay')
         self.n_workers = n_workers
         # 进程内训练服务器(推理引擎)，直接方法调用与队列请求，无需socket
@@ -567,6 +571,21 @@ class SelfPlayManager:
         mcts_stat = {'select_s': mcts.stat_select_s, 'wait_s': mcts.stat_wait_s, 'sims': sims}
         return samples, env.winner, env.state.copy(), mcts_stat
 
+    def _next_book_idx(self) -> int | None:
+        """开局库无放回轮换游标（线程共享；一轮抽完自动重洗下一轮）"""
+        if self.opening_buffer is None:
+            return None
+        with self._book_lock:
+            total = len(self.opening_buffer.states)
+            if total == 0:
+                return None
+            if getattr(self, '_book_perm', None) is None or self._book_pos >= total:
+                self._book_perm = np.random.permutation(total)
+                self._book_pos = 0
+            idx = int(self._book_perm[self._book_pos])
+            self._book_pos += 1
+            return idx
+
     def evaluation(self, iteration: int, n_games: int) -> None:
         """评估模型，对战守擂模型胜率超过 win_threshold 才晋升"""
         start_time = time.time()
@@ -594,8 +613,14 @@ class SelfPlayManager:
         try:
             # 提交 n_games 局；提前分出胜负即 break（在跑的局靠 stop_signal 截断收尾）
             stop_signal = threading.Event()
-            futures = [self.pool.submit(self.evaluation_worker, iteration, stop_signal, engines) for _ in
-                       range(int(n_games))]
+            # 线计划：4 个标准开局槽（新模型红黑各 2，保开局能力验收），其余全部开局库
+            # 不放回线；shuffle 打散槽位次序（2026-11-05 与 Daniel 评审定稿）
+            n = int(n_games)
+            n_std = min(4, n - (n % 2), n)
+            plan = ['std_red'] * (n_std // 2) + ['std_black'] * (n_std - n_std // 2) + ['coin'] * (n - n_std)
+            random.shuffle(plan)
+            futures = [self.pool.submit(self.evaluation_worker, iteration, stop_signal, engines, plan[i])
+                       for i in range(n)]
             win_count, lose_count, draw_count, win_rate, total_steps = 0, 0, 0, 0.0, 0
             threshold = CONFIG['win_threshold']
             # 进度条
@@ -656,18 +681,30 @@ class SelfPlayManager:
                 'wall': time.time() - start_time}
 
     def evaluation_worker(self, iteration: int, stop_signal: threading.Event,
-                          engines: dict[int, InferenceEngine]) -> tuple[int, int]:
-        """iteration对战最佳模型，随机先手顺序。
+                          engines: dict[int, InferenceEngine], book_mode: str = 'coin') -> tuple[int, int]:
+        """iteration对战最佳模型。book_mode: 'coin'开局库线(不放回)+随机先后手 /
+        'std_red'标准开局新模型执红 / 'std_black'标准开局新模型执黑。
         :return 0新模型胜，1老模型胜，-1平"""
         env = self.env_class()
-        # 70%概率采用开局库开局
-        if self.opening_buffer is not None and random.random() < 0.7:
-            env.state, env.last_action, env.steps, = self.opening_buffer.sample()
-            env.player_to_move = env.steps % 2
-            if hasattr(env, 'register_current_position'):
-                env.register_current_position()
-        # 随机先后手
-        model_list = [iteration, self.best_index] if random.random() < 0.5 else [self.best_index, iteration]
+        if book_mode == 'coin':
+            # 不放回轮换抽线（抽完 28k 条才允许重洗）：杜绝同线重放——旧"70%有放回抽库"
+            # 在贪心中后盘下会把同一条线复刻若干遍，白白浪费守擂样本（2026-11-05 评审改）
+            idx = self._next_book_idx()
+            if idx is not None:
+                ob = self.opening_buffer
+                env.state = ob.states[idx].astype(np.int32)
+                env.last_action = int(ob.last_actions[idx])
+                env.steps = ob.step
+                env.player_to_move = env.steps % 2
+                if hasattr(env, 'register_current_position'):
+                    env.register_current_position()
+        # 标准开局槽位颜色固定（双色对称），其余随机先后手
+        if book_mode == 'std_red':
+            model_list = [iteration, self.best_index]
+        elif book_mode == 'std_black':
+            model_list = [self.best_index, iteration]
+        else:
+            model_list = [iteration, self.best_index] if random.random() < 0.5 else [self.best_index, iteration]
         competitors = [NeuronMCTS.make_queue_mcts(
             infer_q=engines[index].request_queue,
             env_class=self.env_class,
