@@ -6,6 +6,12 @@
 
 ## Unreleased
 
+- **perf(play): 人机对弈回归 K=1 纯搜索（2026-11-05）**——add5ba5 给 AIServer 接批量虚拟损失时
+  误伤了人机对弈：回放对照实测 K=12 vs K=64 的 top1 着法一致率仅 56.9%（43% 落子被改变），
+  visit 分布有效着法 14→23 摊平后喂给贪心选着，用户直感"变弱了很多"。现在 AIServer 新增
+  batch_leaves 参数：play_api/cli_play/priskvork 显式 K=1（单盘本无需凑批，一手 1-2s），
+  竞技场/守擂评估跟随 CONFIG（多盘吞吐）。同局面双路实测分叉复现。
+
 - **竞技场 v2 上线（独立标签页 + 真实 API + 首测完成）**：选手键升级为 `profile/index`（旧 int 键跨网络撞车、
   AIServer 没传 profile 多网络没法同台）；`AIServer.reset()` 语义修复——旧版在 reset 里置 `_dead`，
   把 env.run 的每局重置和「再来一局」打成永死会话（竞技场 KeyError -1 与对弈页"会话失效"toast 同根）；

@@ -19,7 +19,8 @@ class AIServer(Player):
     """服务器端AI玩家。通过进程内hub获取共享的推理引擎，MCTS走队列请求推理。"""
 
     def __init__(self, env_name: EnvName, model_id: int, n_simulation=500, verbose=True,
-                 hub: ServerHub = None, profile: str | None = None, temperature: float = 0.0) -> None:
+                 hub: ServerHub = None, profile: str | None = None, temperature: float = 0.0,
+                 batch_leaves: int | None = None) -> None:
         super().__init__(env_name)
         self.model_id = model_id
         # 档位：不传就用进程档位。对弈页要能开到 s 档（新训练）而不是只有 m 档老模型
@@ -28,6 +29,10 @@ class AIServer(Player):
         # 采样温度：0=纯 argmax（原行为：首步 get_pi(3) 随机、其余 argmax）；
         # >0 时每步按访问次数分布 get_pi(temp) 采样（越大越随机）
         self.temperature = max(0.0, float(temperature))
+        # 虚拟损失并发宽度：None=跟随 CONFIG（竞技场/守擂要吞吐）；
+        # 人机对弈传 1——单盘没有凑批需求，K=1 的 visit 统计最锐（11-05 实测
+        # K 会改变 43% 首选着法，把批量搜索摊平的 visit 喂给贪心选着=玩家感知的变弱）
+        self._batch_leaves = batch_leaves
         self.mcts: NeuronMCTS | None = None
         self.verbose = verbose  # verbose=True打印日志信息
         self.win_rate = -1.0  # -1代表无数据
@@ -122,7 +127,8 @@ class AIServer(Player):
         # 虚拟损失批量：K>1 时一次入队 K 个 leaf，每手往返数 300 次 → ceil(300/K) 次。
         # 对弈/竞技场这条路径此前漏传批次（K 默认 1），一场 10 桌的 300 sims 对局
         # 要 2-3 万次单条推理往返，一局 10 分钟——正是"7 分钟一局没出"的真凶。
-        k = max(1, min(int(CONFIG.get('mcts_batch_leaves', 1)), int(self._n_simulation)))
+        k = self._batch_leaves if self._batch_leaves is not None else int(CONFIG.get('mcts_batch_leaves', 1))
+        k = max(1, min(k, int(self._n_simulation)))
         self.mcts.run(self._n_simulation, batch_leaves=k)
         # 统一树协议：win_rate 恒在 root=我方视角（任何推进动作之前）计算——
         # 旧代码把取值放在 temp>0 分支 apply 之后，root 已是对手视角却按我方口径写，

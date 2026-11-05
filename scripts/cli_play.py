@@ -63,7 +63,7 @@ if __name__ == "__main__":
     try:
         env = get_class(game_name)()
         # AIServer 会自动尝试连接到已启动的 play_server/hub
-        with AIServer(game_name, model_idx, n_simulation=args.sim) as ai:
+        with AIServer(game_name, model_idx, n_simulation=args.sim, batch_leaves=1) as ai:
             # 命令行交互循环
             # Human(game_name) 会处理终端输入
             result = env.run((Human(game_name), ai))

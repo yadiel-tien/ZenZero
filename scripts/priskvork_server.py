@@ -18,7 +18,8 @@ class GomokuSession:
     def __init__(self, conn: socket.socket, model_id: int, n_simulation: int, hub: ServerHub) -> None:
         self.conn = conn
         self.f_reader = conn.makefile('r', encoding='utf-8')
-        self.player = AIServer('Gomoku', model_id=model_id, n_simulation=n_simulation, verbose=False, hub=hub)
+        self.player = AIServer('Gomoku', model_id=model_id, n_simulation=n_simulation, verbose=False, hub=hub,
+                          batch_leaves=1)
         self.env = Gomoku()
         self.is_running = True
         self.timeout_turn = 5000  # 默认5秒
