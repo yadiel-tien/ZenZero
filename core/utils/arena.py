@@ -112,11 +112,14 @@ class Arena:
              AIServer(self.env_name, i2, n_simulation=n_sim, verbose=False,
                       hub=self.hub, profile=prof2) as p2:
             outcome = env.random_order_play((p1, p2), silent=True)
+        # 记账映射：random_order_play 返回的是**原始元组下标的胜者**（0=k1 胜 1=k2 胜）。
+        # 2026-11-05 教训：v2 重写时把两个分支抄反，全部非和局胜负倒置、Elo 发给了输家，
+        # 榜单当了半天倒影——改动前先看 tests/test_arena_result_mapping.py。
         e1, e2 = self.rates[k1], self.rates[k2]
         with self._delta_lock:
-            if outcome == 1:
+            if outcome == 0:
                 e1.defeat(e2); result = 'w'
-            elif outcome == 0:
+            elif outcome == 1:
                 e2.defeat(e1); result = 'l'
             else:
                 e1.draw(e2); result = 'd'
