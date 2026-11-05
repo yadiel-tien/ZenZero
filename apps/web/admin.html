@@ -87,8 +87,10 @@
   @media(max-width:720px){
     #strip:not(.exp) .sgrp,#strip:not(.exp) .sdiv{display:none}
     #strip_mini{display:flex !important;align-items:center;gap:10px;flex:1 1 100%;min-width:0;
-      white-space:nowrap;overflow-x:auto;scrollbar-width:none;padding:9px 4px;font-size:11.5px;color:var(--dim);cursor:pointer}
-    #strip_mini::-webkit-scrollbar{display:none}
+      padding:7px 4px;font-size:11.5px;color:var(--dim);cursor:pointer}
+    /* 文本区两行截断（不横滚），展开钮钉右常驻 */
+    #strip_mini #strip_mini_t{flex:1 1 auto;min-width:0;white-space:normal;overflow:hidden;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.4}
     #strip_mini b{flex:0 0 auto;color:var(--blue);font-weight:600}
     #strip_mini i{font-style:normal;color:var(--fg);font-variant-numeric:tabular-nums}
     #strip.exp{position:static;padding:8px}
