@@ -1577,12 +1577,30 @@ const pretty = id => String(id).replace('/', ' v');
 /* 选手键排序：网络名升序，同网络代数降序（大的在上，数字比较非字符串） */
 const kpf = id => id.slice(0, id.lastIndexOf('/')), kix = id => +id.slice(id.lastIndexOf('/') + 1);
 const cmpKey = (a,b) => kpf(a) < kpf(b) ? -1 : kpf(a) > kpf(b) ? 1 : kix(b) - kix(a);
+// 网络配色：5 个显式色 + 确定性贪心分配——同列所有未知网络按名排序后，
+// 依次从黄金角色序中取「与所有已占用色（含显式五色）相距 ≥40°」的第一色，
+// 天然保证新增网络无论多少个都互相拉开、永不与显式色撞车
+const NET_FIXED_H = [217, 160, 37, 327, 265];          // mini/mini2/s/m/m8 的色相
+const _netCache = new Map(); let _netKeySig = '';
+function _hueDist(a,b){ const d = Math.abs(a-b)%360; return Math.min(d, 360-d); }
+function _netAssign(keys){
+  _netCache.clear();
+  const used = [...NET_FIXED_H];
+  for (const k of keys.slice().sort()) {
+    for (let n=0; n<72; n++) {
+      const hue = (95 + n*137.508) % 360;
+      if (used.every(u => _hueDist(hue, u) >= 40)) { used.push(hue); _netCache.set(k, hue); break; }
+    }
+    if (!_netCache.has(k)) { const hue=(95+72*137.508)%360; _netCache.set(k, hue); }
+  }
+}
 function netColor(pf){ if(NET_C[pf]) return NET_C[pf];
-  // 未知网络：黄金角（137.508°）色相阶梯——任意两个新网络色相距离最大化；
-  // 起点 95° 与明度/饱和抖开，避开了显式五色（蓝/翠绿/琥珀/品红/紫）的色相带
-  let h=0; for(const ch of pf) h=(h*31+ch.charCodeAt(0))>>>0;
-  const hue=(95 + (h%1000)*137.508)%360, l=46+(h%2)*8, sat=58+(h%3)*6;
-  return `hsl(${hue.toFixed(0)} ${sat}% ${l}%)`; }
+  const keys = (window.ARENA && ARENA.ranks && ARENA.ranks.players || []).map(p=>p.id.slice(0,p.id.lastIndexOf('/')));
+  const uniq = [...new Set(keys)].filter(k=>!NET_C[k]);
+  const sig = uniq.join(',');
+  if (sig !== _netKeySig) { _netKeySig = sig; _netAssign(uniq); }
+  const hue = _netCache.get(pf) ?? (95 + (pf.length*137.508)%360);
+  return `hsl(${hue.toFixed(0)} 58% 48%)`; }
 const expRate = (a,b) => 1/(1+Math.pow(10,((b||1500)-(a||1500))/400));
 /* 应用内对话框：替代原生 prompt/confirm，主题一致。opts={title,text,placeholder,value,danger,okText}
    resolve(字符串|true|取消时 null) */
