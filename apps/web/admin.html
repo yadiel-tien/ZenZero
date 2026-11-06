@@ -593,7 +593,6 @@
   <section class="tab" id="tab-tasks">
     <div class="fsec" id="task-h" hidden>任务</div>
     <div id="task-list"><div class="hint">加载中…</div></div>
-    <div class="fsec" id="tool-h" hidden>工具</div>
     <div id="tool-list"></div>
     <div class="panel" style="margin-top:12px"><h2>任务日志 <span class="lg" id="task-log-name">—</span></h2>
       <pre id="task-log" style="max-height:340px">点击任务上的「查看日志」在此显示</pre></div>
@@ -1546,7 +1545,7 @@ async function loadTasks(rebuild){
           <button onclick="taskShowLog('${t.name}')">查看日志</button></div></div>`;
     };
     const taskG = list.filter(t=>(t.group||t.kind)==='task'), toolG = list.filter(t=>(t.group||t.kind)!=='task');
-    $('task-h').hidden = !taskG.length; $('tool-h').hidden = !toolG.length;
+    $('task-h').hidden = !taskG.length;   // 工具组无标题：页签本身就叫「工具」
     $('task-list').innerHTML = taskG.map(cardHtml).join('');
     $('tool-list').innerHTML = toolG.map(cardHtml).join('');
   }
