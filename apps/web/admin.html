@@ -1578,7 +1578,11 @@ const pretty = id => String(id).replace('/', ' v');
 const kpf = id => id.slice(0, id.lastIndexOf('/')), kix = id => +id.slice(id.lastIndexOf('/') + 1);
 const cmpKey = (a,b) => kpf(a) < kpf(b) ? -1 : kpf(a) > kpf(b) ? 1 : kix(b) - kix(a);
 function netColor(pf){ if(NET_C[pf]) return NET_C[pf];
-  let h=0; for(const ch of pf) h=(h*31+ch.charCodeAt(0))%360; return `hsl(${h} 55% 52%)`; }
+  // 未知网络：黄金角（137.508°）色相阶梯——任意两个新网络色相距离最大化；
+  // 起点 95° 与明度/饱和抖开，避开了显式五色（蓝/翠绿/琥珀/品红/紫）的色相带
+  let h=0; for(const ch of pf) h=(h*31+ch.charCodeAt(0))>>>0;
+  const hue=(95 + (h%1000)*137.508)%360, l=46+(h%2)*8, sat=58+(h%3)*6;
+  return `hsl(${hue.toFixed(0)} ${sat}% ${l}%)`; }
 const expRate = (a,b) => 1/(1+Math.pow(10,((b||1500)-(a||1500))/400));
 /* 应用内对话框：替代原生 prompt/confirm，主题一致。opts={title,text,placeholder,value,danger,okText}
    resolve(字符串|true|取消时 null) */
