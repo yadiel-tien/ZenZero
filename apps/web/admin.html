@@ -91,9 +91,13 @@
     #strip:not(.exp) .sgrp,#strip:not(.exp) .sdiv{display:none}
     #strip_mini{display:flex !important;align-items:center;gap:10px;flex:1 1 100%;min-width:0;
       padding:7px 4px;font-size:11.5px;color:var(--dim);cursor:pointer}
-    /* 文本区两行截断（不横滚），展开钮钉右常驻 */
-    #strip_mini #strip_mini_t{flex:1 1 auto;min-width:0;white-space:normal;overflow:hidden;
-      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.4}
+    /* 表格化两行三列：位置固定不漂移，展开钮钉右 */
+    #strip_mini #strip_mini_t{flex:1 1 auto;min-width:0;
+      display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px 10px}
+    #strip_mini .mc{display:flex;min-width:0;font-size:11px;color:var(--fg);
+      font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #strip_mini .mc i{font-style:normal;color:var(--dim);font-size:9.5px;margin-right:5px;flex:0 0 auto;
+      letter-spacing:.5px}
     #strip_mini b{flex:0 0 auto;color:var(--blue);font-weight:600}
     #strip_mini i{font-style:normal;color:var(--fg);font-variant-numeric:tabular-nums}
     #strip.exp{position:static;padding:8px}
@@ -1884,15 +1888,17 @@ function renderStrip(){ /* 硬件卡由 renderSnapshot 直接写 #strip_cards */
 function miniSync(){
   const t = document.getElementById('strip_mini_t');
   if (!t || innerWidth > 720) return;
-  const parts = [];
+  const map = {};
   for (const id of ['strip_task', 'strip_cards', 'strip_infer']) {
     document.querySelectorAll('#' + id + ' .card').forEach(c => {
-      const k = (c.querySelector('.k')?.textContent || '').replace(/\s+/g, '').trim();
+      const k = (c.querySelector('.k')?.textContent || '').replace(/\s+/g, '');
       const v = (c.querySelector('.v')?.textContent || '').replace(/\s+/g, ' ').trim();
-      if (k) parts.push(`${k}<i>${esc(v || '—')}</i>`);
+      if (k) map[k] = v || '—';
     });
   }
-  if (parts.length) t.innerHTML = parts.join('<span style="color:var(--line)"> · </span>');
+  const cell = (label, key) => `<span class="mc"><i>${label}</i>${esc(map[key] || '—')}</span>`;
+  t.innerHTML = [cell('任务', '任务'), cell('CPU', 'CPU'), cell('内存', '内存'),
+                 cell('算力', 'GPU算力'), cell('显存', 'GPU显存'), cell('吞吐', '引擎吞吐')].join('');
 }
 setInterval(miniSync, 1500);
 document.getElementById('strip_mini').addEventListener('click', () => {
