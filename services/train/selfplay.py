@@ -202,6 +202,7 @@ class SelfPlayManager:
                 hb.write(force=True, phase='idle', note='stopped during fit')
                 return
             hb.write(force=True, phase='eval', iteration=iteration, round=round_index + 1,
+                     eval_vs=self.best_index,      # 打擂对阵：挑战者 iteration vs 王者 best_index
                      game=CONFIG['game_name'], profile=get_profile(),
                      sims_per_move=ramp_simulations(iteration),
                      buffer_size=self.buffer.size, buffer_capacity=self.buffer.capacity,

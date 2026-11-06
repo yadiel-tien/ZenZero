@@ -1948,13 +1948,24 @@ function renderTask(){
   }
   box.innerHTML = cards;
   // 任务卡单独一组
-  const taskCard = (a.running || tr.running)
-    ? (a.running
-        ? card('任务', `<span class="tchip2" style="color:#3aa6a0;border:1px solid color-mix(in srgb,#3aa6a0 45%,transparent);background:color-mix(in srgb,#3aa6a0 12%,transparent)"><span class="pulse" style="width:6px;height:6px"></span>竞技场 · ${esc(a.arena||'')}</span>`,
-                       `${MODE[a.mode]||a.mode||''} · ${fmt(a.done||0,0)}/${fmt(a.total||0,0)} · ${fmt(a.gpm,1)} 局/分`)
-        : card('任务', `<span class="tchip2" style="color:#4a90d9;border:1px solid color-mix(in srgb,#4a90d9 45%,transparent);background:color-mix(in srgb,#4a90d9 12%,transparent)">● ${esc(tr.text)}</span>`,
-                       esc(window.__meta||'')))
-    : card('任务', `<span class="tchip2" style="color:var(--dim)">未运行</span>`, '去竞技场或训练页启动任务');
+  // 任务卡 = 监控「当前阶段」卡同一套语法：状态色 pill + 代次主行 + 进度辅行；守擂点名对阵双方
+  const lt = window.__liveTask || {};
+  const PH_C = {fill:'#8a7f66', selfplay:'#4a90d9', fit:'#7e57c2', eval:'#e6a817'};
+  const PH_T = {fill:'蓄仓', selfplay:'自博弈', fit:'训练', eval:'守擂'};
+  const pill = (txt, c, pulse) => `<span class="tchip2" style="color:${c};border:1px solid color-mix(in srgb,${c} 45%,transparent);background:color-mix(in srgb,${c} 12%,transparent)">`
+    + (pulse ? `<span class="pulse" style="width:6px;height:6px"></span>${txt}` : `● ${txt}`) + '</span>';
+  let taskCard;
+  if (a.running)
+    taskCard = card('任务', pill(`竞技场 ${esc(a.arena||'')}`, '#3aa6a0', true),
+        `${fmt(a.done||0,0)}/${fmt(a.total||0,0)} 局 · ${fmt(a.gpm,1)} 局/分 · ${a.tables||''} 桌`);
+  else if (tr.running) {
+    const ph = lt.phase || 'selfplay';
+    taskCard = card('任务', pill(PH_T[ph] || '训练中', PH_C[ph] || '#4a90d9', false),
+        ph === 'eval' ? `第 ${fmt(lt.it||0,0)} 代 攻 第 ${lt.vs!=null?lt.vs:'?'} 代王座`
+                      : `第 ${fmt(lt.it||0,0)} 代 · ${esc((tr.text||'').split(' ')[1]||'')}`);
+  } else
+    taskCard = card('任务', `<span class="tchip2" style="color:var(--dim)">未运行</span>`,
+        lt.it ? `上次 第 ${fmt(lt.it,0)} 代 · 王 ${lt.best!=null?lt.best:'—'}` : '去竞技场或训练页启动任务');
   tbox.innerHTML = taskCard;
   tbox.dataset.go = go;
 
