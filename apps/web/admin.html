@@ -1570,7 +1570,7 @@ async function taskShowLog(name){
 }
 
 /* ================= 竞技场 ================= */
-const NET_C = {mini:'#4a90d9', mini2:'#3aa6a0', s:'#e08a4e', m:'#9575cd'};
+const NET_C = {mini:'#1f6feb', mini2:'#009e73', s:'#e69f00', m:'#d33682', m8:'#6f42c1'};
 let ARENA = {game:'ChineseChess', arena:'default', ranks:null, state:{running:false}, prev:null, timer:null};
 const GAME_CN = g => ({ChineseChess:'中国象棋', Gomoku:'五子棋'})[g] || g;
 const pretty = id => String(id).replace('/', ' v');
@@ -1672,7 +1672,7 @@ function renderArena(){
         return `<div class="ladrow"><span class="nm">${esc(pretty(p.id))}</span>`
           + `<div class="track"><i style="width:${pct.toFixed(1)}%;background:${c}"></i></div>`
           + `<span class="elo mono">${p.score.toFixed(0)}</span></div>`;
-      }).join('')+`<div class="hint" style="margin-top:4px">条长=Elo（${lo}–${hi} 刻度）；颜色=网络；跨色相邻≈同级，断层=宇宙差</div>`;
+      }).join('');
     })();
     $('ar_ladder').innerHTML = ladder;
     const ids=ranked.map(p=>p.id);
