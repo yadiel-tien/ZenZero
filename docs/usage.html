@@ -162,7 +162,7 @@ ZZ_BATCH_LEAVES=12 ZZ_DEVICE=auto python -X gil=0 -m scripts.train_server</code>
 <figcaption class="note">图：监控页——顶部状态徽章（版本/主题/运行态/训练配置），卡片为实时指标（副标题标数据口径），下方吞吐/损耗/胜率/硬件曲线。</figcaption></figure>
 <table>
 <tr><th>页</th><th>能做什么</th></tr>
-<tr><td>任务</td><td>scripts/ 其余功能的 Web 启停：priskvork / arena / bench / build_cython（参数白名单校验、日志在线看、服务重启自动收养）</td></tr>
+<tr><td>任务</td><td>scripts/ 其余功能的 Web 启停：piskvork / arena / bench / build_cython（参数白名单校验、日志在线看、服务重启自动收养）</td></tr>
 <tr><td>监控</td><td>实时吞吐/批/心跳进度；Loss·policy / Loss·value / 策略 KL+熵 / 胜率 / 硬件曲线（滚轮缩放、双击复位）；每卡悬停有释义</td></tr>
 <tr><td>训练</td><td>启停 + 三档停止；表单即环境变量（见 §5 篇 5 节对照表）</td></tr>
 <tr><td>资产</td><td>checkpoint / 经验池（含克隆）/ 运行目录；三表皆可勾选批量删除（逐项护栏，best 拒删）；日志不在资产管理之列——查看去日志页，轮转由系统自管；<b>设为最强</b>（回滚守擂者）；按护栏删除（拒删 best、删仓需二次确认）</td></tr>
@@ -174,8 +174,8 @@ ZZ_BATCH_LEAVES=12 ZZ_DEVICE=auto python -X gil=0 -m scripts.train_server</code>
 <table>
 <tr><th>命令</th><th>场景</th></tr>
 <tr><td><code>python -m scripts.cli_play</code></td><td>终端下棋：进程内自带引擎，不依赖服务</td></tr>
-<tr><td><code>python -m scripts.priskvork_server --host 0.0.0.0 --port 12345</code></td><td>Gomocup 协议对外（Piskvork GUI 可连）</td></tr>
-<tr><td colspan="2"><b>以上 priskvork / arena / bench / build_cython 已接入控制台「任务」页</b>：在线启停、参数白名单校验、日志查看（接口契约见 §5 篇 7 节）。</td></tr>
+<tr><td><code>python -m scripts.piskvork_server --host 0.0.0.0 --port 12345</code></td><td>Gomocup 协议对外（Piskvork GUI 可连）</td></tr>
+<tr><td colspan="2"><b>以上 piskvork / arena / bench / build_cython 已接入控制台「任务」页</b>：在线启停、参数白名单校验、日志查看（接口契约见 §5 篇 7 节）。</td></tr>
 <tr><td><code>python -m scripts.arena</code></td><td>ELO 天梯：向 <code>data/&lt;Game&gt;/rates/candidates.txt</code> 写候选（如 <code>10,20,34</code>）批量互刷等级分</td></tr>
 <tr><td><code>python -m tests.drills.model_match --a s:48 --b m:498 --games 40 --sims 800</code></td><td>任意两个"网络:代数"真金对打，得分率 ±2σ 判强弱（<b>务必 GPU</b>：CPU 测量无效，§4 篇 10.2）</td></tr>
 <tr><td><code>python scripts/bench_batch_sweep.py</code></td><td>引擎批扫描，看成本模型还准不准</td></tr>

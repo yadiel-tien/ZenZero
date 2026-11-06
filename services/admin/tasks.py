@@ -30,8 +30,8 @@ STATE_DIR = ROOT / 'logs' / '_state'        # 任务状态（tasks.json），非
 STATE_FILE = STATE_DIR / 'tasks.json'
 
 TASKS: dict[str, dict] = {
-    'priskvork': {
-        'module': 'scripts.priskvork_server', 'kind': 'long',
+    'piskvork': {
+        'module': 'scripts.piskvork_server', 'kind': 'long',
         'desc': '把五子棋 AI 变成 Gomocup 协议服务器：点启动即在端口（默认 12345）就绪，'
                        'Gomocup 兼容客户端（如 gomocup.org 赛事 GUI、内网机器）填此地址即可让 ZenZero 参赛对弈；'
                        '用毕点停止释放。走五子棋最佳模型，时限按客户端 SET TIME 协商。',

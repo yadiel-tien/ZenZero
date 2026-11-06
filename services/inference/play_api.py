@@ -315,7 +315,7 @@ class PlayApiServer:
                         1000 if app_config.CONFIG['device'] != 'cpu' else 60)
                     temp = min(max(temp_req, 0.0), 10.0)
                     player = AIServer(env_name, model_id, n_sim, verbose=False, hub=self.hub,
-                                      profile=profile, temperature=temp, batch_leaves=1)
+                                      profile=profile, temperature=temp)  # 用户对比体感：暂随 CONFIG K=64；改回纯搜索加 batch_leaves=1
                     self.ai_players[pid] = player
                 device = app_config.CONFIG['device']
                 # 模型加载可能刚把设备降级成 CPU（n_sim 档位判定发生在构造前，读到的还是 cuda）：

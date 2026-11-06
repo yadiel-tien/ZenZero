@@ -11,7 +11,7 @@
     http://<host>:<port>/docs/       项目文档集（六篇）
 
 scripts/ 下的其余功能经控制台"任务"页启停：
-    scripts.train_server（训练页）、scripts.priskvork_server、scripts.arena、
+    scripts.train_server（训练页）、scripts.piskvork_server、scripts.arena、
     scripts.bench_batch_sweep、scripts.build_cython（任务页）。
 scripts.cli_play 仍保留为纯终端对战（不依赖本服务）。
 """

@@ -56,7 +56,7 @@ python main.py                          # 默认 127.0.0.1:5000；--host 0.0.0.0
 
 ## 训练
 
-推荐走控制台：`/admin` → 训练页，核对棋种 / 神经网络 / 参数后一键启停；监控页实时吞吐、Loss、策略 KL、胜率与硬件曲线；资产页管理 checkpoint、经验池与运行目录；任务页托管 priskvork / 天梯 / 批扫描 / Cython 构建。
+推荐走控制台：`/admin` → 训练页，核对棋种 / 神经网络 / 参数后一键启停；监控页实时吞吐、Loss、策略 KL、胜率与硬件曲线；资产页管理 checkpoint、经验池与运行目录；任务页托管 piskvork / 天梯 / 批扫描 / Cython 构建。
 
 ![训练控制台](docs/assets/admin-monitor.png)
 
@@ -92,7 +92,7 @@ python scripts/build_cython.py --check    # 只检查现有 .so
 
 ```bash
 python -m scripts.cli_play              # 终端对战，进程内自带引擎
-python -m scripts.priskvork_server      # Gomocup 协议（Piskvork GUI 可连，默认端口 12345）
+python -m scripts.piskvork_server      # Gomocup 协议（Piskvork GUI 可连，默认端口 12345）
 python -m scripts.arena                 # ELO 天梯（data/<Game>/rates/candidates.txt 写候选代数）
 ```
 

@@ -52,7 +52,7 @@ class ValueHeadWdl(nn.Module):
 
 
 def expected_score(wdl_logits: Tensor) -> Tensor:
-    """[B,3] -> [B]，E[z] = p_win - p_loss ∈ (-1,1)，与终局奖励同尺度"""
+    """[B,3] -> [B]，E[z] = 1*p_win + 0*p_draw + (-1)*p_loss = p_win - p_loss ∈ (-1,1)，与终局奖励同尺度"""
     p = F.softmax(wdl_logits, dim=1)
     return p[:, CLASS_WIN] - p[:, CLASS_LOSS]
 

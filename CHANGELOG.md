@@ -6,6 +6,10 @@
 
 ## Unreleased
 
+- **rename: priskvork → piskvork**（Daniel 指正 + gomocup.org 查证：官方推荐的对局管理器就叫
+  Piskvork，priskvork 系笔误）。git mv 保历史改脚本文件名与模块路径（scripts.piskvork_server），
+  任务注册表 key、main.py/readme/docs 引用同步；模块导入实测通过。历史 CHANGELOG 条目保留原文。
+
 - **refactor(admin): 任务页拆分「任务/工具」两区**（Daniel：bench 该归工具）——按已有
   kind 字段分组：常驻服务（piskvork）归"任务"，跑完即止的诊断脚本（bench、build_cython）
   归"工具"；页顶说明同步改写，卡片徽标保留。零后端改动、零新配置。
