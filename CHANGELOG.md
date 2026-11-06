@@ -6,6 +6,11 @@
 
 ## Unreleased
 
+- **fix(api): Flask jsonify 默认按字母排序 dict 键**——任务参数、级联下拉等 UI 顺序被重排
+  （host/model/port/profile/sims 字母序）。app.json.sort_keys=False，全局保留后端定义顺序。
+- **polish(piskvork): 下拉只列有模型的网络**（协议服要"能开打的选择集"：五子棋不再混入
+  象棋的 mini/mini2/m8 命名，单网络自动选中并联动）；label 统一「网络/模型」。
+
 - **feat(admin): piskvork 参数级联下拉**（Daniel：别造词、要做选择）：术语统一"档位"→"网络"；
   任务卡 profile/model 改级联 select——网络列表来自 /api/admin/profiles，选定后模型列表实时
   从 /api/admin/artifacts 拉 checkpoints 并标注当前最佳（实测 m 档：最佳97/87/88/91/94/97）。

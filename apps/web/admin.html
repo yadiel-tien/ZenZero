@@ -1530,7 +1530,7 @@ async function loadTasks(rebuild){
         const val = (typeof keep[key]==='string') ? keep[key] : '';
         if (spec.type==='profile' || spec.type==='model') {
           const first = spec.type==='model' ? '<option value="-1">最佳（默认）</option>' : '<option value="">默认网络</option>';
-          return `<span class="field" style="min-width:120px"><label>${spec.type==='model'?'模型':esc(k)}</label>`
+          return `<span class="field" style="min-width:120px"><label>${spec.type==='model'?'模型':'网络'}</label>`
                + `<select data-t="${t.name}" data-k="${k}" data-sel="${spec.type}" data-game="${esc(spec.game||'')}" data-val="${esc(val)}">${first}</select></span>`;
         }
         const type = spec.type==='int' ? 'number' : 'text';
@@ -1563,11 +1563,13 @@ async function initTaskSelects(){
     if (_selInit.has(sel)) continue; _selInit.add(sel);
     try {
       const d = await api('/api/admin/profiles?game='+encodeURIComponent(sel.dataset.game||'Gomoku'));
+      // 只列**有模型**的网络（协议服要的是能直接开打的选择集，不是全局命名表）
+      const withModels = (d.profiles||[]).filter(p=>p.models>0);
       const want = sel.dataset.val || '';
-      sel.innerHTML = '<option value="">默认网络</option>' + (d.profiles||[])
-        .map(p=>`<option${p.name===want?' selected':''}>${esc(p.name)}</option>`).join('');
+      sel.innerHTML = (withModels.length>1 ? '<option value="">默认网络</option>' : '')
+        + withModels.map(p=>`<option${(want? p.name===want : withModels.length===1)?' selected':''}>${esc(p.name)}</option>`).join('');
       sel.onchange = ()=> fillModels(sel);
-      for (const m of sel.closest('.panel').querySelectorAll('select[data-sel="model"]')) { _fillModelsFor(m); }
+      for (const m of sel.closest('.panel').querySelectorAll('select[data-sel="model"]')) { _fillModelsFor(m, sel.value); }
     } catch(e){ /* 保持手填不可行——留默认项 */ }
   }
 }

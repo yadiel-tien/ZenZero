@@ -89,6 +89,7 @@ def _vram_need_bytes(env_name: str, model_specs: list, default_best: str | None 
 class PlayApiServer:
     def __init__(self):
         self.app = Flask(__name__)
+        self.app.json.sort_keys = False   # 保留 dict 插入序：任务参数、下拉选项等 UI 顺序由后端定义
         self.ai_players: dict[str, AIServer] = {}
         self.clients_live_time: dict[str, float] = {}
         self.lock = threading.Lock()
