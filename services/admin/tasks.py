@@ -33,10 +33,9 @@ TASKS: dict[str, dict] = {
     'piskvork': {
         'module': 'scripts.piskvork_server', 'kind': 'long',
         'group': 'tool',   # 分类按用途不按生命周期：这也是随用随开的工具
-        'desc': '让 ZenZero 作为五子棋引擎出门参赛/外接对弈。何时用：想在 Piskvork（Gomocup 官方对局'
-                       '管理器）或任何 Gomocup 兼容 GUI/赛事平台里跟别的引擎下棋时。怎么用：选好网络与模型'
-                       '点启动，在对方添加引擎处填 本机IP:端口（默认 12345）即可；思考深度自动贴合对手时限，'
-                       '比完点停止释放显存。',
+        'desc': '以 Gomocup 协议对外提供五子棋对弈，用于接入 Piskvork 等兼容客户端参赛或外接对弈。'
+                       '用法：选好网络与模型点启动 → 在对方「添加引擎」处填 本机IP:端口（默认 12345）→ '
+                       '对局自动贴合对手思考时限，比完点停止即释放显存。',
         'opts': {'profile': {'flag': '--profile', 'type': 'profile', 'game': 'Gomoku', 'default': ''},
                  'model': {'flag': '--model', 'type': 'model', 'game': 'Gomoku', 'default': -1},
                  'sims': {'flag': '--sims', 'type': 'int', 'default': 800},
@@ -45,18 +44,17 @@ TASKS: dict[str, dict] = {
     },
     'bench': {
         'script': 'scripts/bench_batch_sweep.py', 'kind': 'once',
-        'desc': '推理引擎测速仪。何时用：觉得对弈/训练吞吐变慢，或调整了凑批参数（并行桌数、K、批上限）'
-                       '想验证是否划算时。跑了会怎样：逐个批大小实测纯计算与完整管线耗时，输出对照表指出'
-                       '瓶颈在 CPU 搜索还是 GPU 推理，结果存 logs/perf/batch_sweep.json。占 GPU 约 1~2 分钟，'
-                       '勿与训练同开。',
+        'desc': '实测推理引擎在各批大小下的耗时，定位瓶颈在 CPU 搜索还是 GPU 推理，'
+                       '吞吐异常或调整凑批参数后跑它验证。用法：默认直接启动，或填 batches（如 1,8,32,128）'
+                       '与 iters；约 1~2 分钟，请避开训练/对局时段；对照表写入 logs/perf/batch_sweep.json。',
         'opts': {'batches': {'flag': '--batches', 'type': 'str', 'default': ''},
                  'iters': {'flag': '--iters', 'type': 'int', 'default': 0}},
     },
     'build_cython': {
         'script': 'scripts/build_cython.py', 'kind': 'once',
-        'desc': '重新编译 C++ 加速的走法生成器（chess_cython 等扩展）。何时用：改动 core/env 下的'
-                       '规则、着法生成等 Cython 源码后。安全性：先编译到暂存件、成功才原子替换正式文件，'
-                       '失败保持旧版继续服务，训练中也可直接跑。勾选 check 仅校验现有扩展、不重编。',
+        'desc': '重新编译走法生成等 C++ 加速扩展，修改 core/env 下的 Cython 源码后需要它生效。'
+                       '用法：直接点启动即可；先编译到暂存件、成功才原子替换，失败自动保留旧版，'
+                       '训练运行中也可执行。勾选 check 只校验现有扩展、不重编。',
         'opts': {'check': {'flag': '--check', 'type': 'flag'}},
     },
 }
