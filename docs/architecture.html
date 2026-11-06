@@ -292,7 +292,7 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <tr><td><span class="get">GET</span> <code>/buffers</code> · <span class="post">POST</span> <code>/buffers/create</code></td>
 <td>经验池注册表（目录现场扫描：命名池 + default@&lt;模型&gt; 原位池）与新建、<b>克隆</b>（<code>/buffers/clone</code>）、<b>删除</b>（<code>/buffers/delete</code>：需 confirm 令牌二次确认；后两者训练写入中一律 409 拒绝）。资产页三表支持勾选批量删（<code>/artifacts/delete_batch</code>：逐项过各自护栏，best 等受保护项跳过并回执）</td>元数据记录棋种、表示版本、容量/已用、最新内容来自哪个网络的第几代</td></tr>
 <tr><td><span class="get">GET</span> <code>/tasks</code> · <span class="post">POST</span> <code>/tasks/start</code> · <code>/tasks/stop</code> · <span class="get">GET</span> <code>/tasks/log</code></td>
-<td>「任务」页后端：注册表驱动（priskvork 常驻；arena / bench / build_cython 一次性），参数按 schema 白名单校验，once 任务退出码即时回传（exit 0 即成功），输出追加落 <code>logs/&lt;任务名&gt;/console.log</code>（统一格式，历次会话连贯），服务重启按 pid + /proc cmdline 收养</td></tr>
+<td>「工具」页后端：注册表驱动（piskvork 按需启动；bench / build_cython 一次性，group 字段决定页面分组），参数按 schema 白名单校验，一次性任务退出码即时回传（exit 0 即成功），输出追加落 <code>logs/&lt;任务名&gt;/console.log</code>（统一格式，历次会话连贯），服务重启按 pid + /proc cmdline 收养</td></tr>
 </table>
 
 <h2 id="s8">8　前端与其它入口</h2>

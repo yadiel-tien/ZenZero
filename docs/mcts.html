@@ -315,8 +315,8 @@ while rem &gt; 0 或 inflight ≠ ∅:
 <div class="eq"><div class="f">
   π<sub>τ</sub>(<span class="v">a</span>) ∝ <span class="v">N</span>(<span class="v">a</span>)<sup>1/τ</sup>
   　（τ &gt; 0）　;　τ → 0 时退化为 π 集中于 argmax<sub><span class="v">a</span></sub> <span class="v">N</span>(<span class="v">a</span>)</div><span class="no"></span></div>
-<p>训练样本的策略目标取 τ = 1（访问数比例即"搜索意见"）；实战落子按温度衰减采样
-（开局高温促探索，过 <span class="v">exploration_steps</span> 手后 τ=0.1 近贪心，配置键 <code>tau_decay_rate / exploration_steps</code>）。</p>
+<p>训练样本的策略目标取 τ = 1（访问数比例即"搜索意见"）；实战落子：开局前 <span class="v">exploration_steps</span> 手恒定 τ=1 促探索，
+之后 τ=0.1 近贪心。窗口按棋种局长定制：象棋 30 手、五子棋 12 手（对局常见 20–40 手终局，长窗口等于整局皆随机）；配置键 <code>tau_decay_rate / exploration_steps</code>（现为 1.0=恒定段）。</p>
 <h3>7.2　根节点狄利克雷噪声</h3>
 <div class="eq"><div class="f">
   <b>P̃</b> = <span class="v">ε</span> · <b>ξ</b> + (1 − <span class="v">ε</span>) · <b>P</b>

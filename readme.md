@@ -56,7 +56,7 @@ python main.py                          # 默认 127.0.0.1:5000；--host 0.0.0.0
 
 ## 训练
 
-推荐走控制台：`/admin` → 训练页，核对棋种 / 神经网络 / 参数后一键启停；监控页实时吞吐、Loss、策略 KL、胜率与硬件曲线；资产页管理 checkpoint、经验池与运行目录；任务页托管 piskvork / 天梯 / 批扫描 / Cython 构建。
+推荐走控制台：`/admin` → 训练页，核对棋种 / 神经网络 / 参数后一键启停；监控页实时吞吐、Loss、策略 KL、胜率与硬件曲线；资产页管理 checkpoint、经验池与运行目录；工具页托管 piskvork（Gomocup 协议服）/ 批扫描 / Cython 构建；竞技场对局在「竞技场」页发起。
 
 ![训练控制台](docs/assets/admin-monitor.png)
 

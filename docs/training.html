@@ -279,7 +279,7 @@ CE 的表面进步里有多少是地板下移，一目了然）。</div>
 <div class="callout good"><b>何时判定本网络收敛——四项终止判据（须同时满足）：</b>① KL 连续 10 代不再下降（须为同教材断面，见图 2 注）；② Val/value（MSE）最近 10 代波动幅度 &lt;5%；③ 晋升战胜率均值跌破 54%（新代普遍不及现任）；④ 跨 10 代对局得分率 &lt;60%。若 ①② 已到而 ④ 仍在涨，瓶颈在<b>容量</b>——升网络规模优于继续增加训练轮数；①②④ 同时满足，方触及当前表示与搜索配置下的能力上限。</div>
 <h2 id="s8">8　守擂赛：晋升机制</h2>
 <p>新模型必须战胜<b>现任最强</b>才上岗，防止 loss 降而棋弱的"高分低能"。最多 <span class="v">n</span>=100 局
-（双方各用独立推理引擎，32 线程并行；开局同库，同 §3 策略），得分与判定：</p>
+（双方各用独立推理引擎，32 线程并行；开局为<b>库线无放回轮换 + 标准开局固定 4 槽</b>——新模型红黑各 2，杜绝同线重放烧样本），得分与判定：</p>
 <div class="eq"><div class="f">
   得分率 = <span class="frac"><span class="up"><span class="v">W</span> + <span class="v">D</span>/2</span><span class="den"><span class="v">n</span></span></span>
   　（和棋 0.5 分）　;　晋升 ⟺ 得分率 &gt; <span class="v">θ</span><sub>win</sub> = 0.52</div><span class="no"></span></div>
