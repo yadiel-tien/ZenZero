@@ -36,7 +36,10 @@ TASKS: dict[str, dict] = {
                        'Gomocup 兼容客户端（如 gomocup.org 赛事 GUI、内网机器）填此地址即可让 ZenZero 参赛对弈；'
                        '用毕点停止释放。走五子棋最佳模型，时限按客户端 SET TIME 协商。',
         'opts': {'port': {'flag': '--port', 'type': 'int', 'default': 12345},
-                 'host': {'flag': '--host', 'type': 'str', 'default': '0.0.0.0'}},
+                 'host': {'flag': '--host', 'type': 'str', 'default': '0.0.0.0'},
+                 'profile': {'flag': '--profile', 'type': 'str', 'default': ''},
+                 'model': {'flag': '--model', 'type': 'int', 'default': -1},
+                 'sims': {'flag': '--sims', 'type': 'int', 'default': 800}},
     },
     'bench': {
         'script': 'scripts/bench_batch_sweep.py', 'kind': 'once',

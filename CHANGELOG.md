@@ -6,6 +6,14 @@
 
 ## Unreleased
 
+- **fix(piskvork): START 语义修正 + 模型/档位/深度启动参数**（Daniel：协议能选模型吗）：
+  ① Gomocup `START <max_loops> [15x15]` 第一参数是回合上限，旧实现误当棋盘尺寸校验——
+  任何标准客户端第一条指令即被 "Unsupported board size" 拒之门外（服务对真 Piskvork 从未
+  真正可用）；按协议重写，实测 START/ABOUT 应答正确。
+  ② 协议本身无选模型通道（INFO 只有时限类），故新增 server 侧启动参数：
+  `--profile`（网络档位，留空=默认）、`--model`（指定代数，-1=best）、`--sims`（初始模拟数，
+  对局中仍按客户端 timeout_turn 动态调整）；任务页表单同步三个输入框。
+
 - **rename: priskvork → piskvork**（Daniel 指正 + gomocup.org 查证：官方推荐的对局管理器就叫
   Piskvork，priskvork 系笔误）。git mv 保历史改脚本文件名与模块路径（scripts.piskvork_server），
   任务注册表 key、main.py/readme/docs 引用同步；模块导入实测通过。历史 CHANGELOG 条目保留原文。

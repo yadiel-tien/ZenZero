@@ -15,11 +15,11 @@ hub: ServerHub | None = None
 
 
 class GomokuSession:
-    def __init__(self, conn: socket.socket, model_id: int, n_simulation: int, hub: ServerHub) -> None:
+    def __init__(self, conn: socket.socket, model_id: int, n_simulation: int, hub: ServerHub, profile: str | None = None) -> None:
         self.conn = conn
         self.f_reader = conn.makefile('r', encoding='utf-8')
         self.player = AIServer('Gomoku', model_id=model_id, n_simulation=n_simulation, verbose=False, hub=hub,
-                          batch_leaves=1)
+                          batch_leaves=1, profile=profile)
         self.env = Gomoku()
         self.is_running = True
         self.timeout_turn = 5000  # 默认5秒
@@ -103,16 +103,13 @@ class GomokuSession:
             pass
 
     def handle_start(self, parts: list[str]) -> str:
-        if len(parts) < 2:
-            return "ERROR missing size"
-        try:
-            size = int(parts[1])
-            if size != 15:
-                # 理论上支持其他尺寸，但当前环境配置固定为15
+        # Gomocup 协议：START <max_loops> [<board_size>]——第一参数是回合上限（本引擎
+        # 无需分配循环资源，收下不处理）；棋盘尺寸为可选第三参数（如 15x15）。
+        # 旧实现误把 max_loops 当尺寸校验，任何标准客户端 START 必被拒（2026-11-06 修复）。
+        if len(parts) > 2:
+            bs = parts[2].lower().replace('x', '').replace('×', '')
+            if bs and not (bs.startswith('15') and bs.rstrip('15') == ''):
                 return "ERROR Unsupported board size (only 15x15)"
-        except ValueError:
-            return "ERROR invalid size"
-
         self.player.reset()
         self.env.reset()
         return "OK"
@@ -200,9 +197,11 @@ class PiskvorkTCPHandler(socketserver.StreamRequestHandler):
         logger.info(f"New connection from {addr}")
         session = None
         try:
-            best_idx = read_best_index('Gomoku')
-            # 默认初始模拟次数设为 800，实际会按INFO timeout_turn动态调整
-            session = GomokuSession(self.request, model_id=best_idx, n_simulation=800, hub=hub)
+            pf = OPTS['profile'] or None
+            mid = OPTS['model'] if OPTS['model'] >= 0 else read_best_index('Gomoku', pf)
+            # 初始模拟次数按 --sims；实际会按 INFO timeout_turn 动态调整
+            session = GomokuSession(self.request, model_id=mid, n_simulation=OPTS['sims'],
+                                    hub=hub, profile=pf)
             session.run()
         except Exception as e:
             logger.error(f"Error handling connection from {addr}: {e}")
@@ -217,8 +216,15 @@ class PiskvorkServer(socketserver.ThreadingTCPServer):
     daemon_threads = True       # 会话线程随主进程退出
 
 
-def run_server(host='0.0.0.0', port=12345) -> None:
+# 启动期确定的对局参数（Gomocup 协议无选模型通道，模型/档位/初始深度全在 server 侧）
+OPTS = {'profile': '', 'model': -1, 'sims': 800}
+
+
+def run_server(host='0.0.0.0', port=12345, profile='', model=-1, sims=800) -> None:
     global hub
+    OPTS.update(profile=profile, model=model, sims=sims)
+    if profile or model >= 0:
+        logger.info(f"Piskvork serving: profile={profile or '默认'} model={model if model>=0 else 'best'} sims={sims}")
     # 进程内推理引擎管理中心，多个并发会话共享引擎
     hub = ServerHub()
     with PiskvorkServer((host, port), PiskvorkTCPHandler) as server:
@@ -238,5 +244,8 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Gomocup (Piskvork) 协议服务器")
     ap.add_argument("--host", default="0.0.0.0", help="绑定地址（默认对所有接口开放）")
     ap.add_argument("--port", type=int, default=12345, help="端口（默认 12345）")
+    ap.add_argument("--profile", default="", help="五子棋网络档位（如 mini/s，留空=配置默认档）")
+    ap.add_argument("--model", type=int, default=-1, help="指定检查点代数（-1=该档位当前最佳模型）")
+    ap.add_argument("--sims", type=int, default=800, help="初始每手模拟次数（对局中仍按客户端时限动态调整）")
     a = ap.parse_args()
-    run_server(host=a.host, port=a.port)
+    run_server(host=a.host, port=a.port, profile=a.profile, model=a.model, sims=a.sims)
