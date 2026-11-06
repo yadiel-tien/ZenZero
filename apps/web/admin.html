@@ -1538,7 +1538,7 @@ async function loadTasks(rebuild){
              + `<input type="${type}" placeholder="默认 ${esc(ph)}" data-t="${t.name}" data-k="${k}" value="${esc(val)}"></span>`;
       }).join('');
       return `<div class="panel" style="margin-bottom:10px"><h2>${esc(t.name)} <span class="lg">${t.kind==='long'?'按需启动':'单次'}</span> <span class="pill task-st" data-st="${t.name}"></span></h2>
-        <div class="hint" style="margin:2px 0 8px">${esc(t.desc)}</div>
+        <div class="hint" style="margin:2px 0 8px;white-space:pre-line">${esc(t.desc)}</div>
         <div class="row">${opts}
           <button onclick="taskAct('start','${t.name}')">启动</button>
           <button class="danger" onclick="taskAct('stop','${t.name}')">停止</button>
