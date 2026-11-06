@@ -61,9 +61,16 @@
   nav a.on{color:var(--fg);background:var(--card);border-color:var(--line);border-bottom-color:var(--card)}
   main{padding:14px 20px 40px}
   .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
-  /* 6 卡分层：手机双列 ×3 行；常规屏三列 ×2 行；宽屏(≥1340)一行全展 */
+  /* 6 卡分层：手机双列；平板三列；PC(≥1024) 一行全展——紧凑模式卡片同步缩小 */
   @media(min-width:860px){.cards{grid-template-columns:repeat(3,1fr)}}
-  @media(min-width:1340px){.cards{grid-template-columns:repeat(6,1fr)}}
+  @media(min-width:1024px){
+    .cards{grid-template-columns:repeat(6,1fr);gap:8px}
+    #cards .card{height:94px;padding:6px 8px}
+    #cards .card .k{font-size:10px}
+    #cards .card .v{font-size:15px}
+    #cards .card .s{font-size:9.5px}
+    #cards .spk{display:none}   /* sparkline 让位给数字，183px 卡装不下两者 */
+  }
   @media(max-width:720px){
     header{padding:10px 12px;gap:8px}
     nav{padding:8px 8px 0;gap:4px;overflow-x:auto;scrollbar-width:none}
