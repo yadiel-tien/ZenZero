@@ -1587,11 +1587,17 @@ function _netAssign(keys){
   _netCache.clear();
   const used = [...NET_FIXED_H];
   for (const k of keys.slice().sort()) {
-    for (let n=0; n<72; n++) {
-      const hue = (95 + n*137.508) % 360;
-      if (used.every(u => _hueDist(hue, u) >= 40)) { used.push(hue); _netCache.set(k, hue); break; }
+    // 阈值从 42° 逐档降到 0：360° 圆周放 N 色间距上限=360/N，固定阈值必漏槽
+    // （上一版 40° 写死，10 网络实测 9 个落空），降档保证必有分配且尽量撒开
+    let chosen = null;
+    for (const thr of [42, 30, 24, 18, 14, 10, 0]) {
+      for (let n=0; n<144 && chosen==null; n++) {
+        const hue = (95 + n*137.508) % 360;
+        if (used.every(u => _hueDist(hue, u) >= thr)) chosen = hue;
+      }
+      if (chosen != null) break;
     }
-    if (!_netCache.has(k)) { const hue=(95+72*137.508)%360; _netCache.set(k, hue); }
+    used.push(chosen); _netCache.set(k, chosen);
   }
 }
 function netColor(pf){ if(NET_C[pf]) return NET_C[pf];
