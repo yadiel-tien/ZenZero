@@ -63,11 +63,8 @@
   .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
   @media(min-width:860px){.cards{grid-template-columns:repeat(4,1fr)}}
   /* 8 卡 4 列 × 2 行：第一行=进程与节奏，第二行=进度与成果（DOM 序见 renderSnapshot） */
-  #cards .card{order:99}
-  #cards .card:nth-child(1){order:1}  #cards .card:nth-child(3){order:2}
-  #cards .card:nth-child(2){order:3}  #cards .card:nth-child(4){order:4}
-  #cards .card:nth-child(5){order:5}  #cards .card:nth-child(8){order:6}
-  #cards .card:nth-child(7){order:7}  #cards .card:nth-child(6){order:8}
+  /* 6 卡新布局：首行四张过程卡，次行两张结果卡各占半行（DOM 序=展示序，无需排序） */
+  #cards .card:nth-child(5), #cards .card:nth-child(6){grid-column:span 2}
   @media(max-width:720px){
     header{padding:10px 12px;gap:8px}
     nav{padding:8px 8px 0;gap:4px;overflow-x:auto;scrollbar-width:none}
@@ -98,6 +95,7 @@
   }
     /* 卡片区与文字 */
     .cards{gap:8px}
+    #cards .card:nth-child(5), #cards .card:nth-child(6){grid-column:auto}
     .card .s a{white-space:nowrap}
     /* 表格类：块级横滚，矩阵给最小宽 */
     .panel table{display:block;overflow-x:auto;max-width:100%}
@@ -856,25 +854,14 @@ function renderSnapshot(s){
   const gpmLive = (L.gpm !== undefined && L.gpm !== null) ? L.gpm : null;
   window.__inf = inf;                       // 顶部"推理"卡数据源（训练侧）
   $('cards').innerHTML = [
-    `<div class="card phase-card" style="--phc:${tr.running ? phColor : '#9a917d'}"><div class="k">当前阶段</div><div class="v">`
-      + `<span class="ph-pill">${tr.running ? (PHASE_CN[L.phase] || L.phase) : '未运行'}</span>`
-      + `<div class="gen">第 ${fmt(L.iteration || last.iteration || 0, 0)} 代`
-      + ((s.best != null && s.best > -1) ? ` <em>· 最佳 ${s.best}</em>` : '')
-      + (tr.running && L.progress && L.progress.total
-          ? `<div class="pb"><i style="width:${Math.min(100, 100*(L.progress.done||0)/(L.progress.total||1)).toFixed(0)}%;background:var(--phc)"></i></div>` : '')
-      + `</div></div><div class="s">${tr.running ? ((L.progress && L.progress.done != null)
-             ? `${L.progress.done}/${L.progress.total || '?'} ${L.phase === 'fit' ? '步' : '局'} · 每轮${fmt(s.meta.games_per_round,0)}` : '心跳中…')
-             : '去训练页启动'}</div></div>`,
-    card('每手模拟', (sims? fmt(sims,0) : '—') + (sims? hb(100*(sims-400)/400, '#3aa6a0') : ''),
-         'K='+ fmt(s.meta.batch_leaves,0) + ' · 爬坡 400→800',
-         'MCTS 的每一步搜索多少次（随代数从 400 爬到 800）。K = 一手棋同时挂起的并行 leaf 数（virtual loss），决定 batch 能凑多大。'),
     card('局/分钟', (gpmLive!==null? fmt(gpmLive,1) : fmt(sp.games_per_min,1)) + spark(gpmSer, phColor),
          (gpmLive!==null? '实时' : '上轮') + ' · '+fmt(sp.sims_per_s,0)+' sims/s',
          '自博弈吞吐。轮内按"已完成局数 ÷ 已用时间"实时算；没有心跳时退回上一轮的记录。看速度要同时看 sims/秒，因为每手模拟次数在爬坡。'),
-    card('单次模拟耗时', fmt((sp.mcts||{}).select_ms_per_sim,2)+' ms'
+    card('搜索效率', (sims? fmt(sims,0) : '—') + ' sims'
+         + `<span style="font-size:12px;color:var(--dim)"> · ${fmt(((sp.mcts||{}).select_ms_per_sim||0)+((sp.mcts||{}).wait_ms_per_sim||0),2)}ms/手</span>`
          + ss([[(sp.mcts||{}).select_ms_per_sim||0, '#4a90d9'], [(sp.mcts||{}).wait_ms_per_sim||0, '#e08a4e']]),
-         '<span style="color:#4a90d9">■</span>选叶子 <span style="color:#e08a4e">■</span>等推理（上轮）',
-         '每模拟一次的时长，拆成"CPU 选叶子"和"等推理返回"两段。两者之比说明瓶颈在 CPU 搜索还是 GPU 推理。'),
+         `<span style="color:#4a90d9">■</span>选叶子 <span style="color:#e08a4e">■</span>等推理 · K=${fmt(s.meta.batch_leaves,0)} · 爬坡400→800`,
+         '每手搜索的模拟次数（随代数从 400 爬到 800）与一次模拟的时间构成：CPU 选叶子 vs 等 GPU 推理，蓝橙比例即瓶颈。K = 一手棋同时挂起的并行 leaf 数（virtual loss），决定 batch 能凑多大。'),
     card('训练步数',
          (fit.batch_stale? '—' : (fit.step? fmt(fit.step,0) + (fit.fit_total_steps? `<span style="font-size:12px;color:var(--dim)"> / ${fmt(fit.fit_total_steps,0)}</span>`:'') : '—'))
          + (!fit.batch_stale && fit.step && fit.fit_total_steps ? hb(100*fit.step/fit.fit_total_steps, '#e08a4e') : ''),
@@ -882,26 +869,29 @@ function renderSnapshot(s){
              ? `本批未训练 · 上批末步 ${fmt(fit.step,0)}`
              : (fit.loss!==undefined? `loss ${fmt(fit.loss,2)} · π ${fmt(fit.policy_loss,2)} · v ${fmt(fit.value_loss,3)}`
              : (fit.fit_seconds? `fit ${fmt(fit.fit_seconds,0)}s` : '—')),
-         '本轮 fit 已走的优化步数 / 本轮总步数（每轮约 8 遍 × Buffer ÷ batch = 1171 步）。loss 是最近一步的总损失，后面拆成 policy / value。'),
-    card('验证集', (!fit.batch_stale && fit.val)?fmt(fit.val.policy,3):'—',
-         fit.batch_stale? '本批未测 · 上批的别当真'
-         : (fit.val? `<span class="${fit.val.kl==null?'':fit.val.kl<0.40?'ok':fit.val.kl<0.55?'':'bad'}" ${fit.val.kl>=0.55?'':''}>KL ${fmt(fit.val.kl,3)}</span>` + (fit.val.kl!==undefined? ` · v ${fmt(fit.val.value,3)}`:'')
-                  + (fit.val.n_samples? ` · ${fmt(fit.val.n_samples,0)} 样本`:'')
-                  + (fit.val.stale? ' · 上一代' : ((fit.val.age_s||0) > 600? ` · ${fmt((fit.val.age_s||0)/60,0)}min前` : '')) : '—'),
-         '验证集（holdout，永不参与训练）上的 loss。policy 是交叉熵，其中约 85% 是目标自身熵的下限，真正能学的是 KL。'
-         + ' value 是价值头 MSE。标“上一代”表示本轮 fit 还没跑完，显示的是上一个模型的测量值。'),
-    card('评估胜率', (!ev.batch_stale && ev.win_rate!==undefined)
-         ? `<span class="${ev.win_rate >= ((s.meta||{}).win_threshold||0.52) ? 'ok' : 'bad'}">${(ev.win_rate*100).toFixed(1)}%</span>` : '—',
-         ev.batch_stale? `本批未打 · 上条第${fmt(ev.new,0)}代`
-         : (ev.games? `胜${ev.win} 负${ev.lose} 和${ev.draw} · 得分${fmt(ev.win + ev.draw/2,1)}`
-             : '—'),
-         `新模型（第 ${fmt(ev.new||0,0)} 代）对守擂模型（第 ${fmt(ev.best||0,0)} 代）的战绩。`
-         + `和棋算半分，得分率超过门槛 ${(100*((s.meta||{}).win_threshold||0.52)).toFixed(0)}% 就晋升为新的守擂模型。`
-         + ' 例：胜 28 · 负 10 · 和 49 = 得分 52.5/87 = 60.3%。'),
-    card('Buffer', (buf.size==null? '—' : (buf.capacity? `${(buf.size/1000).toFixed(1)}k<span style="font-size:12px;color:var(--dim)"> / ${(buf.capacity/1000).toFixed(0)}k</span>` : fmt(buf.size,0)))
+         '本轮 fit 已走的优化步数 / 本轮总步数（每轮约 8 遍 × Buffer ÷ batch）。loss 是最近一步的总损失，后面拆成 policy / value。'),
+    card('经验池', (buf.size==null? '—' : (buf.capacity? `${(buf.size/1000).toFixed(1)}k<span style="font-size:12px;color:var(--dim)"> / ${(buf.capacity/1000).toFixed(0)}k</span>` : fmt(buf.size,0)))
          + (buf.size!=null && buf.capacity? hb(100*buf.size/buf.capacity, buf.size/buf.capacity>0.95? '#7e57c2' : 'var(--blue)') : ''),
          (buf.capacity? `${(100*buf.size/buf.capacity).toFixed(0)}% 满 · ` : '') + (buf.live? '实时' : '上轮'),
          '训练池样本数 / 容量。满了会淘汰最旧的样本。数值来自训练进程心跳，轮内实时增长。'),
+    `<div class="card" title="验证集（holdout，永不参与训练）上的损失。policy 是交叉熵，其中约 85% 是目标自身熵的下限，真正能学的是 KL；value 是价值头误差。标「上一代」表示本轮 fit 未跑完，显示的是上一个模型的测量值。" style="justify-content:space-between">`
+      + `<div class="k">验证集 <span style="letter-spacing:0">· policy 越低越好</span></div><div class="v" style="display:flex;gap:14px;align-items:baseline;flex-wrap:wrap">`
+      + `<span>${(!fit.batch_stale && fit.val)?fmt(fit.val.policy,3):'—'}</span>`
+      + ((!fit.batch_stale && fit.val && fit.val.kl!=null)
+          ? `<span style="font-size:13px" class="${fit.val.kl<0.40?'ok':fit.val.kl<0.55?'':'bad'}">KL ${fmt(fit.val.kl,3)}</span>`
+            + `<span style="font-size:13px;color:var(--dim)">v ${fmt(fit.val.value,3)}</span>` : '')
+      + `</div><div class="s">`
+      + (fit.batch_stale? '本批未测 · 上批的别当真'
+          : (fit.val? `holdout ${fmt(fit.val.n_samples||0,0)} 样本` + (fit.val.stale? ' · 上一代' : ((fit.val.age_s||0) > 600? ` · ${fmt((fit.val.age_s||0)/60,0)}min前` : '')) : '—'))
+      + `</div></div>`,
+    `<div class="card" title="最新一次守擂：挑战者对王者的 100 盘战绩。和棋算半分，得分率超过门槛即晋升新冠军。" style="justify-content:space-between">`
+      + `<div class="k">评估守擂 <span style="letter-spacing:0">· 第 ${fmt(ev.new||0,0)} 代 攻 第 ${fmt(ev.best||0,0)} 代</span></div>`
+      + `<div class="v" style="display:flex;gap:14px;align-items:baseline;flex-wrap:wrap">`
+      + `<span ${!ev.batch_stale && ev.win_rate!==undefined? `class="${ev.win_rate >= ((s.meta||{}).win_threshold||0.52) ? 'ok' : 'bad'}"` : ''}>`
+      + `${(!ev.batch_stale && ev.win_rate!==undefined) ? (ev.win_rate*100).toFixed(1)+'%' : '—'}</span>`
+      + (ev.batch_stale? '' : (ev.games? `<span style="font-size:13px;color:var(--dim)">胜${ev.win} 负${ev.lose} 和${ev.draw}</span>` : ''))
+      + `</div><div class="s">${ev.batch_stale? `本批未打 · 上条第${fmt(ev.new,0)}代`
+          : `得分 ${fmt(ev.win + ev.draw/2,1)}/${fmt(ev.games,0)} · 晋升线 ${fmt(100*((s.meta||{}).win_threshold||0.52),0)}%`}</div></div>`,
   ].join('');
   $('strip_cards').innerHTML = [
     card('CPU', `<div class="cgv">${gauge(hw.cpu)}</div>`,
@@ -1962,7 +1952,7 @@ function renderTask(){
     const ph = lt.phase || 'selfplay';
     taskCard = card('任务', pill(PH_T[ph] || '训练中', PH_C[ph] || '#4a90d9', false),
         ph === 'eval' ? `第 ${fmt(lt.it||0,0)} 代 攻 第 ${lt.vs!=null?lt.vs:'?'} 代王座`
-                      : `第 ${fmt(lt.it||0,0)} 代 · ${esc((tr.text||'').split(' ')[1]||'')}`);
+                      : `第 ${fmt(lt.it||0,0)} 代 · 王 ${lt.best!=null?lt.best:'—'} · ${esc((tr.text||'').split(' ')[1]||'')}`);
   } else
     taskCard = card('任务', `<span class="tchip2" style="color:var(--dim)">未运行</span>`,
         lt.it ? `上次 第 ${fmt(lt.it,0)} 代 · 王 ${lt.best!=null?lt.best:'—'}` : '去竞技场或训练页启动任务');
