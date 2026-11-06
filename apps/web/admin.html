@@ -61,10 +61,9 @@
   nav a.on{color:var(--fg);background:var(--card);border-color:var(--line);border-bottom-color:var(--card)}
   main{padding:14px 20px 40px}
   .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
-  @media(min-width:860px){.cards{grid-template-columns:repeat(4,1fr)}}
-  /* 8 卡 4 列 × 2 行：第一行=进程与节奏，第二行=进度与成果（DOM 序见 renderSnapshot） */
-  /* 6 卡新布局：首行四张过程卡，次行两张结果卡各占半行（DOM 序=展示序，无需排序） */
-  #cards .card:nth-child(5), #cards .card:nth-child(6){grid-column:span 2}
+  /* 6 卡分层：手机双列 ×3 行；常规屏三列 ×2 行；宽屏(≥1340)一行全展 */
+  @media(min-width:860px){.cards{grid-template-columns:repeat(3,1fr)}}
+  @media(min-width:1340px){.cards{grid-template-columns:repeat(6,1fr)}}
   @media(max-width:720px){
     header{padding:10px 12px;gap:8px}
     nav{padding:8px 8px 0;gap:4px;overflow-x:auto;scrollbar-width:none}
@@ -95,7 +94,6 @@
   }
     /* 卡片区与文字 */
     .cards{gap:8px}
-    #cards .card:nth-child(5), #cards .card:nth-child(6){grid-column:auto}
     .card .s a{white-space:nowrap}
     /* 表格类：块级横滚，矩阵给最小宽 */
     .panel table{display:block;overflow-x:auto;max-width:100%}
