@@ -175,8 +175,10 @@ CONFIG: AppConfig = {
             'l': {'arch': 'resnet_wdl_v1', 'n_res_blocks': 15},
         },
         'selfplay': {
-            'tau_decay_rate': 0.8,
-            'exploration_steps': 10,
+            # 按五子棋局长定制（自弈常见 20~40 手终局，不能照抄象棋的 30 手窗口）：
+            # 布局+攻势成型期（~12 手）满温度 τ=1 保多样性，此后 ε=0.1 贪心做深杀形。
+            'tau_decay_rate': 1.0,
+            'exploration_steps': 12,
             'resign': {'threshold': 0.0, 'consecutive': 6, 'min_steps': 20},
         },
         'sims': {'start': 400, 'max': 800, 'ramp_generations': 50},
