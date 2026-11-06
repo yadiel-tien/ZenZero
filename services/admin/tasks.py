@@ -37,8 +37,8 @@ TASKS: dict[str, dict] = {
                        '用毕点停止释放。走五子棋最佳模型，时限按客户端 SET TIME 协商。',
         'opts': {'port': {'flag': '--port', 'type': 'int', 'default': 12345},
                  'host': {'flag': '--host', 'type': 'str', 'default': '0.0.0.0'},
-                 'profile': {'flag': '--profile', 'type': 'str', 'default': ''},
-                 'model': {'flag': '--model', 'type': 'int', 'default': -1},
+                 'profile': {'flag': '--profile', 'type': 'profile', 'game': 'Gomoku', 'default': ''},
+                 'model': {'flag': '--model', 'type': 'model', 'game': 'Gomoku', 'default': -1},
                  'sims': {'flag': '--sims', 'type': 'int', 'default': 800}},
     },
     'bench': {

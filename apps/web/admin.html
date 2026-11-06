@@ -1527,8 +1527,13 @@ async function loadTasks(rebuild){
           return `<label class="hint" style="display:inline-flex;align-items:center;gap:5px"><input type="checkbox" data-t="${t.name}" data-k="${k}"${on}>${esc(k)}</label>`;
         }
         const ph = spec.default!==undefined ? String(spec.default) : '';
-        const type = spec.type==='int' ? 'number' : 'text';
         const val = (typeof keep[key]==='string') ? keep[key] : '';
+        if (spec.type==='profile' || spec.type==='model') {
+          const first = spec.type==='model' ? '<option value="-1">最佳（默认）</option>' : '<option value="">默认网络</option>';
+          return `<span class="field" style="min-width:120px"><label>${spec.type==='model'?'模型':esc(k)}</label>`
+               + `<select data-t="${t.name}" data-k="${k}" data-sel="${spec.type}" data-game="${esc(spec.game||'')}" data-val="${esc(val)}">${first}</select></span>`;
+        }
+        const type = spec.type==='int' ? 'number' : 'text';
         return `<span class="field" style="min-width:120px"><label>${esc(k)}</label>`
              + `<input type="${type}" placeholder="默认 ${esc(ph)}" data-t="${t.name}" data-k="${k}" value="${esc(val)}"></span>`;
       }).join('');
@@ -1549,6 +1554,37 @@ async function loadTasks(rebuild){
     el.textContent = t.running ? `运行中 pid ${t.pid}`
       : (t.exit_code!==null && t.exit_code!==undefined ? `上次退出 ${t.exit_code}` : '未运行');
   });
+  initTaskSelects();
+}
+// 任务卡级联下拉：网络(profiles API) → 模型(assets checkpoints)
+const _selInit = new WeakSet();
+async function initTaskSelects(){
+  for (const sel of document.querySelectorAll('#task-list select[data-sel="profile"], #tool-list select[data-sel="profile"]')) {
+    if (_selInit.has(sel)) continue; _selInit.add(sel);
+    try {
+      const d = await api('/api/admin/profiles?game='+encodeURIComponent(sel.dataset.game||'Gomoku'));
+      const want = sel.dataset.val || '';
+      sel.innerHTML = '<option value="">默认网络</option>' + (d.profiles||[])
+        .map(p=>`<option${p.name===want?' selected':''}>${esc(p.name)}</option>`).join('');
+      sel.onchange = ()=> fillModels(sel);
+      for (const m of sel.closest('.panel').querySelectorAll('select[data-sel="model"]')) { _fillModelsFor(m); }
+    } catch(e){ /* 保持手填不可行——留默认项 */ }
+  }
+}
+function fillModels(profSel){
+  const panel = profSel.closest('.panel');
+  for (const m of panel.querySelectorAll('select[data-sel="model"]')) _fillModelsFor(m, profSel.value);
+}
+async function _fillModelsFor(mSel, pf){
+  if (!pf) { const p = mSel.closest('.panel').querySelector('select[data-sel="profile"]'); pf = p && p.value; }
+  try {
+    const d = await api('/api/admin/artifacts?game='+encodeURIComponent(mSel.dataset.game||'Gomoku')+(pf?'&profile='+encodeURIComponent(pf):''));
+    const want = mSel.dataset.val || '-1';
+    const best = d.best_index>=0 ? '（当前 '+d.best_index+'）' : '（未选）';
+    mSel.innerHTML = '<option value="-1">最佳'+best+'</option>'
+      + (d.checkpoints||[]).map(c=>{ const ix = c.iteration ?? c.index ?? c;
+        return `<option${String(ix)===want?' selected':''}>${ix}</option>`; }).join('');
+  } catch(e){}
 }
 async function taskAct(act, name){
   const params = {};

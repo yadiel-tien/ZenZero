@@ -6,6 +6,11 @@
 
 ## Unreleased
 
+- **feat(admin): piskvork 参数级联下拉**（Daniel：别造词、要做选择）：术语统一"档位"→"网络"；
+  任务卡 profile/model 改级联 select——网络列表来自 /api/admin/profiles，选定后模型列表实时
+  从 /api/admin/artifacts 拉 checkpoints 并标注当前最佳（实测 m 档：最佳97/87/88/91/94/97）。
+  排查中确认：五子棋"根目录=遗留 m 档布局"，profile=m 即读 data/Gomoku 根。
+
 - **fix(piskvork): START 语义修正 + 模型/档位/深度启动参数**（Daniel：协议能选模型吗）：
   ① Gomocup `START <max_loops> [15x15]` 第一参数是回合上限，旧实现误当棋盘尺寸校验——
   任何标准客户端第一条指令即被 "Unsupported board size" 拒之门外（服务对真 Piskvork 从未
