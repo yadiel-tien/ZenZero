@@ -216,7 +216,7 @@ class PiskvorkServer(socketserver.ThreadingTCPServer):
     daemon_threads = True       # 会话线程随主进程退出
 
 
-# 启动期确定的对局参数（Gomocup 协议无选模型通道，模型/档位/初始深度全在 server 侧）
+# 启动期确定的对局参数（Gomocup 协议无选模型通道，网络/模型/初始深度全在 server 侧）
 OPTS = {'profile': '', 'model': -1, 'sims': 800}
 
 
@@ -244,7 +244,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Gomocup (Piskvork) 协议服务器")
     ap.add_argument("--host", default="0.0.0.0", help="绑定地址（默认对所有接口开放）")
     ap.add_argument("--port", type=int, default=12345, help="端口（默认 12345）")
-    ap.add_argument("--profile", default="", help="五子棋网络档位（如 mini/s，留空=配置默认档）")
+    ap.add_argument("--profile", default="", help="五子棋网络名（如 default/mini/s，留空=配置默认网络）")
     ap.add_argument("--model", type=int, default=-1, help="指定检查点代数（-1=该档位当前最佳模型）")
     ap.add_argument("--sims", type=int, default=800, help="初始每手模拟次数（对局中仍按客户端时限动态调整）")
     a = ap.parse_args()
