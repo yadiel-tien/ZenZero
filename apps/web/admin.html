@@ -585,7 +585,7 @@
       <div class="panel"><h2>实力阶梯 <span class="lg">Elo 横条 · 颜色=网络</span></h2><div id="ar_ladder"></div></div>
     </div>
     <div class="panel">
-      <details><summary class="h2like">对阵矩阵 <span class="lg">每格=行方对列方的胜率（绿=行方占优，红=行方吃亏），小字为胜·负·和局数</span></summary>
+      <details><summary class="h2like">对阵矩阵 <span class="lg">行 vs 列</span></summary>
       <div id="ar_matrix" style="overflow:auto;margin-top:10px"></div></details>
     </div>
   </section>
@@ -1686,7 +1686,8 @@ function renderArena(){
           // 胜多绿底、负多红底、五五灰底——深浅=偏离 50% 的程度；副行直接放战绩
           const bg = wr>0.55? `rgba(46,139,87,${dev.toFixed(2)})` : wr<0.45? `rgba(192,57,43,${dev.toFixed(2)})` : 'rgba(128,128,128,.14)';
           return `<td style="background:${bg}" title="${pretty(r)} 对 ${pretty(c)}：${w}胜${l}负${d}和（${t} 局）"><b>${(wr*100).toFixed(0)}</b><i>${w}·${l}·${d}</i></td>`;
-        }).join('')}</tr>`).join('')+'</table>';
+        }).join('')}</tr>`).join('')+'</table>'
+        + `<div class="hint" style="margin-top:5px">行 vs 列 · 绿色行方占优，红色行方吃亏 · 小字为胜·负·和</div>`;
     } else $('ar_matrix').innerHTML='<span class="hint" style="margin:0">至少两名选手后生成</span>';
   }
   const opts=(rosterIds.length?[...rosterIds].sort(cmpKey):[...cand].sort(cmpKey)).map(x=>`<option value="${esc(x)}">${esc(pretty(x))}</option>`).join('');
