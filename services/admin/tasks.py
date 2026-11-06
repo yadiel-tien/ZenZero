@@ -32,9 +32,9 @@ STATE_FILE = STATE_DIR / 'tasks.json'
 TASKS: dict[str, dict] = {
     'piskvork': {
         'module': 'scripts.piskvork_server', 'kind': 'long',
-        'desc': '把五子棋 AI 变成 Gomocup 协议服务器：点启动即在端口（默认 12345）就绪，'
-                       'Gomocup 兼容客户端（如 gomocup.org 赛事 GUI、内网机器）填此地址即可让 ZenZero 参赛对弈；'
-                       '用毕点停止释放。走五子棋最佳模型，时限按客户端 SET TIME 协商。',
+        'desc': '以 Gomocup 协议对外提供五子棋对弈：启动后在 host:port（默认 0.0.0.0:12345）'
+                       '就绪，Piskvork 等兼容客户端连入即可让 ZenZero 参赛；网络与代数可选，默认最佳模型，'
+                       '思考深度按客户端时限自适应，用毕停止即释放资源。',
         'opts': {'profile': {'flag': '--profile', 'type': 'profile', 'game': 'Gomoku', 'default': ''},
                  'model': {'flag': '--model', 'type': 'model', 'game': 'Gomoku', 'default': -1},
                  'sims': {'flag': '--sims', 'type': 'int', 'default': 800},

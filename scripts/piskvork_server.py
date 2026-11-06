@@ -103,9 +103,9 @@ class GomokuSession:
             pass
 
     def handle_start(self, parts: list[str]) -> str:
-        # Gomocup 协议：START <max_loops> [<board_size>]——第一参数是回合上限（本引擎
-        # 无需分配循环资源，收下不处理）；棋盘尺寸为可选第三参数（如 15x15）。
-        # 旧实现误把 max_loops 当尺寸校验，任何标准客户端 START 必被拒（2026-11-06 修复）。
+        # 协议文法：START <max_loops> [15x15]。max_loops 是回合上限，本引擎无循环资源
+        # 需预留，收下即；棋盘尺寸仅支持 15x15，不匹配才报错。
+        # （旧版误把 max_loops 当尺寸校验，标准客户端首条 START 即被拒。）
         if len(parts) > 2:
             bs = parts[2].lower().replace('x', '').replace('×', '')
             if bs and not (bs.startswith('15') and bs.rstrip('15') == ''):
@@ -216,7 +216,7 @@ class PiskvorkServer(socketserver.ThreadingTCPServer):
     daemon_threads = True       # 会话线程随主进程退出
 
 
-# 启动期确定的对局参数（Gomocup 协议无选模型通道，网络/模型/初始深度全在 server 侧）
+# 对局参数：Gomocup 协议本身无选模型指令，网络/代数/初始深度由启动参数定（面板级联下拉即此三项）
 OPTS = {'profile': '', 'model': -1, 'sims': 800}
 
 
