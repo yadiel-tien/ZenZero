@@ -231,7 +231,10 @@
   .ladrow .track{height:12px;border-radius:3px;background:rgba(128,128,128,.13);overflow:hidden}
   .ladrow .track i{display:block;height:100%;border-radius:3px;transition:width .6s}
   .ladrow .elo{text-align:right;font-variant-numeric:tabular-nums}
-  .mtx td,.mtx th{border:1px solid var(--line);padding:0;font-size:10px;text-align:center;min-width:30px;height:20px;line-height:20px}
+  .mtx td,.mtx th{border:1px solid var(--line);padding:1px 2px;font-size:10px;text-align:center;min-width:44px;height:31px;line-height:1.2;vertical-align:middle}
+  .mtx td b{font-size:11.5px;font-weight:700;display:block;margin-top:-1px}
+  .mtx td i{font-style:normal;font-size:8.5px;opacity:.75;display:block;margin-top:-1px;font-variant-numeric:tabular-nums}
+  .mtx .noft{color:var(--dim);opacity:.5;font-size:9px}
   .mtx th{background:var(--card);color:var(--dim);font-weight:400;padding:0 4px}
   .mtx .diag{background:rgba(128,128,128,.08)}
   .pb{height:3px;border-radius:2px;background:rgba(128,128,128,.18);margin-top:4px;overflow:hidden}
@@ -1677,9 +1680,12 @@ function renderArena(){
       $('ar_matrix').innerHTML = `<table class="mtx"><tr><th></th>${ids.map(x=>`<th>${esc(pretty(x))}</th>`).join('')}</tr>`+
         ids.map(r=>`<tr><th>${esc(pretty(r))}</th>${ids.map(c=>{
           if(r===c) return '<td class="diag">—</td>';
-          const rec=(R.rival[r]||{})[c]; if(!rec||!rec[0]+rec[1]+rec[2]) return '<td style="opacity:.3">·</td>';
-          const [w,l,d]=rec, t=w+l+d, wr=w/t;
-          return `<td style="background:rgba(46,139,87,${(wr*0.7).toFixed(2)})" title="${w}胜${l}负${d}和">${(wr*100).toFixed(0)}%</td>`;
+          const rec=(R.rival[r]||{})[c];
+          if(!rec||!(rec[0]+rec[1]+rec[2])) return '<td class="noft">未战</td>';
+          const [w,l,d]=rec, t=w+l+d, wr=w/t, dev=Math.min(Math.abs(wr-0.5)*1.8, 0.78);
+          // 胜多绿底、负多红底、五五灰底——深浅=偏离 50% 的程度；副行直接放战绩
+          const bg = wr>0.55? `rgba(46,139,87,${dev.toFixed(2)})` : wr<0.45? `rgba(192,57,43,${dev.toFixed(2)})` : 'rgba(128,128,128,.14)';
+          return `<td style="background:${bg}" title="${pretty(r)} 对 ${pretty(c)}：${w}胜${l}负${d}和（${t} 局）"><b>${(wr*100).toFixed(0)}</b><i>${w}·${l}·${d}</i></td>`;
         }).join('')}</tr>`).join('')+'</table>';
     } else $('ar_matrix').innerHTML='<span class="hint" style="margin:0">至少两名选手后生成</span>';
   }
