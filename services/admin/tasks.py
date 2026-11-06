@@ -32,6 +32,7 @@ STATE_FILE = STATE_DIR / 'tasks.json'
 TASKS: dict[str, dict] = {
     'piskvork': {
         'module': 'scripts.piskvork_server', 'kind': 'long',
+        'group': 'tool',   # 分类按用途不按生命周期：这也是随用随开的工具
         'desc': '以 Gomocup 协议对外提供五子棋对弈：启动后在 host:port（默认 0.0.0.0:12345）'
                        '就绪，Piskvork 等兼容客户端连入即可让 ZenZero 参赛；网络与代数可选，默认最佳模型，'
                        '思考深度按客户端时限自适应，用毕停止即释放资源。',
@@ -161,6 +162,7 @@ class TaskRunner:
                             pass
                     m['exit_code'] = p.returncode
             out.append({'name': name, 'desc': t['desc'], 'kind': t['kind'],
+                        'group': t.get('group') or ('task' if t['kind'] == 'long' else 'tool'),
                         'opts': t.get('opts') or {},
                         'last_params': (m.get('params') or {}),
                         **{k: m.get(k) for k in

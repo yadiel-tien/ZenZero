@@ -256,6 +256,7 @@
   .dlg .dfoot{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
   @keyframes zin{from{opacity:0;transform:scale(.97)}to{opacity:1}}
   .fsec{display:flex;align-items:center;gap:10px;font-size:11px;letter-spacing:2px;color:var(--dim);margin:14px 0 6px;font-weight:600}
+  .fsec[hidden]{display:none}
   .fsec::after{content:'';flex:1;border-top:1px solid var(--line)}
   .field .pair{display:inline-flex;align-items:center;gap:6px}
   .field .pair input{width:84px}
@@ -334,7 +335,7 @@
   <a href="#train" data-tab="train">训练</a>
   <a href="#arena" data-tab="arena">竞技场</a>
   <a href="#artifacts" data-tab="artifacts">资产</a>
-  <a href="#tasks" data-tab="tasks">任务</a>
+  <a href="#tasks" data-tab="tasks">工具</a>
   <a href="#logs" data-tab="logs">日志</a>
 </nav>
 <main>
@@ -590,9 +591,9 @@
     </div>
   </section>
   <section class="tab" id="tab-tasks">
-    <div class="fsec">任务</div>
+    <div class="fsec" id="task-h" hidden>任务</div>
     <div id="task-list"><div class="hint">加载中…</div></div>
-    <div class="fsec">工具</div>
+    <div class="fsec" id="tool-h" hidden>工具</div>
     <div id="tool-list"></div>
     <div class="panel" style="margin-top:12px"><h2>任务日志 <span class="lg" id="task-log-name">—</span></h2>
       <pre id="task-log" style="max-height:340px">点击任务上的「查看日志」在此显示</pre></div>
@@ -1544,9 +1545,10 @@ async function loadTasks(rebuild){
           <button class="danger" onclick="taskAct('stop','${t.name}')">停止</button>
           <button onclick="taskShowLog('${t.name}')">查看日志</button></div></div>`;
     };
-    const longs = list.filter(t=>t.kind!=='once'), onces = list.filter(t=>t.kind==='once');
-    $('task-list').innerHTML = longs.length ? longs.map(cardHtml).join('') : '<div class="hint">暂无常驻任务</div>';
-    $('tool-list').innerHTML  = onces.length ? onces.map(cardHtml).join('') : '<div class="hint">暂无工具</div>';
+    const taskG = list.filter(t=>(t.group||t.kind)==='task'), toolG = list.filter(t=>(t.group||t.kind)!=='task');
+    $('task-h').hidden = !taskG.length; $('tool-h').hidden = !toolG.length;
+    $('task-list').innerHTML = taskG.map(cardHtml).join('');
+    $('tool-list').innerHTML = toolG.map(cardHtml).join('');
   }
   list.forEach(t=>{
     const el = document.querySelector(`.task-st[data-st="${t.name}"]`); if(!el) return;

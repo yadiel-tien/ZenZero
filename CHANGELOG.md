@@ -6,6 +6,11 @@
 
 ## Unreleased
 
+- **refactor(admin): piskvork 归入工具；页签更名「工具」**（Daniel：这个不也是个工具吗）——
+  分组标准从生命周期(kind)改为显式用途字段 group（未来托管型长任务仍可回"任务"区）；
+  空分组连标题隐藏（修 .fsec display:flex 压过 [hidden] 的样式坑）；导航"任务"→"工具"
+  （hash 深链 #tasks 不变）。实测：导航六项含"工具"，页内三卡 piskvork/bench/build_cython。
+
 - **fix(api): Flask jsonify 默认按字母排序 dict 键**——任务参数、级联下拉等 UI 顺序被重排
   （host/model/port/profile/sims 字母序）。app.json.sort_keys=False，全局保留后端定义顺序。
 - **polish(piskvork): 下拉只列有模型的网络**（协议服要"能开打的选择集"：五子棋不再混入
