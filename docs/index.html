@@ -113,7 +113,7 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
     <div class="t">推理引擎</div>
     <div class="d">前向成本模型 t(b)=t₀+κb（式 1，图 1 曲线）· 四段线程流水（图 2）·
       自适应凑批窗口（表 2）· 请求侧镜像增强及其等价性（式 3）· 设备一致性三件套 ·
-      ServerHub 多模型共享 · 统计双口径与失败纪律 · 60k+ 局面/秒的账面核对（表 3）。</div>
+      ServerHub 多模型共享 · 统计双口径与失败纪律 · 吞吐账面核对（表 3，含 2026-11 提档端态）。</div>
     <span class="k">services/inference/engine.py</span><span class="k">client.py</span><span class="k">hub.py</span>
   </a>
 
@@ -143,7 +143,7 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
 <table>
 <tr><th style="width:42%">你想知道…</th><th>在这</th></tr>
 <tr><td>如何安装、部署服务并开始训练或对局？</td><td><b>§6 如何使用</b>（三步上手）</td></tr>
-<tr><td>为什么同等时间能多练 20 倍？</td><td>§2 篇 表 3（吞吐演进）＋ §4 篇 10.3（与 498 对照）</td></tr>
+<tr><td>为什么同等时间能多练一个数量级？</td><td>§2 篇 表 3（吞吐演进）＋ §4 篇 10.3（与 498 对照）</td></tr>
 <tr><td>虚拟损失会不会把统计记乱？</td><td>§2 篇 5.2–5.3（两条不变量）＋ 附录测试</td></tr>
 <tr><td>批是怎么凑出来的？为什么有时大有时小？</td><td>§3 篇 3–5（成本模型 + 自适应窗口）</td></tr>
 <tr><td>policy loss 降得慢，是学不动吗？</td><td>§4 篇 7（CE 有硬下界，看 KL；图 2 轨迹）</td></tr>
@@ -161,7 +161,7 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
 ③ 每篇末列代码路径与对应测试套件，文档与代码冲突时以代码为准、差异以代码为准，欢迎经 issue 指正；
 ④ 关键故障与改判均已在对应篇正文以「实测/负结果/回归覆盖」形式落档。</p>
 
-<footer>ZenZero · 文档集总览 · 2026-10 · 在线：http://&lt;主机&gt;:5000/docs/ · 离线：浏览器直接打开本文件</footer>
+<footer>ZenZero · 文档集总览 · 2026-11 · 对应 v2.3.0 · 在线：http://&lt;主机&gt;:5000/docs/ · 离线：浏览器直接打开本文件</footer>
 </main>
 <script>
 /* 离线模式（file:// 直开）：指向服务的入口（← 对弈 / ⚙ 控制台 / 首页）不可用，

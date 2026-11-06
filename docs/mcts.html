@@ -142,11 +142,11 @@ MCTS（Monte Carlo Tree Search，蒙特卡洛树搜索）负责把"网络的直�
 <tr><td><span class="v">P</span>(<span class="v">s</span>,<span class="v">a</span>)</td><td>网络给出的先验策略（policy 头输出，限定在合法面）</td><td><code>child_p</code></td></tr>
 <tr><td><span class="v">c</span><sub>puct</sub></td><td>探索系数（本框架取 5，配置键 <code>c_puct</code>）</td><td><code>self.c</code></td></tr>
 <tr><td><span class="v">v</span><sub>θ</sub>(<span class="v">s</span>), <b>p</b><sub>θ</sub>(<span class="v">s</span>)</td><td>神经网络对局面的评估值（轮走方视角，∈[−1,1]）与策略分布；θ 为权重</td><td>§3 篇引擎返回的 (policy, value)</td></tr>
-<tr><td><span class="v">K</span></td><td>一手棋内同时在飞的搜索线数（虚拟损失预算，默认 12）</td><td><code>mcts_batch_leaves</code></td></tr>
+<tr><td><span class="v">K</span></td><td>一手棋内同时在飞的搜索线数（虚拟损失预算，默认 64，并按凑批反馈在 8–128 间自适应微调，<code>_auto_tune_k</code>）</td><td><code>mcts_batch_leaves</code></td></tr>
 <tr><td><span class="v">ν</span></td><td>单笔虚拟损失的大小（常数 1.0）</td><td><code>VIRTUAL_LOSS</code></td></tr>
 <tr><td><span class="v">R</span><sub>t</sub></td><td>第 t 次模拟的回填回报（终局奖励或 −<span class="v">v</span><sub>θ</sub>；视角见 7.3 节）</td><td><code>back_propagate</code> 入参</td></tr>
 <tr><td><span class="v">τ</span></td><td>策略温度（7.1 节式 (3)）</td><td><code>get_pi(temperature)</code></td></tr>
-<tr><td><span class="v">G</span></td><td>并发自弈局数（= 线程数，默认 32）</td><td><code>selfplay_workers</code></td></tr>
+<tr><td><span class="v">G</span></td><td>并发自弈局数（= 线程数，默认 min(192, 核×4) ≈ 128）</td><td><code>selfplay_workers</code></td></tr>
 </table>
 
 <h2 id="s3">3　PUCT：带先验的上置信树</h2>
@@ -275,7 +275,7 @@ while rem &gt; 0 或 inflight ≠ ∅:
     <rect x="120" y="57" width="200" height="17" fill="#dfe9f5" stroke="#2f4f4f" stroke-width=".6"/><text x="146" y="69">GPU：■ 批≈1，多数时间闲置</text>
     <text x="16" y="46" fill="#6b6557">线程</text><text x="16" y="69" fill="#6b6557">设备</text>
   </g>
-  <text x="14" y="112" font-size="13.5" fill="#3d6b35">② 流水线（6.1）：随到随发、随完随补 —— 队列常驻 ≈ G×K = 384</text>
+  <text x="14" y="112" font-size="13.5" fill="#3d6b35">② 流水线（6.1）：随到随发、随完随补 —— 队列常驻 ≈ G×K = 4k–8k</text>
   <g font-size="10.5">
     <rect x="120" y="122" width="40" height="17" fill="#dff0e2"/><text x="126" y="134">发₁</text>
     <rect x="163" y="122" width="40" height="17" fill="#dff0e2"/><text x="169" y="134">发₂</text>
@@ -284,11 +284,11 @@ while rem &gt; 0 或 inflight ≠ ∅:
     <rect x="292" y="122" width="52" height="17" fill="#c8e0cb"/><text x="296" y="134">收₁发₉</text>
     <rect x="347" y="122" width="52" height="17" fill="#c8e0cb"/><text x="351" y="134">收₂发₁₀</text>
     <rect x="402" y="122" width="52" height="17" fill="#c8e0cb"/><text x="406" y="134">收₃发₁₁…</text>
-    <rect x="120" y="145" width="334" height="17" fill="#cfe3c8" stroke="#3d6b35"/><text x="146" y="157">GPU 批：■ ■ ■ ■ ■ ■（凑满 256 才发起前向）</text>
+    <rect x="120" y="145" width="334" height="17" fill="#cfe3c8" stroke="#3d6b35"/><text x="146" y="157">GPU 批：■ ■ ■ ■ ■ ■（凑满上限 2048 或窗口到期即发）</text>
     <text x="16" y="134" fill="#6b6557">线程</text><text x="16" y="157" fill="#6b6557">设备</text>
   </g>
-  <text x="14" y="196" font-size="11.8" fill="#6b6557">线程永不"停等"：一条回复的间隙就是一次新的下降与提交；G=32 局 × K=12 ⇒ 引擎前常驻 ≈384 个未决请求，</text>
-  <text x="14" y="214" font-size="11.8" fill="#6b6557">大于批上限 256 —— 这是"批可持续凑满"的算术依据（线上实测均批 215–245，p90 打满 256）。</text>
+  <text x="14" y="196" font-size="11.8" fill="#6b6557">线程永不"停等"：一条回复的间隙就是一次新的下降与提交；G=128 局 × K=32~64 ⇒ 引擎前常驻数千未决请求，</text>
+  <text x="14" y="214" font-size="11.8" fill="#6b6557">大于批上限 2048 —— 这是"批可持续凑满"的算术依据（2026-11-06 实测 p90 打满 2048，req/s ≈ 5.4 万均值）。</text>
   <text x="14" y="238" font-size="11.8" fill="#6b6557">凑批与"谁先回"无关：乱序完成由信号量天然吸收，引擎把到达顺序完全打散重组都行。</text>
 </svg>
 <figcaption><b>屏障与流水线的时序对照（示意，非等比例）。</b>上：单线程"下降—停等"交替，GPU 只见涓流；
@@ -347,7 +347,7 @@ while rem &gt; 0 或 inflight ≠ ∅:
 <code>network_input()</code>、<code>apply_policy_value(policy, value, is_self_play)</code>、<code>back_propagate(r)</code></td>
 <td>节点 = 局面 + 合法着法 + 三张定长数组。"评估"拆成 出输入 / 落结果 两步，专为流水线的发、收分离（6.1）设计</td></tr>
 <tr><td><code>NeuronMCTS</code></td><td><code>make_queue_mcts(infer_q, env_class, state, last_action, player_to_move, planes_version, is_self_play)</code>；
-<code>run(n, K=1)</code>；<code>run_pipelined(n, K=8, timeout=300)</code>；<code>get_pi(τ)</code>；
+<code>run(n, K=1)</code>；<code>run_pipelined(n, K=8, timeout=300)</code>（签名默认值；线上调用方按 <code>mcts_batch_leaves</code>≈64 传入）；<code>get_pi(τ)</code>；
 <code>choose_action()</code>；<code>apply_action(a)</code>；<code>set_root(…)</code>；<code>shutdown()</code></td>
 <td><code>infer_q</code> 是目标引擎的请求队列（§3 篇）；<code>planes_version</code> 必须等于该引擎的
 feature_version（§1 篇 §6，错位会被引擎的面数闸拒绝）；<code>apply_action</code> 做真人对局的树复用
@@ -357,7 +357,7 @@ feature_version（§1 篇 §6，错位会被引擎的面数闸拒绝）；<code>
 <table>
 <tr><th>场景</th><th>跑法</th><th>理由</th></tr>
 <tr><td>自博弈（本文核心场景）</td><td><code>run_pipelined(sims, K)</code></td><td>吞吐关键路径，第 6 节结论全部适用</td></tr>
-<tr><td>晋升评估 / 人机对战</td><td><code>run(sims)</code>（K=1 语义）</td><td>单步质量优先；请求天然稀疏，批由引擎侧跨会话凑（§3 篇 5 节）</td></tr>
+<tr><td>晋升评估 / 人机对战</td><td><code>run(sims, K)</code>，K 随 CONFIG（同批量流水线）</td><td>历史上人机曾用 K=1 纯串行；实测 K 不改变棋力排名后统一走批量（11-05 消融），仅 <code>ZZ_BATCH_LEAVES=1</code> 可回退</td></tr>
 </table>
 
 <h2 id="s9">9　实验：吞吐演进与测量方法</h2>
@@ -368,7 +368,8 @@ feature_version（§1 篇 §6，错位会被引擎的面数闸拒绝）；<code>
 <tr><td>1</td><td>+ 虚拟损失·屏障批量</td><td>20.8k</td><td>—</td><td>~40</td><td>第 5 节；K=8</td></tr>
 <tr><td>2</td><td>+ 无屏障流水线</td><td>41.6k</td><td>—</td><td>~130</td><td>第 6 节；GPU 占空比 34% → 连续</td></tr>
 <tr><td>3</td><td>+ Cython 特征 / 32 线程 / 紧凑打分</td><td><b>62.9k</b></td><td>95.4</td><td>~244</td><td>§1 篇 §5、第 3 节注②；CPU 43% · GPU 37%·203W</td></tr>
-<tr><td>4</td><td>目标质量优先（sims 爬坡 400→800）</td><td>45–60k</td><td>30–40 <span class="note">@700–800 sims</span></td><td>215–245</td><td>§4 篇第 4 节；折算 200-sim 当量 ≈ 120–160 局/分</td></tr>
+<tr><td>4</td><td>目标质量优先（sims 爬坡 400→800）</td><td>45–60k</td><td>30–40 <span class="note">@700–800 sims（10 月末口径）</span></td><td>215–245</td><td>§4 篇第 4 节</td></tr>
+<tr><td>5</td><td>并发提档（G=128 · K=64 自适应 · 批上限 2048）</td><td>50–78k</td><td>28–57（均 ~45）<span class="note">@~780 sims，11-06 m8 实测</span></td><td>p90=2048</td><td>perf.jsonl；选叶 0.5ms / 等引擎 1.4ms</td></tr>
 </table>
 <p>第 3→4 行的名义降速是<b>有意交换</b>：吞吐买目标质量。交换比的依据（"200-sim 的教材噪声占可学空间 64%"）
 在 §4 篇第 4 节（式 (2)）与第 7 节（式 (6)）量化给出。</p>
@@ -376,7 +377,7 @@ feature_version（§1 篇 §6，错位会被引擎的面数闸拒绝）；<code>
 <ul>
 <li>吞吐分母为局面数（一次前向入批 B 个记 B），由引擎每千条打印的统计行聚合（§3 篇 9 节），
 非端侧估算；批统计另存整轮直方图，面板头条取整轮均值、滑动窗口只作尾部指示——
-用滑动窗口当整轮均值曾把 245 误报成 16（已由回归测试覆盖）。</li>
+用滑动窗口当整轮均值曾把 245 误报成 16（已由回归测试覆盖；§3 篇"整轮 237"即同批数据的整轮口径）。</li>
 <li>线程数存在实测拐点：24–32 线程 ≈ 47–50k 模拟/秒，64 线程回落到 35.9k——free-threading 下
 锁竞争与内存带宽接棒成为瓶颈，故 G=32 为默认。</li>
 <li>每次模拟的 CPU 账本随统计输出：选叶子 0.13–0.14ms、等推理 0.28–0.33ms（阶段 3 配置）——
@@ -397,7 +398,7 @@ feature_version（§1 篇 §6，错位会被引擎的面数闸拒绝）；<code>
 and Go through self-play.</i> Science 362, 1140–1144 (2018).　本篇的 PUCT 形式、狄利克雷噪声与训练目标
 均取自该文；"虚拟损失"（virtual loss）一词沿用并行博弈树搜索社区的惯用叫法。</p>
 
-<footer>ZenZero 文档集 · §2 MCTS 搜索与虚拟损失 · 2026-10 · 代码为准：core/mcts/deepMcts.py</footer>
+<footer>ZenZero 文档集 · §2 MCTS 搜索与虚拟损失 · 2026-11（v2.3.0 断面） · 代码为准：core/mcts/deepMcts.py</footer>
 </main>
 <script>
 /* 离线模式（file:// 直开）：指向服务的入口（← 对弈 / ⚙ 控制台 / 首页）不可用，

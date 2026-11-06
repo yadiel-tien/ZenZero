@@ -109,7 +109,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 <tr><th>术语</th><th>一句话定义</th><th>详见</th></tr>
 <tr><td>代 / 轮（iteration / round）</td><td>代 = 模型版本号（每完成一轮 +1）；轮 = 一次"自博弈→fit→守擂"循环</td><td>§4 篇 1、3 节</td></tr>
 <tr><td>经验池（buffer，旧称「仓」）</td><td>棋种级的自博弈样本库（主池+留出集成对）；不按网络分家，元数据记录最新写入的网络与代数</td><td>本篇 4.3</td></tr>
-<tr><td>神经网络（profile）</td><td>同一棋种下的<b>命名网络配置</b>：内置 s / m / l，可自定义；数据目录与引擎身份都带网络名。<b>术语定案</b>：界面与文档中 profile 称「神经网络」，「模型」专指其下每一代权重（checkpoint）；旧称「档位」</td><td>本篇 4 节</td></tr>
+<tr><td>网络 / 神经网络（profile）</td><td>同一棋种下的<b>命名网络配置</b>：内置 s / m / l，另有 m8 / mini / mini2 等自定义；数据目录与引擎身份都带网络名。<b>术语定案</b>：界面与文档中 profile 统称「网络」，「模型（代数）」专指其下每一代权重（checkpoint）；旧称「档位」已废</td><td>本篇 4 节</td></tr>
 <tr><td>表示版本（feature_version，文中亦称 epoch；<b>界面名「输入特征编码」</b>）</td><td>棋盘张量的布局版本号；不同版本互不兼容，引擎与转换必须对齐</td><td>§1 篇 §6</td></tr>
 <tr><td>引擎（InferenceEngine）</td><td>绑定一份权重 + 神经网络 + 表示版本的常驻推理单元</td><td>§3 篇 1 节</td></tr>
 <tr><td>登记簿（ServerHub）</td><td>进程内的引擎目录与引用计数；不是网络组件</td><td>§3 篇 8 节</td></tr>
@@ -175,7 +175,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 </table>
 
 <h2 id="s4">4　模型管理：架构注册表 + 神经网络配置</h2>
-<p class="note">自 2.1 起，「档位」即<b>命名模型配置</b>：内置 s/m/l 之外，可在控制台「训练 → 模型配置」以名字自定义规模模板（存 <code>data/profiles.json</code>，名字即数据目录，棋种下拉同步出现）。只允许覆写规模键（通道数 / 残差块 / value 隐层 / SE）；表示层与棋规层的键被白名单拒收——防手滑，也防把"档位"用成"换游戏"。</p>
+<p class="note">自 2.1 起，「网络」（profile）即<b>命名模型配置</b>：内置 s/m/l 之外，可在控制台「训练 → 网络配置」以名字自定义规模模板（存 <code>data/profiles.json</code>，名字即数据目录，棋种下拉同步出现；现行现役：m8、mini、mini2）。只允许覆写规模键（通道数 / 残差块 / value 隐层 / SE）；表示层与棋规层的键被白名单拒收——防手滑，也防把"网络"用成"换游戏"。</p>
 <h3>4.1　架构注册表</h3>
 <pre><code>core/network/network.py   BaseNet：设备适配、加载先落 CPU（checkpoint 跨设备通用）
                           Net（"resnet_v1"）    标准 AlphaZero 双头：Conv stem → N×ResBlock(±SE) → 双头
@@ -212,11 +212,11 @@ feature_version 属棋规与表示层——preset 若试图覆写直接报错。
 
 <h3>4.4　版本管理（四条轴 + 一条发布线）</h3>
 <p>项目自 <b>2.0.0</b> 起遵循语义化版本。单一事实源在 <code>core/utils/version.py</code>，
-展示位置：对弈页设置侧栏、控制台标题徽章（v2.0.0 · git 构建号）、<code>/info</code> 与
+展示位置：对弈页设置侧栏、控制台标题徽章（v2.3.0 · git 构建号）、<code>/info</code> 与
 <code>/api/admin/health</code>、启动横幅、<code>main.py --version</code>。四条版本轴职责互不重叠：</p>
 <table>
 <tr><th>轴</th><th>取值示例</th><th>含义与变更时机</th></tr>
-<tr><td>应用版本（semver）</td><td><code>2.0.0+e852721</code></td>
+<tr><td>应用版本（semver）</td><td><code>2.3.0+9f2c1ab</code></td>
 <td>整个软件的发布版本，<b>引擎/前端/控制台不单独编号</b>——同仓同发布，另立版本只会制造兼容矩阵。
 主版本=表示/协议级破坏变更或里程碑；次版本=新功能；修订=修复。发布流程：改 version.py →
 CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release（附权重文件）。</td></tr>
@@ -240,7 +240,7 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <tr><td><code>ZZ_DEVICE</code></td><td>推理设备</td><td>auto</td><td>显式指定不可用会<b>报错拒绝启动</b>，防静默降速（§3 篇 7 节）</td></tr>
 <tr><td><code>ZZ_WORKERS</code></td><td>自博弈线程数 G</td><td>32</td><td>实测拐点 24–32（§2 篇 9.1）</td></tr>
 <tr><td><code>ZZ_GAMES_PER_ROUND</code></td><td>每轮局数</td><td>400</td><td>轮尾摊薄（§4 篇 3 节）</td></tr>
-<tr><td><code>ZZ_BATCH_LEAVES</code></td><td>虚拟损失 K</td><td>12</td><td>供给旋钮（§2 篇 6 节）</td></tr>
+<tr><td><code>ZZ_BATCH_LEAVES</code></td><td>虚拟损失 K</td><td>64（自适应 8–128）</td><td>供给旋钮（§2 篇 6 节）</td></tr>
 <tr><td><code>ZZ_MAX_BATCH</code></td><td>引擎批上限 B_max</td><td>GPU 256 / CPU 50</td><td>耐心之外，512 是下一个杠杆（§3 篇 5 节）</td></tr>
 <tr><td><code>ZZ_INFER_WORKERS</code></td><td>CPU 前向 worker 数</td><td>核数/4 封顶 8</td><td>仅 CPU 设备生效；GPU 恒为 1（切分会摊薄批，见 §3 篇 4 节）</td></tr>
 <tr><td><code>ZZ_STOP_AT_ITER</code></td><td>训练目标代数</td><td>空=不限；达标那一轮完整收尾后退出</td></tr>
@@ -290,9 +290,13 @@ CHANGELOG 条目 → <code>git tag vX.Y.Z</code> → push tag → GitHub Release
 <tr><td><span class="post">POST</span> <code>/best</code></td><td><code>{iteration}</code>：一键改换守擂者（资产页"设为最强"），回滚坏模型的主路径</td></tr>
 <tr><td><span class="get">GET</span> <code>/logs?path=&amp;tail=</code> · <code>/logs/list</code> · <code>/health</code></td><td>任意日志尾读（限 log_dir 内，越界 403）；清单=白名单形态 <code>&lt;模块&gt;/latest.log*|console.log*</code>；体检</td></tr>
 <tr><td><span class="get">GET</span> <code>/buffers</code> · <span class="post">POST</span> <code>/buffers/create</code></td>
-<td>经验池注册表（目录现场扫描：命名池 + default@&lt;模型&gt; 原位池）与新建、<b>克隆</b>（<code>/buffers/clone</code>）、<b>删除</b>（<code>/buffers/delete</code>：需 confirm 令牌二次确认；后两者训练写入中一律 409 拒绝）。资产页三表支持勾选批量删（<code>/artifacts/delete_batch</code>：逐项过各自护栏，best 等受保护项跳过并回执）</td>元数据记录棋种、表示版本、容量/已用、最新内容来自哪个网络的第几代</td></tr>
+<td>经验池注册表（目录现场扫描：命名池 + default@&lt;模型&gt; 原位池）与新建、<b>克隆</b>（<code>/buffers/clone</code>）、<b>删除</b>（<code>/buffers/delete</code>：需 confirm 令牌二次确认；后两者训练写入中一律 409 拒绝）。资产页三表支持勾选批量删（<code>/artifacts/delete_batch</code>：逐项过各自护栏，best 等受保护项跳过并回执）；元数据记录棋种、表示版本、容量/已用、最新内容来自哪个网络的第几代</td></tr>
 <tr><td><span class="get">GET</span> <code>/tasks</code> · <span class="post">POST</span> <code>/tasks/start</code> · <code>/tasks/stop</code> · <span class="get">GET</span> <code>/tasks/log</code></td>
 <td>「工具」页后端：注册表驱动（piskvork 按需启动；bench / build_cython 一次性，group 字段决定页面分组），参数按 schema 白名单校验，一次性任务退出码即时回传（exit 0 即成功），输出追加落 <code>logs/&lt;任务名&gt;/console.log</code>（统一格式，历次会话连贯），服务重启按 pid + /proc cmdline 收养</td></tr>
+<tr><td><span class="get">GET</span> <code>/arena/list · ranks · state</code> ·
+<span class="post">POST</span> <code>/arena/create · delete · roster · start · stop</code></td>
+<td>竞技场（对局平台）后端 <code>core/utils/arena.py</code>：多场次各自独立榜（<code>data/&lt;Game&gt;/rates/&lt;场次&gt;/</code>），名册增删、三模式批量对局（智能约架/车轮战/自定义对决，自适应并行桌）；
+心跳 <code>logs/_state/arena.json</code>，榜单含 Elo/对局数/近况与两两战绩矩阵。注意 <code>versus()</code> 的胜负→分支映射有回归测试钉死（11-05 曾因写反致整榜倒置，tests/test_arena_result_mapping.py）</td></tr>
 </table>
 
 <h2 id="s8">8　前端与其它入口</h2>
@@ -303,7 +307,7 @@ SVG 棋盘、中文记谱、双胜率条、思考计时、⋯ 菜单（悔棋/�
 核心工程是浏览器端棋规引擎（<code>js/env-chess.js</code>）：与服务端 <code>core/env</code> 的
 <b>动作编码逐位对齐</b>，随机对局做快照级对拍——否则前后端对合法着法的判定将出现分歧。
 人机模式下，前端即时验证着法合法性，后端专注搜索计算，两侧互不等待。</li>
-<li><b>控制台 <code>/admin</code></b>：监控/训练/资产/日志四页；Canvas 手绘图表（缩放平移、图例、
+<li><b>控制台 <code>/admin</code></b>：六页签：监控/训练/竞技场/资产/工具/日志（哈希深链 #monitor/#train/…；≤720px 顶栏收进 mini 状态条）；Canvas 手绘图表（缩放平移、图例、
 横轴标注），亮暗双主题；无外部依赖、无 CDN。</li>
 </ul>
 <h3>8.2　其它入口</h3>
@@ -314,7 +318,7 @@ SVG 棋盘、中文记谱、双胜率条、思考计时、⋯ 菜单（悔棋/�
 <tr><td><code>python -X gil=0 -m scripts.train_server</code></td><td>裸启动训练（参数全走 5 节环境变量）</td></tr>
 <tr><td><code>python -m scripts.cli_play</code></td><td>终端对战：进程内自含引擎，零服务依赖</td></tr>
 <tr><td><code>python -m scripts.piskvork_server</code></td><td>Gomocup 协议对外（Piskvork 客户端可连）</td></tr>
-<tr><td><code>python -m scripts.arena</code></td><td>ELO 天梯：批量对局维护等级分（<code>data/&lt;Game&gt;/rates/</code>）</td></tr>
+<tr><td><code>python -m scripts.arena</code></td><td>ELO 天梯 CLI（无头批量互刷）；日常主入口为控制台「竞技场」页</td></tr>
 </table>
 
 <h2 id="s9">9　运维手册</h2>
@@ -324,11 +328,11 @@ SVG 棋盘、中文记谱、双胜率条、思考计时、⋯ 菜单（悔棋/�
 <tr><td>收工</td><td>「收尾后停」（成果完整）；急用机器「优雅停止」；「立即结束」= kill（会丢当轮，确认框写明丢几局）</td></tr>
 <tr><td>终止时机</td><td>§4 篇第 7 节判据：KL 连续 10 代不降 + Val/value 平台 + 晋升胜率均值 &lt; 54% + 跨代对局 &lt; 60%，四项同时满足方可终止</td></tr>
 <tr><td>回滚坏模型</td><td>资产页「设为最强」，或 <code>POST /api/admin/best {iteration}</code></td></tr>
-<tr><td>GPU 被占满时的对战</td><td>ZenZero 设计为<b>显式失败不静默</b>：auto 探测失败会降级并在 <code>/info.device_note</code> 与前端标注；如需 GPU 推理请先释放 GPU，或手动 <code>POST /device</code></td></tr>
-<tr><td>新旧模型同台</td><td>对弈页模型下拉先选神经网络（s/m/l/自定义）再选代数，跨网络直接对局</td></tr>
+<tr><td>GPU 被占满时的对战</td><td>ZenZero 设计为<b>显式失败不静默</b>：auto 探测失败会降级并在 <code>/info.device_note</code> 与前端标注（CPU 兜底时人机对弈自动限每手 60 sims，多引擎设备一致性有守卫）；如需 GPU 推理请先释放 GPU，或手动 <code>POST /device</code></td></tr>
+<tr><td>新旧模型同台</td><td>对弈页模型下拉先选网络（s/m/l/m8/mini/自定义）再选代数，跨网络直接对局</td></tr>
 </table>
 
-<footer>ZenZero 文档集 · §5 架构、部署与接口 · 2026-10 · 代码为准：scripts/ · services/{admin,monitor,inference}/ · apps/web/</footer>
+<footer>ZenZero 文档集 · §5 架构、部署与接口 · 2026-11 · 代码为准：scripts/ · services/{admin,monitor,inference}/ · apps/web/</footer>
 </main>
 <script>
 /* 离线模式（file:// 直开）：指向服务的入口（← 对弈 / ⚙ 控制台 / 首页）不可用，

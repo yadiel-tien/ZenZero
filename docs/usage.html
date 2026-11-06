@@ -104,7 +104,7 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
 <div class="step"><div class="n">1</div><div class="b"><b>装环境</b>（一次性）——Python 3.14t + 依赖，见第 1 节。</div></div>
 <div class="step"><div class="n">2</div><div class="b"><b>启动服务</b>：<code>python main.py</code>（默认绑定本机回环 127.0.0.1:5000；局域网开放加 <code>--host 0.0.0.0</code>，
 换端口加 <code>--port 8080</code>）。浏览器访问 <code>http://&lt;主机&gt;:5000/</code> 即可开始对局。</div></div>
-<div class="step"><div class="n">3</div><div class="b"><b>训练模型</b>：开 <code>http://&lt;主机IP&gt;:5000/admin</code> → 训练页 → 核对棋种/神经网络/参数 →
+<div class="step"><div class="n">3</div><div class="b"><b>训练模型</b>：开 <code>http://&lt;主机IP&gt;:5000/admin</code> → 训练页 → 核对棋种/网络/参数 →
 点击「启动训练」；训练结束时点「收尾后停」。全程无需终端操作。</div></div>
 
 <h2 id="s1">1　安装</h2>
@@ -117,13 +117,13 @@ uv pip install -r requirements-backend.txt --extra-index-url https://download.py
 <li><b>Cython 加速（可选，强烈建议）</b>：<code>python scripts/build_cython.py</code>；只验证现状用 <code>--check</code>。
 缺 <code>.so</code> 时自动回退纯 Python（正确性不变，速度下降）。<b>不要</b>直接跑 <code>setup.py build_ext --inplace</code>——
 训练在跑时原位覆盖会被内核挡下（ETXTBSY）甚至半新半旧，构建脚本已封成"暂存编译 + 原子替换"。</li>
-<li><b>模型权重</b>：不训练也想下强棋，去 Releases 下载 <code>.pt</code> 放进 <code>data/ChineseChess/</code>（m 档）即可；
-系统自动取编号最大者为最强。想换档（s/l）建 <code>data/ChineseChess/s/</code> 放权重。</li>
+<li><b>模型权重</b>：不训练也想下强棋，去 Releases 下载 <code>.pt</code> 放进 <code>data/ChineseChess/</code>（m 网络）即可；
+系统自动取编号最大者为最强。想换网络（s/l/m8/mini…）建 <code>data/ChineseChess/s/</code> 放权重。</li>
 </ul>
 
 <h2 id="s2">2　对战</h2>
 <p>服务起后（第 0 步②），对弈页三步开局：<b>选棋种 → 选模式 → 选模型</b>。模式含<b>人机</b>（可执红执黑）· <b>双人同屏</b> · <b>AI 观战</b>；
-模型为两级级联——先神经网络（s/m/l/自定义），再该网络下的模型代数。开局前还有一行可调配<b>每步超时</b>（30–300s，默认 100s，人类超时判负、AI 不计时）；
+模型为两级级联——先网络（s/m/l/m8/mini/自定义），再该网络下的模型代数。开局前还有一行可调配<b>每步超时</b>（30–300s，默认 100s，人类超时判负、AI 不计时）；
 含 AI 的模式另有「AI 设置」浮层，为<b>每个 AI 玩家独立</b>配置模拟次数（MCTS 搜索深度）与采样温度（着法随机性，0 = 总走最强）。</p>
 <figure style="margin:14px 0"><img src="assets/launcher-model.png" alt="启动器：级联选模型与开局设置" style="max-width:100%;border:1px solid var(--line);border-radius:10px">
 <figcaption class="note">图：模型选择步——AI 双方各自级联选网络与代数，下方为每步超时与 AI 设置入口。</figcaption></figure>
@@ -133,7 +133,7 @@ uv pip install -r requirements-backend.txt --extra-index-url https://download.py
 <table>
 <tr><th>要点</th><th>行为</th></tr>
 <tr><td>未放置任何模型</td><td>可双人玩；人机/观战会提示模型列表为空（错误框给出放置路径）</td></tr>
-<tr><td>GPU 被别的程序占满</td><td>开局自动降 CPU（侧栏设备信息条显示 cpu）；释放 GPU 后可在设置中一键切回（在线搬迁引擎，不打断对局）</td></tr>
+<tr><td>GPU 被别的程序占满</td><td>开局自动降 CPU（侧栏设备信息条显示 cpu，人机自动限每手 60 sims 保可玩）；释放 GPU 后可在设置中一键切回（在线搬迁引擎，不打断对局）</td></tr>
 <tr><td>服务被重启</td><td>正在下的人机局会话过期，重开一局即可；前端对失效会话自动重建并重放局面（多数情况无感续战）</td></tr>
 <tr><td>命令行对战 / Gomocup 协议</td><td>第 5 节</td></tr>
 </table>
@@ -141,14 +141,14 @@ uv pip install -r requirements-backend.txt --extra-index-url https://download.py
 <h2 id="s3">3　训练</h2>
 <h3>3.1　推荐路径：管理台</h3>
 <pre><code>http://&lt;主机IP&gt;:5000/admin　→　「训练」页　→　启动训练</code></pre>
-<p>表单字段就是训练旋钮：棋种、神经网络（s/m/l/自定义）、并发线程、每轮局数、虚拟损失 K、（可选）批上限与设备。
+<p>表单字段就是训练旋钮：棋种、网络（s/m/l/m8/mini/自定义）、并发线程、每轮局数、虚拟损失 K（自适用，留空即可）、（可选）批上限与设备。
 启动参数里的<b>训练目标</b>三项可留空（留空=config 缺省）：练到第几代自动收尾、每手模拟次数从几爬到了、守擂胜率门槛。启动后"监控"页看实时；停止三档：<b>收尾后停</b>（推荐，自博弈+fit+守擂全做完）· <b>优雅停止</b>（在跑的局收完入仓即退）·
 <b>立即结束</b>（kill -9，丢当轮未落盘数据）。</p>
 <h3>3.2　裸命令（服务外的独立终端）</h3>
 <pre><code>python -X gil=0 -m scripts.train_server          # 用仓库 config 缺省
 # 全参数环境变量版：
 ZZ_GAME=ChineseChess ZZ_PROFILE=s ZZ_WORKERS=32 ZZ_GAMES_PER_ROUND=400 \
-ZZ_BATCH_LEAVES=12 ZZ_DEVICE=auto python -X gil=0 -m scripts.train_server</code></pre>
+ZZ_BATCH_LEAVES=64 ZZ_DEVICE=auto python -X gil=0 -m scripts.train_server</code></pre>
 <ul>
 <li><code>-X gil=0</code> 必须保留（首次 forward 会惰性 import triton 试图重开 GIL，不加则多线程 MCTS 假并行）。</li>
 <li>续训自动从"最新 checkpoint + 仓"接上：同一神经网络目录里有 ckpt 即热启动；冷启动首个模型自动晋升（无守擂者）。</li>
@@ -157,13 +157,14 @@ ZZ_BATCH_LEAVES=12 ZZ_DEVICE=auto python -X gil=0 -m scripts.train_server</code>
 </ul>
 
 <h2 id="s4">4　监控台速览（<code>/admin</code>）</h2>
-<p class="note"><b>平台定位</b>：控制台以<b>桌面浏览器</b>为主要形态（滚轮缩放 / 拖动平移 / 双击复位）；<b>触屏同样可用</b>——图上单指拖动平移、双指捏合缩放、双击复位，窄屏自动单列。对弈页手机平板一贯支持。</p>
+<p class="note"><b>平台定位</b>：控制台以<b>桌面浏览器</b>为主要形态（滚轮缩放 / 拖动平移 / 双击复位）；<b>手机全面适配（11-06）</b>——顶栏收成 mini 状态条（三列两行表+一键展开）、页签横向滚动、表格横滚、图表卡两列自适应；图上单指平移、双指捏合缩放、双击复位。对弈页手机平板一贯支持。</p>
 <figure style="margin:14px 0"><img src="assets/admin-monitor.png" alt="训练控制台监控页" style="max-width:100%;border:1px solid var(--line);border-radius:10px">
 <figcaption class="note">图：监控页——顶部状态徽章（版本/主题/运行态/训练配置），卡片为实时指标（副标题标数据口径），下方吞吐/损耗/胜率/硬件曲线。</figcaption></figure>
 <table>
 <tr><th>页</th><th>能做什么</th></tr>
 <tr><td>工具</td><td>scripts/ 其余功能的 Web 启停：piskvork（Gomocup 协议服，网络/模型级联下拉选择）/ bench（引擎批扫描）/ build_cython（安全构建）——参数白名单校验、日志在线看、服务重启自动收养</td></tr>
-<tr><td>监控</td><td>实时吞吐/批/心跳进度；Loss·policy / Loss·value / 策略 KL+熵 / 胜率 / 硬件曲线（滚轮缩放、双击复位）；每卡悬停有释义</td></tr>
+<tr><td>监控</td><td>六张概览卡（局/分与引擎吞吐、搜索效率·选叶/等推理拆分、训练步数、经验池、验证集、评估守擂）+ 八幅曲线（Loss·policy/value、策略 KL+熵、胜率、吞吐、硬件）；滚轮缩放、双击复位、每卡悬停释义；≥1024 宽一行六卡，手机两列</td></tr>
+<tr><td>竞技场</td><td>对局平台：多场次各自独立榜（新建/删除）、名册悬浮穿梭窗管理参赛选手、智能约架/车轮战/自定义对决三模式、自适应并行桌；实时对阵直播+排名/实力阶梯/对阵胜率矩阵</td></tr>
 <tr><td>训练</td><td>启停 + 三档停止；表单即环境变量（见 §5 篇 5 节对照表）</td></tr>
 <tr><td>资产</td><td>checkpoint / 经验池（含克隆）/ 运行目录；三表皆可勾选批量删除（逐项护栏，best 拒删）；日志不在资产管理之列——查看去日志页，轮转由系统自管；<b>设为最强</b>（回滚守擂者）；按护栏删除（拒删 best、删仓需二次确认）</td></tr>
 <tr><td>日志</td><td><b>训练进程实时尾部</b>（含停止按钮联动）置顶；任选日志文件尾读：模块日志、轮转历史、console 原始输出</td></tr>
@@ -181,17 +182,17 @@ ZZ_BATCH_LEAVES=12 ZZ_DEVICE=auto python -X gil=0 -m scripts.train_server</code>
 <tr><td><code>python scripts/bench_batch_sweep.py</code></td><td>引擎批扫描，看成本模型还准不准</td></tr>
 </table>
 
-<h2 id="s6">6　选档与配置速查</h2>
+<h2 id="s6">6　选网络与配置速查</h2>
 <ul>
 <li><b>起点与经验池</b>：训练表单可选<b>起点</b>（续训 / 从头训练：随机新网络但代数接续永不覆盖 / 从指定代数分叉）与<b>经验池</b>。<b>经验池是棋种级资源</b>（<code>data/&lt;Game&gt;/buffers/&lt;name&gt;/</code>，主池+留出集成对），不按网络分家——下拉列出已有池、悬停看详情（表示版本、容量/已用、<b>最新数据来自哪个网络的第几代</b>）、末项新建。任何网络都可以接着已有池训练（跨表示版本被启动闸门拒绝，§5 篇 4.3）。想拿老池做实验又怕覆写坏它：资产页「经验池」面板点「⧉ 克隆」——整体复制成新编号池，回训练表单选副本即可，原池不动（训练进行中不可克隆）。**经验池必选**——控制台不提供"不选"；新建无需起名，默认按棋种递增编号（pool1、pool2…），建好后可改名使用。模型目录里的原位池仅作历史兼容（裸命令训练未指定时使用）。</li>
-<li><b>自定义神经网络</b>：控制台「训练 → 神经网络配置」给规模组合起名字（如 <code>mini64</code>），保存后训练表单、对弈页、资产页的神经网络下拉即刻可选；删除只移除名字、磁盘上的模型（权重）原样保留（重加同名网络即接上）。</li>
+<li><b>自定义网络</b>：控制台「训练 → 网络配置」给规模组合起名字（如 <code>mini64</code>），保存后训练表单、对弈页、资产页的网络下拉即刻可选；删除只移除名字、磁盘上的模型（权重）原样保留（重加同名网络即接上）。</li>
 <li><b>网络怎么选</b>：s（8M）练得快、一夜可追平老 m 网络（§4 篇 10.3）；m（25M）默认、老资产在这；
-l（30M）天花板实验。<b>仓跨网络通用</b>（同表示版本），大网络热身可拷小网络的仓。</li>
-<li><b>全部运行期旋钮</b> = 环境变量九个（<code>ZZ_GAME / ZZ_PROFILE / ZZ_DEVICE / ZZ_WORKERS /
+l（30M）天花板实验；m8/mini/mini2 为自定义命名配置（profiles.json）。<b>仓跨网络通用</b>（同表示版本），大网络热身可拷小网络的仓。</li>
+<li><b>全部运行期旋钮</b> = 环境变量（全表见 §5 篇）（<code>ZZ_GAME / ZZ_PROFILE / ZZ_DEVICE / ZZ_WORKERS /
 ZZ_GAMES_PER_ROUND / ZZ_BATCH_LEAVES / ZZ_MAX_BATCH / ZZ_INFER_WORKERS / ZZ_ADMIN_TOKEN</code>），
 语义与默认值见 §5 篇表 4；不改仓库 config 文件。</li>
-<li><b>版本从哪看</b>：对弈页「设置」底部与控制台标题徽章（形如 <code>v2.0.0 · 60e4578</code>），
-或 <code>python main.py --version</code>；四轴版本（应用/表示/神经网络/模型代数）的分工见 §5 篇 4.4。
+<li><b>版本从哪看</b>：对弈页「设置」底部与控制台标题徽章（形如 <code>v2.3.0 · 9f2c1ab</code>），
+或 <code>python main.py --version</code>；四轴版本（应用/表示/网络/模型代数）的分工见 §5 篇 4.4。
 <li><b>静态默认值</b>在 <code>core/utils/config.py</code>（c_puct、温度调度、dirichlet、阈值、sims 爬坡、presets 规模）。</li>
 </ul>
 
@@ -217,7 +218,7 @@ for t in tests/test_*.py; do echo "== $t"; ZZ_DEVICE=cpu .venv/bin/python "$t" |
 <div class="callout good"><b>读文档的路线：</b>掌握用法后深入原理 → §1 环境 → §2 MCTS → §3 推理引擎 → §4 训练管线；
 要接系统/写脚本 → §5 架构与接口。</div>
 
-<footer>ZenZero 文档集 · §6 如何使用 · 2026-10 · 命令与 README、代码注释冲突时，以后两者为准</footer>
+<footer>ZenZero 文档集 · §6 如何使用 · 2026-11 · 命令与 README、代码注释冲突时，以后两者为准</footer>
 </main>
 <script>
 /* 离线模式（file:// 直开）：指向服务的入口（← 对弈 / ⚙ 控制台 / 首页）不可用，
