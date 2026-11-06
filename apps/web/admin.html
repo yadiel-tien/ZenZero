@@ -590,10 +590,13 @@
     </div>
   </section>
   <section class="tab" id="tab-tasks">
-    <div class="hint" style="margin-bottom:10px">scripts/ 其余功能入口的启停（训练在「训练」页）。
-      常驻任务停止走 SIGINT→SIGTERM→SIGKILL 逐级；一次性任务显示上次退出码。输出统一落
-      <code>logs/&lt;任务名&gt;/console.log</code>（追加，历次会话连贯）。</div>
+    <div class="hint" style="margin-bottom:10px">训练在「训练」页、竞技场在「竞技场」页。
+      这里是其余后台入口：任务=常驻服务（停止走 SIGINT→SIGTERM→SIGKILL 逐级），工具=跑完即止的诊断脚本（显示上次退出码）。输出统一落
+      <code>logs/&lt;名称&gt;/console.log</code>（追加，历次会话连贯）。</div>
+    <div class="fsec">任务</div>
     <div id="task-list"><div class="hint">加载中…</div></div>
+    <div class="fsec">工具</div>
+    <div id="tool-list"></div>
     <div class="panel" style="margin-top:12px"><h2>任务日志 <span class="lg" id="task-log-name">—</span></h2>
       <pre id="task-log" style="max-height:340px">点击任务上的「查看日志」在此显示</pre></div>
   </section>
@@ -1517,9 +1520,9 @@ async function loadTasks(rebuild){
   catch(e){ if(rebuild) $('task-list').innerHTML = '<div class="hint">任务列表读取失败: '+esc(e.message)+'</div>'; return; }
   if(rebuild){
     const keep = {};
-    document.querySelectorAll('#task-list [data-t]').forEach(el=>{
+    document.querySelectorAll('#task-list [data-t],#tool-list [data-t]').forEach(el=>{
       keep[el.dataset.t+'.'+el.dataset.k] = (el.type==='checkbox') ? el.checked : el.value; });
-    $('task-list').innerHTML = list.map(t=>{
+    const cardHtml = (t)=>{
       const opts = Object.entries(t.opts||{}).map(([k,spec])=>{
         const key = t.name+'.'+k;
         if(spec.type==='flag'){
@@ -1538,7 +1541,10 @@ async function loadTasks(rebuild){
           <button onclick="taskAct('start','${t.name}')">启动</button>
           <button class="danger" onclick="taskAct('stop','${t.name}')">停止</button>
           <button onclick="taskShowLog('${t.name}')">查看日志</button></div></div>`;
-    }).join('');
+    };
+    const longs = list.filter(t=>t.kind!=='once'), onces = list.filter(t=>t.kind==='once');
+    $('task-list').innerHTML = longs.length ? longs.map(cardHtml).join('') : '<div class="hint">暂无常驻任务</div>';
+    $('tool-list').innerHTML  = onces.length ? onces.map(cardHtml).join('') : '<div class="hint">暂无工具</div>';
   }
   list.forEach(t=>{
     const el = document.querySelector(`.task-st[data-st="${t.name}"]`); if(!el) return;
