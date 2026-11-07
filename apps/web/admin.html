@@ -931,6 +931,8 @@ function renderSnapshot(s){
     else if((L.age_s||0) > 30){ chip += ' stalled'; txt += ` · 日志 ${fmt(L.age_s,0)}s 未更新`; }
   }
   window.__trTask = {cls: chip, text: txt, running};
+  window.__liveTask = {phase: L.phase, it: L.iteration, best: L.best_index,
+                       vs: L.eval_vs, dev: L.engine_device, sims: L.sims_per_move};
   document.body.classList.toggle('stalled', !running);
   // 训练进程
   // 未运行时「阶段」pill 已说明一切，进程 pill 说同一句话纯属重复——只在运行中现身
@@ -2038,9 +2040,12 @@ function renderTask(){
         `${fmt(a.done||0,0)}/${fmt(a.total||0,0)} 局 · ${fmt(a.gpm,1)} 局/分 · ${a.tables||''} 桌`);
   else if (tr.running) {
     const ph = lt.phase || 'selfplay';
-    taskCard = card('任务', pill(PH_T[ph] || '训练中', PH_C[ph] || '#4a90d9', false),
-        ph === 'eval' ? `第 ${fmt(lt.it||0,0)} 代 攻 第 ${lt.vs!=null?lt.vs:'?'} 代王座`
-                      : `第 ${fmt(lt.it||0,0)} 代 · 王 ${lt.best!=null?lt.best:'—'} · ${esc((tr.text||'').split(' ')[1]||'')}`);
+    // 引擎不在 GPU 上跑（小显存/纯 CPU 机合法路径）必须说破，别让用户对着慢跑猜
+    const warn = lt.dev && String(lt.dev).indexOf('cuda') !== 0;
+    taskCard = card('任务', pill((warn ? '⚠ ' : '') + (PH_T[ph] || '训练中'), warn ? '#b4530f' : (PH_C[ph] || '#4a90d9'), false),
+        (ph === 'eval' ? `第 ${fmt(lt.it||0,0)} 代 攻 第 ${lt.vs!=null?lt.vs:'?'} 代王座`
+                       : `第 ${fmt(lt.it||0,0)} 代 · ${lt.best!=null&&lt.best>=0?'王 '+lt.best:'冷启动'} · ${esc((tr.text||'').split(' ')[1]||'')}`)
+        + (warn ? `<b style="color:#b4530f"> · CPU 推理（每手 sims 已自动限 ${esc(String(lt.sims||100))}）</b>` : ''));
   } else
     taskCard = card('任务', `<span class="tchip2" style="color:var(--dim)">未运行</span>`,
         lt.it ? `上次 第 ${fmt(lt.it,0)} 代 · 王 ${lt.best!=null?lt.best:'—'}` : '去竞技场或训练页启动任务');

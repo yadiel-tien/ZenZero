@@ -147,7 +147,7 @@ class SelfPlayManager:
         # max_iters 语义 = **本次启动要训练的轮数**（审计修正）。
         # 旧实现是绝对世代上限：象棋 v2 从 499 重启、上限 500，只会跑 1 轮；
         # 五子棋跑满再启动，一轮都不跑直接退出。
-        hb.write(force=True, phase='idle', note='run start')
+        hb.write(force=True, phase='idle', note='run start', **self._dev_field())
         for round_index in range(settings['max_iters']):
             if self.stop_event.is_set():
                 self.logger.info('收到停止请求，不再开新轮，收尾退出。')
@@ -187,7 +187,7 @@ class SelfPlayManager:
             # 直接调用训练服务器进行模型训练，并保存参数
             # buffer 已与 server 共享（内存即真源，刚 save 过）→ 免重读几 GB 的 pickle
             steps_before = self.train_server.total_steps_trained
-            hb.write(force=True, phase='fit', iteration=iteration, round=round_index + 1,
+            hb.write(force=True, phase='fit', iteration=iteration, round=round_index + 1, **self._dev_field(),
                      game=CONFIG['game_name'], profile=get_profile(),
                      sims_per_move=cap_sims(ramp_simulations(iteration), self.train_server),
                      buffer_size=self.buffer.size, buffer_capacity=self.buffer.capacity,
@@ -217,7 +217,7 @@ class SelfPlayManager:
                 self._record_perf(round_index, iteration, sp, fill, fit, None, 0.0)
                 hb.write(force=True, phase='idle', note='stopped during fit')
                 return
-            hb.write(force=True, phase='eval', iteration=iteration, round=round_index + 1,
+            hb.write(force=True, phase='eval', iteration=iteration, round=round_index + 1, **self._dev_field(),
                      eval_vs=self.best_index,      # 打擂对阵：挑战者 iteration vs 王者 best_index
                      game=CONFIG['game_name'], profile=get_profile(),
                      sims_per_move=cap_sims(ramp_simulations(iteration), self.train_server),
@@ -314,6 +314,15 @@ class SelfPlayManager:
         self.logger.info(line)
         print(line, flush=True)
 
+    def _dev_field(self) -> dict:
+        """心跳带上推理引擎的**实际**设备（cuda:0 / cpu）：显存不足时引擎会静默降级
+        CPU（多设备合法路径），面板据此出「⚠ CPU 推理」警示，不让用户对着慢训练干等
+        （2026-11-07 复盘：降 CPU 六分钟无人知情直到超时雪崩）。"""
+        try:
+            return {'engine_device': str(getattr(self.train_server, '_ac_dev', '') or '')}
+        except Exception:                              # noqa: BLE001 心跳字段宁缺毋错
+            return {}
+
     def self_play(self, iteration: int, n_games=100, round_index: int | None = None,
                   phase: str = 'selfplay') -> int:
         """自博弈收集数据
@@ -333,6 +342,7 @@ class SelfPlayManager:
         hb.write(force=True, phase=phase, iteration=iteration, round=(round_index or 0) + 1,
                  game=CONFIG['game_name'], profile=get_profile(), round_t0=round_t0,
                  games_done=0, games_total=n_games, sims_per_move=n_simulations,
+                 best_index=self.best_index, **self._dev_field(),
                  batch_leaves=batch_leaves, buffer_size=self.buffer.size,
                  buffer_capacity=self.buffer.capacity,
                  val_buffer_size=self.val_buffer.size, val_buffer_capacity=self.val_buffer.capacity)
@@ -370,14 +380,14 @@ class SelfPlayManager:
                     hb.write(force=True, phase=phase, iteration=iteration,
                              game=CONFIG['game_name'], profile=get_profile(),
                              round=(round_index or 0) + 1, round_t0=round_t0,
-                             games_done=completed, games_total=n_games, stopping=True,
+                             games_done=completed, games_total=n_games, stopping=True, **self._dev_field(),
                              buffer_size=self.buffer.size, buffer_capacity=self.buffer.capacity)
                 if stop_announced:
                     # 收尾期每个轮询周期都跳一下心跳（内部 2s 节流）：在跑的局可能
                     # 两三分钟才完一局，心跳断了 runner 会误判"卡死"而升级信号（演练 C 实锤）。
                     hb.write(phase=phase, iteration=iteration, game=CONFIG['game_name'],
                              profile=get_profile(), round=(round_index or 0) + 1,
-                             round_t0=round_t0, games_done=completed, games_total=n_games,
+                             round_t0=round_t0, games_done=completed, games_total=n_games, **self._dev_field(),
                              stopping=True, buffer_size=self.buffer.size,
                              buffer_capacity=self.buffer.capacity)
                 done, pending = wait(pending, timeout=1.0, return_when=FIRST_COMPLETED)
@@ -425,7 +435,7 @@ class SelfPlayManager:
                     # 心跳：面板的"实时 buffer / 进度"就靠它（节流 2s，写失败静默）
                     hb.write(phase=phase, iteration=iteration, round=(round_index or 0) + 1,
                              game=CONFIG['game_name'], profile=get_profile(), round_t0=round_t0,
-                             games_done=completed, games_total=n_games,
+                             games_done=completed, games_total=n_games, **self._dev_field(),
                              stopping=self.stop_event.is_set(),
                              sims_per_move=n_simulations, batch_leaves=batch_leaves,
                              samples=data_count, sims=sims_count,
@@ -468,7 +478,7 @@ class SelfPlayManager:
             pass
         hb.write(force=True, phase=phase, iteration=iteration, round=(round_index or 0) + 1,
                  game=CONFIG['game_name'], profile=get_profile(), round_t0=round_t0,
-                 games_done=completed, games_total=n_games, samples=data_count, sims=sims_count,
+                 games_done=completed, games_total=n_games, samples=data_count, sims=sims_count, **self._dev_field(),
                  stopping=True,
                  buffer_size=self.buffer.size, buffer_capacity=self.buffer.capacity,
                  val_buffer_size=self.val_buffer.size, val_buffer_capacity=self.val_buffer.capacity,
@@ -660,7 +670,7 @@ class SelfPlayManager:
                     win_rate = score / completed
                     pbar.set_postfix({'win_rate': f'{win_rate:.2%}'})  # 进度条后面添加当前胜率
                     hb.write(phase='eval', iteration=iteration,
-                             game=CONFIG['game_name'], profile=get_profile(), games_done=completed,
+                             game=CONFIG['game_name'], profile=get_profile(), games_done=completed, **self._dev_field(),
                              games_total=int(n_games), eval_win_rate=round(float(win_rate), 4),
                              buffer_size=self.buffer.size, buffer_capacity=self.buffer.capacity)
 

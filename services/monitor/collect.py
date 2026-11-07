@@ -727,6 +727,8 @@ class Monitor:
                                'val_size': rt.get('val_buffer_size'),
                                'val_capacity': rt.get('val_buffer_capacity')},
                     'age_s': rt.get('age_s'), 'source': 'heartbeat',
+                    'engine_device': rt.get('engine_device'),
+                    'eval_vs': rt.get('eval_vs'), 'best_index': rt.get('best_index'),
                     'iteration': rt.get('iteration'), 'round': rt.get('round')}
         base = self._phase()
         base['source'] = 'log'
