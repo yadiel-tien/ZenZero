@@ -112,6 +112,9 @@ CONFIG: AppConfig = {
         # 表示版本 2：26 面清洁布局（删 v1 差分面、加兵力/将位），
         # 面定义见 ChineseChess.convert_to_network docstring；
         # 旧模型（498 等 v1/20 面）按各自的 feature_version 转换输入，互不混用
+        # CPU 推理时每手模拟预算封顶（多设备适配，2026-11-07 复盘：
+        # 大脑占卡/小显存机降 CPU 后仍按 784 sims 必堵死 300s 超时链）
+        'cpu_sims_cap': 100,
         'feature_version': 2,
         'tensor_shape': (26, 10, 9),
         'state_shape': (7, 10, 9),
@@ -161,6 +164,7 @@ CONFIG: AppConfig = {
     'Gomoku': {
         'screen_size': (600, 800),
         'grid_size': 35.2857,
+        'cpu_sims_cap': 100,
         'feature_version': 1,
         'tensor_shape': (2, 15, 15),
         'state_shape': (2, 15, 15),

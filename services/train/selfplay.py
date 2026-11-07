@@ -23,6 +23,22 @@ from core.network.functions import read_latest_index, save_best_index, read_best
 import random
 
 
+def cap_sims(n: int, engine) -> int:
+    """模拟预算跟随推理设备（多设备适配的核心一环，2026-11-07 复盘）：
+    引擎实际落在 CPU（纯 CPU 机、小显存 OOM 自动降级、驱动缺失…一律合法路径）时，
+    每手 784 次模拟会把推理队列堵到 300s 超时雪崩——降卡不等于降速配额。
+    封顶值走配置 cpu_sims_cap（默认 100：慢设备每手样本少一点，但整条管线活着）。"""
+    try:
+        dev = getattr(engine, '_ac_dev', None)
+        dev = getattr(dev, 'type', None) or str(dev or '')
+        if 'cpu' in dev.lower():
+            cap = int(settings.get('cpu_sims_cap') or 0)
+            return min(n, cap) if cap > 0 else n
+    except Exception:                                # noqa: BLE001 判定失败宁可不封顶
+        pass
+    return n
+
+
 def ramp_simulations(iteration: int, sims: dict | None = None) -> int:
     """每手模拟次数：按**绝对代**从 start 爬到 max（默认 400 → 800，50 代到位）。
 
@@ -173,7 +189,7 @@ class SelfPlayManager:
             steps_before = self.train_server.total_steps_trained
             hb.write(force=True, phase='fit', iteration=iteration, round=round_index + 1,
                      game=CONFIG['game_name'], profile=get_profile(),
-                     sims_per_move=ramp_simulations(iteration),
+                     sims_per_move=cap_sims(ramp_simulations(iteration), self.train_server),
                      buffer_size=self.buffer.size, buffer_capacity=self.buffer.capacity,
                      note='fit start')
             t_fit = time.time()
@@ -204,7 +220,7 @@ class SelfPlayManager:
             hb.write(force=True, phase='eval', iteration=iteration, round=round_index + 1,
                      eval_vs=self.best_index,      # 打擂对阵：挑战者 iteration vs 王者 best_index
                      game=CONFIG['game_name'], profile=get_profile(),
-                     sims_per_move=ramp_simulations(iteration),
+                     sims_per_move=cap_sims(ramp_simulations(iteration), self.train_server),
                      buffer_size=self.buffer.size, buffer_capacity=self.buffer.capacity,
                      note='eval start')
             # 评估模型，按结果更新模型
@@ -309,7 +325,7 @@ class SelfPlayManager:
 
         start = time.time()
         # 动态 n_simulations：按绝对代爬坡（重启续上，不退回起点）
-        n_simulations = ramp_simulations(iteration)
+        n_simulations = cap_sims(ramp_simulations(iteration), self.train_server)
         round_t0 = time.time()
 
         # 每手同时挂起的 playout 数（虚拟损失批量）。批大小 ≈ 在跑局数 × K。
@@ -716,7 +732,7 @@ class SelfPlayManager:
         ) for index in model_list]
 
         # 随机模拟测试
-        n_simulations = 300
+        n_simulations = cap_sims(300, engines[model_list[0]])  # CPU 降级同封顶（守擂同样防超时雪崩）
         batch_leaves = int(CONFIG.get('mcts_batch_leaves', 8))
         exploration_steps = settings['evaluation']['exploration_steps']
         tau_decay_rate = settings['evaluation']['tau_decay_rate']
