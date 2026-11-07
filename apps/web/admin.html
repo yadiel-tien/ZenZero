@@ -2060,12 +2060,15 @@ function renderTask(){
     const warn = lt.dev && String(lt.dev).indexOf('cuda') !== 0;
     const PH_FULL = {fill:'蓄仓对局', selfplay:'自博弈采集', fit:'神经网络训练', eval:'守擂评估'};
     const pg = lt.prog || {}, pd = pg.done!=null?pg.done:'', pt = pg.total!=null?pg.total:'';
-    const head2 = lt.best!=null && lt.best>=0 ? `训练 <b>第 ${fmt(lt.it||0,0)} 代</b> · 最佳 <b>第 ${lt.best} 代</b>`
-                                               : `训练 <b>第 ${fmt(lt.it||0,0)} 代</b> · 尚无守擂者`;
+    const unit = ph==='fit' ? '步' : '局';
+    const l2 = ph === 'eval'
+        ? `第 ${fmt(lt.it||0,0)} 代 攻 ${lt.vs!=null?lt.vs:'?'} 代王座`
+        : `第 ${fmt(lt.it||0,0)} 代 · 最佳 ${lt.best!=null&&lt.best>=0? '第 '+lt.best+' 代' : '—'}`;
     taskCard = card('任务', pill((warn ? '⚠ ' : '') + (PH_FULL[ph] || '训练中'), warn ? '#b4530f' : (PH_C[ph] || '#4a90d9'), false),
-        `<div style="white-space:nowrap">${head2}</div>`
-        + `<div class="hint" style="margin:0">${ph==='eval' ? `挑战王座 攻 ${lt.vs!=null?lt.vs:'?'} 代` : PH_FULL[ph]||''}${pd!==''? ` · ${pd}/${pt||'?'}`:''}</div>`
-        + (warn ? `<div style="color:#b4530f;margin-top:2px">⚠ CPU 推理 · 每手 sims ≤ ${esc(String(lt.sims||100))}</div>` : ''));
+        `<div style="white-space:nowrap">${l2}</div>`
+        + `<div class="hint" style="margin:0">${pd!==''? fmt(pd,0)+'/'+(pt||'?')+' '+unit : PH_FULL[ph]||''}`
+        + (warn ? ` <b style="color:#b4530f" title="GPU 不可用或被占满，引擎降在 CPU：每手 sims 已封顶 ${esc(String(lt.sims||100))}，吞吐大降；本机大脑占卡建议 baton 换班">· CPU 推理</b>` : '')
+        + `</div>`);
   } else
     taskCard = card('任务', `<span class="tchip2" style="color:var(--dim)">未运行</span>`,
         lt.it ? `上次 第 ${fmt(lt.it,0)} 代 · 王 ${lt.best!=null?lt.best:'—'}` : '去竞技场或训练页启动任务');
