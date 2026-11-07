@@ -932,7 +932,8 @@ function renderSnapshot(s){
   }
   window.__trTask = {cls: chip, text: txt, running};
   window.__liveTask = {phase: L.phase, it: L.iteration, best: L.best_index,
-                       vs: L.eval_vs, dev: L.engine_device, sims: L.sims_per_move};
+                       vs: L.eval_vs, dev: L.engine_device, sims: L.sims_per_move,
+                       prog: L.progress};
   document.body.classList.toggle('stalled', !running);
   // 训练进程
   // 未运行时「阶段」pill 已说明一切，进程 pill 说同一句话纯属重复——只在运行中现身
@@ -1389,6 +1390,22 @@ function launchOpts(){
 async function startTraining(){
   const o = launchOpts();
   if(!o) return;
+  // GPU 不可用/显存不足而设备选的是"自动"——必须让用户知情确认（CPU 训练合法但很慢）
+  if (!o.device || o.device === '' ) {
+    try {
+      const hw = ((await api('/api/admin/snapshot')).hardware || {}).gpu;
+      const freeMb = hw ? (hw.mem_total_mb - hw.mem_used_mb) : null;
+      if (!hw) {
+        const a = await uiAsk({title:'本机没有可用 GPU', danger:false, okLabel:'用 CPU 训练',
+          body:'未探测到 GPU（纯 CPU 机或驱动异常）。训练将跑在 CPU 上：每手模拟自动封顶、吞吐约为 GPU 的几十分之一，一夜可能只够几代。确认继续？'});
+        if (!a.ok) return;
+      } else if (freeMb != null && freeMb < 4000) {
+        const a = await uiAsk({title:'显存不足', danger:false, okLabel:'仍要启动（将落 CPU）',
+          body:`GPU 空闲显存仅 ${(freeMb/1024).toFixed(1)}G（被其它程序占用）。引擎会自动降级到 CPU：每手模拟封顶、速度大幅下降。若是本机大脑占卡，建议先用 baton 换班再训。确认继续？`});
+        if (!a.ok) return;
+      }
+    } catch(e){ /* 探测失败不拦启动 */ }
+  }
   $('launch_hint').textContent = '正在启动…';
   try{
     const r = await api('/api/admin/train/start', {method:'POST', body: JSON.stringify(o)});
@@ -2040,12 +2057,15 @@ function renderTask(){
         `${fmt(a.done||0,0)}/${fmt(a.total||0,0)} 局 · ${fmt(a.gpm,1)} 局/分 · ${a.tables||''} 桌`);
   else if (tr.running) {
     const ph = lt.phase || 'selfplay';
-    // 引擎不在 GPU 上跑（小显存/纯 CPU 机合法路径）必须说破，别让用户对着慢跑猜
     const warn = lt.dev && String(lt.dev).indexOf('cuda') !== 0;
-    taskCard = card('任务', pill((warn ? '⚠ ' : '') + (PH_T[ph] || '训练中'), warn ? '#b4530f' : (PH_C[ph] || '#4a90d9'), false),
-        (ph === 'eval' ? `第 ${fmt(lt.it||0,0)} 代 攻 第 ${lt.vs!=null?lt.vs:'?'} 代王座`
-                       : `第 ${fmt(lt.it||0,0)} 代 · ${lt.best!=null&&lt.best>=0?'王 '+lt.best:'冷启动'} · ${esc((tr.text||'').split(' ')[1]||'')}`)
-        + (warn ? `<b style="color:#b4530f"> · CPU 推理（每手 sims 已自动限 ${esc(String(lt.sims||100))}）</b>` : ''));
+    const PH_FULL = {fill:'蓄仓对局', selfplay:'自博弈采集', fit:'神经网络训练', eval:'守擂评估'};
+    const pg = lt.prog || {}, pd = pg.done!=null?pg.done:'', pt = pg.total!=null?pg.total:'';
+    const head2 = lt.best!=null && lt.best>=0 ? `训练 <b>第 ${fmt(lt.it||0,0)} 代</b> · 最佳 <b>第 ${lt.best} 代</b>`
+                                               : `训练 <b>第 ${fmt(lt.it||0,0)} 代</b> · 尚无守擂者`;
+    taskCard = card('任务', pill((warn ? '⚠ ' : '') + (PH_FULL[ph] || '训练中'), warn ? '#b4530f' : (PH_C[ph] || '#4a90d9'), false),
+        `<div style="white-space:nowrap">${head2}</div>`
+        + `<div class="hint" style="margin:0">${ph==='eval' ? `挑战王座 攻 ${lt.vs!=null?lt.vs:'?'} 代` : PH_FULL[ph]||''}${pd!==''? ` · ${pd}/${pt||'?'}`:''}</div>`
+        + (warn ? `<div style="color:#b4530f;margin-top:2px">⚠ CPU 推理 · 每手 sims ≤ ${esc(String(lt.sims||100))}</div>` : ''));
   } else
     taskCard = card('任务', `<span class="tchip2" style="color:var(--dim)">未运行</span>`,
         lt.it ? `上次 第 ${fmt(lt.it,0)} 代 · 王 ${lt.best!=null?lt.best:'—'}` : '去竞技场或训练页启动任务');
