@@ -1,8 +1,10 @@
 # ZenZero · 高性能 AlphaZero 棋类 AI 框架
 
+[**中文**](readme.md) ｜ [English](README_en.md)
+
 基于 AlphaZero 的通用棋类 AI 框架，当前支持**中国象棋**与**五子棋**。用 Python 3.14 free-threading（nogil）+ Cython 核心 + 动态批量推理，把"自博弈生成数据 → 训练 → 守擂晋升"整条闭环做到单机可跑、网页可玩。
 
-> 📖 **在线文档**：<https://yadiel-tien.github.io/ZenZero/>（六篇 · 第 1 篇《如何使用》上手）
+> 📖 **在线文档**：<https://yadiel-tien.github.io/ZenZero/>（六篇 · 第 1 篇《如何使用》上手 · 总览与第 1 篇有 [English 版](docs/en/index.html)）
 
 ![对局中](docs/assets/playing.png)
 
@@ -68,7 +70,7 @@ python main.py                          # 默认 127.0.0.1:5000；--host 0.0.0.0
 python -X gil=0 -m scripts.train_server
 ```
 
-`-X gil=0` 必须保留：首次 forward 惰性导入 triton 会试图重开 GIL，强制关闭后多线程 MCTS 才真并行。三种停止语义（收尾后停 / 优雅停止 / 立即结束）详见文档 §4。
+`-X gil=0` 必须保留：首次 forward 惰性导入 triton 会试图重开 GIL，强制关闭后多线程 MCTS 才真并行。三种停止语义（收尾后停 / 优雅停止 / 立即结束）详见文档 §5。
 
 Cython 模块编译（可选，显著提升搜索速度）：
 
@@ -117,12 +119,14 @@ ZenZero/
 
 | 篇 | 内容 |
 | :--- | :--- |
-| [§1 象棋环境](docs/xiangqi-env.html) | 状态编码、2086 动作 ABI、合法着法制规则引擎、26 面棋盘表示、feature epoch |
-| [§2 MCTS 与虚拟损失](docs/mcts.html) | PUCT、批量虚拟损失、无屏障流水线、π 与温度、实测 5.8k→60k req/s |
-| [§3 推理引擎](docs/inference-engine.html) | 四段线程流水、自适应凑批、镜像增强、设备一致性、多模型 Hub |
-| [§4 训练管线](docs/training.html) | 大闭环、sims 爬坡、留出集、CE = KL + 熵、停止语义 |
-| [§5 架构与 API](docs/architecture.html) | 进程拓扑、目录导读、环境变量全表、对战/控制台 API 契约 |
-| [§6 如何使用](docs/usage.html) | 三步上手、安装构建、控制台、排障、测试验收 |
+| [§1 如何使用](docs/usage.html) | 三步上手、安装构建、控制台、排障、测试验收（[English](docs/en/usage.html)） |
+| [§2 象棋环境](docs/xiangqi-env.html) | 状态编码、2086 动作 ABI、合法着法制规则引擎、26 面棋盘表示、feature epoch |
+| [§3 MCTS 与虚拟损失](docs/mcts.html) | PUCT、批量虚拟损失、无屏障流水线、π 与温度、实测 5.8k→60k req/s |
+| [§4 推理引擎](docs/inference-engine.html) | 四段线程流水、自适应凑批、镜像增强、设备一致性、多模型 Hub |
+| [§5 训练管线](docs/training.html) | 大闭环、sims 爬坡、留出集、CE = KL + 熵、停止语义 |
+| [§6 架构与 API](docs/architecture.html) | 进程拓扑、目录导读、环境变量全表、对战/控制台 API 契约 |
+
+总览与第 1 篇另有英文版（[docs/en/](docs/en/index.html)），其余各篇翻译中。
 
 > **feature epoch 2（2026-10）**：象棋规则升级为官方口径（送将非法、将死/困毙判负、三次重复判和、长将判负、120 步时钟），棋盘表示重排为 26 面。旧模型按出生 epoch 继续可对战；epoch 切换后训练自动从新网络开训。回归验证：`tests/test_chess_rules.py`（21 项）。
 

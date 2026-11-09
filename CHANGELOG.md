@@ -6,6 +6,11 @@
 
 ## Unreleased
 
+- **docs(i18n): README 英文版 `README_en.md`**：全文对译（特性/快速开始/对战/训练/设备表/结构/文档表/
+  接入新游戏/MIT），文档表更新为六篇新序并双语互链（§1 How to Use → docs/en/usage.html）；
+  中文 readme 头部挂语言行、文档表同步新序（旧表 §1 象棋…§6 使用 的过期序一并修正）、
+  「停止语义见文档 §4」引用改 §5。
+
 - **docs(i18n): 文档集英文支持（A 方案首增量）**：新增 `docs/en/index.html`（总览）与
   `docs/en/usage.html`（§1 如何使用全文英译，命令/表格/图注重建同构版式）；中文两页页头加
   中文/English 互切，语言偏好 localStorage 记忆（英文页点「中文」即复位防弹跳，URL 加
