@@ -202,7 +202,7 @@ def test_named_custom_profile():
         ok, msg = save_custom_profile('mini64', {'n_filters': 64, 'n_res_blocks': 3,
                                                  'n_value_hidden_channels': 32, 'use_se': False})
         assert ok, msg
-        assert json.load(open(profiles_file()))['mini64']['n_filters'] == 64
+        assert json.load(open(profiles_file()))['profiles']['mini64']['n_filters'] == 64
         aps = available_profiles('ChineseChess')
         assert 'mini64' in aps and 's' in aps and 'm' in aps
         cfg = net_config_for('mini64', 'ChineseChess')
@@ -214,6 +214,26 @@ def test_named_custom_profile():
         ok, msg = delete_custom_profile('mini64')
         assert ok and 'mini64' not in available_profiles('ChineseChess')
         assert not delete_custom_profile('m')[0], '内置档位不可删'
+
+        # —— v2 棋种隔离：只属象棋的档位不出现在五子棋下拉（m8 泄漏事故回归）——
+        ok, msg = save_custom_profile('m8', {'n_filters': 256, 'n_res_blocks': 8}, 'ChineseChess')
+        assert ok, msg
+        assert 'm8' in available_profiles('ChineseChess')
+        assert 'm8' not in available_profiles('Gomoku'), '象棋专属档位泄漏给五子棋'
+        # 再为五子棋创建同名 → 双归属；摘掉一边另一边不受影响
+        assert save_custom_profile('m8', {'n_filters': 256, 'n_res_blocks': 8}, 'Gomoku')[0]
+        assert 'm8' in available_profiles('Gomoku')
+        assert delete_custom_profile('m8', 'Gomoku')[0]
+        assert 'm8' not in available_profiles('Gomoku')
+        assert 'm8' in available_profiles('ChineseChess'), '摘五子棋不该动象棋归属'
+        assert delete_custom_profile('m8', 'ChineseChess')[0]
+        assert 'm8' not in available_profiles('ChineseChess')
+        # 当前棋种缺档位仍要报错（不静默降级）
+        try:
+            set_profile('no_such_pf')
+            assert False, '未知档位应抛错'
+        except ValueError:
+            pass
     finally:
         set_profile(old_profile or 'm')
         C['data_dir'] = _os.path.join(_os.path.dirname(__file__), '..', 'data')

@@ -86,13 +86,22 @@ def _vram_need_bytes(env_name: str, model_specs: list, default_best: str | None 
     return int(total * 4 * 1.3 + 600 * 1024 * 1024)
 
 
+# 正在运行的对弈服务实例（进程内单例）。控制台 /api/admin/services 走它读 hub 引擎与
+# 会话——admin blueprint 注册在同一个 Flask app 上，跨模块拿不到 self，就靠这个指针。
+CURRENT: PlayApiServer | None = None
+
+
 class PlayApiServer:
     def __init__(self):
         self.app = Flask(__name__)
         self.app.json.sort_keys = False   # 保留 dict 插入序：任务参数、下拉选项等 UI 顺序由后端定义
         self.ai_players: dict[str, AIServer] = {}
         self.clients_live_time: dict[str, float] = {}
+        self.started_ts = time.time()          # 控制台的"对弈服务已运行"计时起点
+        self.listen = {}                        # run() 记下实际 host/port，给控制台显示
         self.lock = threading.Lock()
+        global CURRENT
+        CURRENT = self
         self.logger = get_logger('play_server')
         # 进程内推理引擎管理中心，所有AIServer共享
         self.hub = ServerHub()
@@ -419,19 +428,29 @@ class PlayApiServer:
     def _cleanup_loop(self, timeout=60):
         while True:
             time.sleep(timeout)
-            now = time.time()
-            to_delete = []
-            with self.lock:
-                for pid, last_beat in self.clients_live_time.items():
-                    if now - last_beat > timeout:
-                        to_delete.append(pid)
-                for pid in to_delete:
-                    self.clients_live_time.pop(pid)
-                    player = self.ai_players.pop(pid)
-                    player.shutdown()
-                    self.logger.info(f"Session {pid[:8]} cleaned up due to inactivity.")
+            # 逻辑只有一份：与面板「立即清理超时会话」按钮共用 cleanup_stale
+            for pid in self.cleanup_stale(timeout):
+                self.logger.info(f"Session {pid[:8]} cleaned up due to inactivity.")
+
+    def cleanup_stale(self, timeout: float = 60.0) -> list[str]:
+        """踢掉心跳超时的会话。后台 _cleanup_loop 与控制台「立即清理」按钮共用这一份实现。"""
+        now = time.time()
+        cleaned = []
+        with self.lock:
+            for pid, last in list(self.clients_live_time.items()):
+                if now - last > timeout:
+                    self.clients_live_time.pop(pid, None)
+                    player = self.ai_players.pop(pid, None)
+                    if player:
+                        try:
+                            player.shutdown()
+                        except Exception:                # noqa: BLE001 收尾失败也不拦其余会话
+                            self.logger.warning(f'session {pid[:8]} shutdown failed', exc_info=True)
+                    cleaned.append(pid)
+        return cleaned
 
     def run(self, host='0.0.0.0', port=5000, debug: bool = False):
+        self.listen = {'host': host, 'port': port}
         try:
             d = self.app.test_request_context('/info')
             with d:

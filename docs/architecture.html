@@ -179,10 +179,45 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 <h3>4.1　架构注册表</h3>
 <pre><code>core/network/network.py   BaseNet：设备适配、加载先落 CPU（checkpoint 跨设备通用）
                           Net（"resnet_v1"）    标准 AlphaZero 双头：Conv stem → N×ResBlock(±SE) → 双头
+                          WDLNet（"resnet_wdl_v1"，现行默认）同构躯干，value 头改胜/和/负三头（下图 4-1）
                           BiGameNet（"bigame_v1"）双游戏：各自 stem + 共享 ResNet 躯干 + 各自头，
                                                   forward 按输入 (通道数, 格数) 自动分路
 core/network/registry.py  build(arch, config) / known() / infer_arch(ckpt_config)
 新架构：在 archs/ 放一个文件、@register('my_arch_v1')，自动导入生效——引擎与训练侧零改动</code></pre>
+<figure>
+<svg viewBox="0 0 760 236" font-family="serif" font-size="12">
+  <defs><marker id="nh" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#2f4f4f"/></marker></defs>
+  <g fill="#fffdf7" stroke="#2f4f4f" stroke-width="1.6">
+    <rect x="16"  y="86" width="118" height="52" rx="9"/>
+    <rect x="168" y="86" width="96"  height="52" rx="9"/>
+    <rect x="298" y="78" width="132" height="68" rx="9"/>
+    <rect x="474" y="26" width="130" height="56" rx="9"/>
+    <rect x="474" y="126" width="150" height="72" rx="9" stroke="#8b0000"/>
+  </g>
+  <text x="75"  y="107" text-anchor="middle">盘面张量</text><text x="75" y="123" text-anchor="middle" font-size="10.4" fill="#6b6557">26 × 9 × 10（象棋 v2）</text>
+  <text x="216" y="107" text-anchor="middle">stem</text><text x="216" y="123" text-anchor="middle" font-size="10.4" fill="#6b6557">conv3×3 → C 通道</text>
+  <text x="364" y="100" text-anchor="middle" font-weight="bold">ResBlock × N</text>
+  <text x="364" y="116" text-anchor="middle" font-size="10.4" fill="#6b6557">±SE 注意力；m8=256×8</text>
+  <text x="364" y="131" text-anchor="middle" font-size="10.4" fill="#6b6557">s=128×6 · m=256×15</text>
+  <text x="539" y="47"  text-anchor="middle">policy 头</text><text x="539" y="63"  text-anchor="middle" font-size="10.4" fill="#6b6557">conv→conv · C(4712)</text>
+  <text x="549" y="146" text-anchor="middle" font-weight="bold" fill="#8b0000">value 三头（WDL）</text>
+  <text x="549" y="162" text-anchor="middle" font-size="10.4" fill="#8b0000">conv1×1 → fc(n_cells·32 → vh)</text>
+  <text x="549" y="178" text-anchor="middle" font-size="10.4" fill="#8b0000">→ fc 3：softmax [负 | 和 | 胜]</text>
+  <text x="549" y="192" text-anchor="middle" font-size="10" fill="#6b6557">forward 仍返回 (π, v)：v = p胜 − p负 ∈ (−1,1)</text>
+  <g stroke="#2f4f4f" stroke-width="1.5" fill="none" marker-end="url(#nh)">
+    <path d="M134 112 L 166 112"/><path d="M264 112 L 296 112"/>
+    <path d="M430 92 Q 452 60 472 52"/>
+    <path d="M430 132 Q 452 158 472 160"/>
+  </g>
+  <text x="656" y="47"  font-size="10.8" fill="#3d6b35">→ MCTS 先验</text>
+  <text x="656" y="160" font-size="10.8" fill="#3d6b35">→ 期望分入树 / 胜率条</text>
+  <text x="16" y="20" font-size="12.5" fill="#6b6557">图 4-1　resnet_wdl_v1：同 resnet_v1 的躯干与 policy 头，唯一改动在 value 头——标量 tanh 换成胜/和/负三分类交叉熵</text>
+  <text x="16" y="36" font-size="11" fill="#6b6557">（动机：标量 value 把"官和"与"五五开"压成同一均值；高和率的象棋校准差。旧 resnet_v1 ckpt 除 value.fc2 外全同名同形，filtered load 半迁移热身）</text>
+</svg>
+<figcaption><b>网络结构（现行默认 resnet_wdl_v1）。</b>训练期走 <code>forward_wdl</code> 出三 logits 算 CE；
+推理期 <code>forward</code> 折成期望分 p<sub>胜</sub>−p<sub>负</sub>，与终局奖励 ±1/0 同尺度——MCTS 与引擎契约零改动。</figcaption>
+</figure>
+
 <p>checkpoint 文件里存 <code>config</code>（含 arch 名与全部规模键）、权重、optimizer/scheduler 状态与
 训练步数。<b>加载按 ckpt 内 config 重建网络</b>，与当前进程的网络配置无关——这是跨神经网络对局（§4 篇 10.2 drill）
 和"对弈页选任意代"能成立的根基。</p>

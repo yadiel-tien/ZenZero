@@ -120,21 +120,33 @@ class SelfPlayManager:
         原理（2026-11-04 A/B）：K 决定每手搜索要往返引擎几次，但批太大（前向变慢）
         又会把单轮延迟拉长。同一台 5090 上，小网络 mini2 甜点 K=64（84~92 局/分），
         换 256×15 的大网络前向会慢一倍多，甜点自动回落到更小的 K；CPU 上同理。
-        因此不写死数值，用"批大小 + 前向耗时"两个可测信号闭环调节。
+
+        口径（2026-11-09 修，m8 一夜 23% 吞吐被锁死的复盘）：
+        · 判据一律用**近窗值**——fwd_ms_mean 本来就是近 2000 批（≈1 分钟）的实时压力；
+          batch 改用 batch_recent_mean。旧版升档读 batch_mean（整轮累计直方图），
+          而 m8 常态累计批 1300~1500 > 900，升档条件**数学上永不成立**，K 成了
+          只降不升的棘轮（11-08 22:50 因 ComfyUI 抢卡 fwd 15.19 擦线降到 32，
+          卡空出来后整夜回不去）。
+        · 降档加迟滞：连续两轮近窗超线才减半——瞬时一分钟的抢卡毛刺不值 23% 吞吐。
+        · 升档保持即时：批没吃饱且引擎快，先加回去，错了下一轮迟滞期自然收回。
         """
         k = int(CONFIG.get('mcts_batch_leaves', 8))
-        fwd = float(infer.get('fwd_ms_mean') or 0.0)
-        batch = float(infer.get('batch_mean') or 0.0)
+        fwd = float(infer.get('fwd_ms_mean') or 0.0)            # 近 2000 批均值 ≈ 最近 1 分钟
+        batch = float(infer.get('batch_recent_mean') or 0.0)    # 近窗批大小（勿用整轮累计 batch_mean）
         if fwd <= 0 or batch <= 0:
             return
         new = k
-        if fwd > 15 or batch > 2400:       # 批太大/前向太慢：往返延迟已经吃掉收益
+        over = fwd > 15 or batch > 2400      # 前向太慢/批持续顶满：往返延迟已吃掉收益
+        strikes = getattr(self, '_k_strikes', 0) + 1 if over else 0
+        self._k_strikes = strikes
+        if strikes >= 2:                     # 第二轮仍超线才动手，并重新计振
             new = max(8, k // 2)
-        elif batch < 900 and fwd < 10:     # 批没吃饱、前向还有余量：加并行叶子
+            self._k_strikes = 0
+        elif not over and batch < 900 and fwd < 10:   # 批没吃饱、前向有余量：加并行叶子
             new = min(128, k * 2)
         if new != k:
             CONFIG['mcts_batch_leaves'] = new
-            msg = f'[auto] 推理批 {batch:.0f} · 前向 {fwd:.1f}ms → 并行叶子 K {k}→{new}'
+            msg = f'[auto] 近窗批 {batch:.0f} · 前向 {fwd:.1f}ms → 并行叶子 K {k}→{new}'
             self.logger.info(msg)
             print(msg, flush=True)
 
@@ -189,6 +201,9 @@ class SelfPlayManager:
             steps_before = self.train_server.total_steps_trained
             hb.write(force=True, phase='fit', iteration=iteration, round=round_index + 1, **self._dev_field(),
                      game=CONFIG['game_name'], profile=get_profile(),
+                     # 训练期间王座不变（评估在 fit 之后才打），但面板要能显示"最佳是谁"，
+                     # 不能因为这一阶段没写就让任务卡退化成"最佳 —"
+                     best_index=self.best_index,
                      sims_per_move=cap_sims(ramp_simulations(iteration), self.train_server),
                      buffer_size=self.buffer.size, buffer_capacity=self.buffer.capacity,
                      note='fit start')
@@ -219,6 +234,7 @@ class SelfPlayManager:
                 return
             hb.write(force=True, phase='eval', iteration=iteration, round=round_index + 1, **self._dev_field(),
                      eval_vs=self.best_index,      # 打擂对阵：挑战者 iteration vs 王者 best_index
+                     best_index=self.best_index,   # 当前王者（评估中/晋升后由后续写点刷新）
                      game=CONFIG['game_name'], profile=get_profile(),
                      sims_per_move=cap_sims(ramp_simulations(iteration), self.train_server),
                      buffer_size=self.buffer.size, buffer_capacity=self.buffer.capacity,

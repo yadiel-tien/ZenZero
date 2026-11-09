@@ -46,6 +46,9 @@ _FIT_DONE_RE = re.compile(r'iteration_to_remove(\d+):(\d+)轮训练完成，共�
 _VAL_RE = re.compile(r'Val loss - policy ([\d.]+), value ([\d.]+)'
                      r'(?: \| KL ([\d.]+), 目标熵 ([\d.]+))?')
 _EVAL_RE = re.compile(r'Model (\d+) VS (\d+)，胜:(\d+),负:(\d+),平:(\d+),总:(\d+), 胜率([\d.]+)%')
+# 每轮开头那行：Starting selfplay, iteration: 65, best index: 64, ...
+# 心跳过期时它是「第几代 / 王者第几代」的唯一结构化出处（日志回落路径靠它）。
+_ITER_RE = re.compile(r'Starting selfplay, iteration: (\d+), best index: (-?\d+)')
 
 # TensorBoard 里值得画的曲线（白名单，避免把几百个标量全 dump 出去）
 TB_TAGS = ('Loss/total', 'Loss/policy', 'Loss/value', 'Val/total', 'Val/policy', 'Val/value',
@@ -194,6 +197,34 @@ class HardwareSampler:
             self._gpu_ok = False
         self._gpu_cache = (time.time(), gpu)
         return gpu
+
+    def gpu_now(self) -> dict | None:
+        """整卡即时读数（复用 _gpu 的 1s 缓存）：显存 util/temp/power 单一出处。"""
+        return self._gpu()
+
+    def gpu_procs(self) -> list[dict]:
+        """按进程显存归因（compute-apps），2s 缓存。与 _gpu 同家：查卡只在这一个类。"""
+        hit = getattr(self, '_procs_cache', None)
+        if hit and time.time() - hit[0] < 2.0:
+            return hit[1]
+        procs: list[dict] = []
+        try:
+            apps = subprocess.run(['nvidia-smi', '--query-compute-apps=pid,used_memory',
+                                   '--format=csv,noheader,nounits'],
+                                  capture_output=True, text=True, timeout=2)
+            for line in (apps.stdout or '').splitlines():
+                parts = [x.strip() for x in line.split(',')]
+                if len(parts) < 2:
+                    continue
+                try:
+                    procs.append({'pid': int(parts[0]), 'mb': int(float(parts[1]))})
+                except ValueError:
+                    continue
+            procs.sort(key=lambda x: -x['mb'])
+        except Exception:                                # noqa: BLE001 无卡/无权限=空表
+            procs = []
+        self._procs_cache = (time.time(), procs)
+        return procs
 
     def _sample_once(self) -> None:
         cpu, cores = self._cpu_pct()
@@ -505,6 +536,7 @@ class Monitor:
         sp_tail = _tail(self.logs['selfplay'], 60_000)
         sp_lines = [l for l in sp_tail if '[INFO]' in l]
         phase, progress = 'idle', None
+        it = best = None                                  # 日志里的「第几代 / 王者第几代」
         if sp_lines:
             last = sp_lines[-1]
             if 'Evaluation result' in last or re.search(r' VS \d+', last):
@@ -515,6 +547,14 @@ class Monitor:
                 phase = 'selfplay'
             else:
                 phase = 'selfplay'
+            # 代数/王者：日志开头那行 "Starting selfplay, iteration: N, best index: M" 是
+            # 唯一的结构化出处。心跳过期（fit 阶段心跳只在开头写一次）时没有它，任务卡
+            # 会把缺值渲染成「第 0 代」，比不显示还误导。
+            for line in reversed(sp_lines):
+                m = _ITER_RE.search(line)
+                if m:
+                    it, best = int(m.group(1)), int(m.group(2))
+                    break
             # 当前轮已完成局数：从最近一条"Starting selfplay"/"Collecting data" 起数 Game end
             start_idx = 0
             for i in range(len(sp_tail) - 1, -1, -1):
@@ -537,7 +577,8 @@ class Monitor:
                 continue
         newest_age = min(ages) if ages else None
         if newest_age is not None and newest_age > 30:
-            return {'phase': 'stalled', 'progress': progress,
+            return {'phase': 'stalled', 'progress': progress, 'iteration': it,
+                    'best_index': best,
                     'last_game_ts': sp_lines[-1][:23] if sp_lines else None,
                     'age_s': round(newest_age, 1)}
         # fit 阶段：fit 日志比 selfplay 新 → 正在训练
@@ -546,7 +587,8 @@ class Monitor:
                 phase = 'fit'
         except OSError:
             pass
-        return {'phase': phase, 'progress': progress,
+        return {'phase': phase, 'progress': progress, 'iteration': it,
+                'best_index': best,
                 'last_game_ts': sp_lines[-1][:23] if sp_lines else None,
                 'age_s': round(newest_age, 1) if newest_age is not None else None}
 
@@ -732,6 +774,13 @@ class Monitor:
                     'iteration': rt.get('iteration'), 'round': rt.get('round')}
         base = self._phase()
         base['source'] = 'log'
+        # 心跳过期 ≠ 字段作废：iteration / round / best_index 在一轮内是不变的，而日志
+        # 启发式数不出它们。不把心跳里的旧值带上，就会出现「第 0 代 · 最佳 第 64 代」这种
+        # 自相矛盾（2026-11-08 截图：fit 阶段心跳只在开头写一次，之后十几分钟都是日志源）。
+        if rt:
+            for key in ('iteration', 'round', 'best_index'):
+                if base.get(key) is None and rt.get(key) is not None:
+                    base[key] = rt[key]
         return base
 
     # ---------- 对外接口 ----------
@@ -758,15 +807,59 @@ class Monitor:
         if ev.get('new') is not None and cur is not None and ev['new'] > cur:
             ev['batch_stale'] = True
 
+    def _fill_best(self, live: dict, meta: dict) -> None:
+        """冠军兜底：面板要回答"最强是哪代"，不能只有自博弈阶段答得上来。
+
+        心跳只在自博弈的写点上带 best_index；fit / eval / 日志回落（心跳超过 12s 没更新）
+        都没有这个字段，任务卡就显示「最佳 —」——等于对用户说"不知道王是谁"。这里统一
+        从磁盘补：read_best_index(档位) 在没有 best_index.pkl 时退回最新 checkpoint，
+        只有一局都没练过的冷启动才会是 -1。
+        """
+        cur = live.get('best_index')
+        if cur is not None and cur >= 0:
+            return
+        try:
+            from core.network.functions import read_best_index
+            best = int(read_best_index(meta.get('game') or game_name, meta.get('profile')))
+        except Exception:                                # noqa: BLE001 读不到不影响快照主体
+            return
+        live['best_index'] = best if best is not None else cur
+
+    def _fill_last_iteration(self, live: dict, meta: dict, rounds: list[dict]) -> None:
+        """「上次训练到哪代」——本轮代数读不到时的兜底（用户要求：宁可不说，也不能编第 0/1 代）。
+
+        心跳过期且日志里也找不到本轮那行时，面板只知道"练到哪儿"的历史事实：
+        perf.jsonl 最近一行的 iteration（同档位）→ 最新 checkpoint 编号。两者都没有
+        （一次都没练过）才是 None，前端据此整段不显示代数。
+        """
+        profile = meta.get('profile')
+        for row in reversed(rounds):
+            if profile and row.get('profile') not in (None, profile):
+                continue
+            it = row.get('iteration')
+            if it is not None and int(it) >= 0:
+                live['last_iteration'] = int(it)
+                return
+        try:
+            from core.network.functions import read_latest_index
+            idx = int(read_latest_index(meta.get('game') or game_name, profile))
+        except Exception:                                # noqa: BLE001 读不到不影响快照主体
+            idx = -1
+        if idx >= 0:
+            live['last_iteration'] = idx
+
     def snapshot(self) -> dict:
         rounds = self._rounds(200)
         rt = self._heartbeat()
+        meta = self._meta(rt, game_name)
         live = {'infer': self._live_infer(), 'fit': self._fit_with_fallback(),
                 'eval': self._live_eval(), **(self._live_state(rt) or {})}
         self._mark_batch_stale(live)
+        self._fill_best(live, meta)
+        self._fill_last_iteration(live, meta, rounds)
         return {
             'ts': time.time(),
-            'meta': self._meta(rt, game_name),
+            'meta': meta,
             'rounds': rounds,
             'live': live,
             'heartbeat': rt,

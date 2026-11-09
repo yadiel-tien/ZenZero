@@ -1,4 +1,5 @@
 import threading
+import time
 
 from services.inference.engine import InferenceEngine
 from services.inference.functions import get_model_name
@@ -25,7 +26,7 @@ class ServerHub:
         # 避免多线程同时操作engines造成数据错误
         self.lock = threading.Lock()
         self.stop_event = threading.Event()
-        self._evict_interval = evict_interval
+        self.evict_interval = evict_interval
         # 空闲引擎回收
         threading.Thread(target=self._evict_loop, daemon=True).start()
         # 定期显示状态
@@ -88,7 +89,7 @@ class ServerHub:
 
     def _evict_loop(self) -> None:
         """定期回收没有使用方的引擎(释放GPU显存)"""
-        while not self.stop_event.wait(self._evict_interval):
+        while not self.stop_event.wait(self.evict_interval):
             with self.lock:
                 idle = [name for name, cnt in self.ref_counts.items() if cnt <= 0]
                 for name in idle:
@@ -107,6 +108,48 @@ class ServerHub:
                 status_msg = " | ".join(
                     [f"{name}: {self.ref_counts.get(name, 0)} users" for name in self.engines])
                 self.logger.info(f"Inference Engines Status: {status_msg}")
+
+    def snapshot(self) -> list[dict]:
+        """给控制台的引擎清单：谁在用、在哪个设备、吞吐多少——判断显存被谁占着。"""
+        out = []
+        with self.lock:
+            items = list(self.engines.items())
+            counts = dict(self.ref_counts)
+        for name, eng in items:
+            try:
+                st = eng.infer_stats()
+            except Exception:                            # noqa: BLE001 统计失败不影响清单
+                st = {}
+            try:
+                dev = str(eng._model_device())           # 参数实际所在设备（降级后可能与全局不符）
+            except Exception:                            # noqa: BLE001
+                dev = '—'
+            out.append({'name': name, 'env': eng.env_name, 'profile': eng.profile,
+                        'index': eng.model_index, 'device': dev,
+                        'users': int(counts.get(name, 0)),
+                        'idle': counts.get(name, 0) <= 0,
+                        'queued': eng.request_queue.qsize(),
+                        'req_per_s': st.get('req_per_s'), 'fwd_ms_mean': st.get('fwd_ms_mean'),
+                        'batch_recent_mean': st.get('batch_recent_mean'),
+                        'arch': eng.arch_name, 'feature_version': eng.feature_version,
+                        'since': time.time() - eng.start_time})
+        return out
+
+    def release_idle(self) -> list[str]:
+        """立即回收所有没有使用方的引擎（平时靠 30s 的 evict 线程；面板上按"释放"不等它）。
+        有使用方（对弈会话/评估）的引擎一律不碰——那会掐死正在下的棋。"""
+        freed = []
+        with self.lock:
+            idle = [name for name, cnt in self.ref_counts.items() if cnt <= 0]
+            for name in idle:
+                engine = self.engines.pop(name, None)
+                self.ref_counts.pop(name, None)
+                if engine:
+                    engine.shutdown()
+                    freed.append(name)
+        if freed:
+            self.logger.info(f'主动释放空闲引擎: {", ".join(freed)}')
+        return freed
 
     def shutdown(self) -> None:
         """清理所有资源"""

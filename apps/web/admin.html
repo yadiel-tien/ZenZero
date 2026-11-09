@@ -335,6 +335,7 @@
   <a href="#train" data-tab="train">训练</a>
   <a href="#arena" data-tab="arena">竞技场</a>
   <a href="#artifacts" data-tab="artifacts">资产</a>
+  <a href="#services" data-tab="services">服务</a>
   <a href="#tasks" data-tab="tasks">工具</a>
   <a href="#logs" data-tab="logs">日志</a>
 </nav>
@@ -408,7 +409,7 @@
       <h2>神经网络配置</h2>
       <table><tr><th>网络名</th><th>规模</th><th>来源</th><th>模型（权重）</th><th></th></tr></thead>
         <tbody id="pf_rows"><tr><td colspan="5" class="hint">加载中…</td></tr></tbody></table>
-      <!-- resnet_v1 示意 v7：去展平，两头单行；前半段压缩让位。符号=代码（B,C₀,F,H,W,N,A,hidden） -->
+      <!-- resnet_v1 示意 v7.1：布局同 v7；价值头按现行默认 B·1→B·3（[负|和|胜] 三 logit），tanh/softmax 字样按用户意统一不标——与 π 头同款留白。符号=代码（B,C₀,F,H,W,N,A,hidden） -->
       <svg class="netdiagram" viewBox="0 0 960 208" style="width:100%;display:block;margin:8px auto 4px"
            font-size="12" font-family="inherit" role="img" aria-label="resnet_v1 结构">
         <defs><marker id="na" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
@@ -477,8 +478,8 @@
         <text x="824" y="72" class="sh" font-size="10">B·A</text>
 
         <!-- 价值头：fc — hidden — fc 单行（无展平节点；无BN全程 LeakyReLU） -->
-        <rect x="644" y="122" width="248" height="52" rx="7" fill="none" stroke="var(--ndr)" stroke-width="1.6"/>
-        <text x="768" y="116" text-anchor="middle" class="rtx" font-weight="700">价值头 Value</text>
+        <rect x="644" y="122" width="208" height="52" rx="7" fill="none" stroke="var(--ndr)" stroke-width="1.6"/>
+        <text x="748" y="116" text-anchor="middle" class="rtx" font-weight="700">价值头 Value</text>
         <rect class="cell" x="650" y="136" width="76" height="26" rx="3"/>
         <text x="688" y="153" text-anchor="middle" class="op"><title>同策略头的 1×1 降维；价值头无 BN，激活全程 LeakyReLU</title>Conv·Leaky</text>
         <text x="727" y="134" text-anchor="middle" class="op" font-size="8.5">1×1</text>
@@ -489,11 +490,9 @@
         <text x="820" y="137" text-anchor="middle" class="op">fc</text>
         <text x="793" y="190" text-anchor="middle" class="num" font-size="13">③</text>
         <line x1="793" y1="184" x2="793" y2="160" stroke="var(--ndb)" stroke-width="1"/>
-        <path d="M846,149 L862,149" stroke="var(--dim)" fill="none" marker-end="url(#na)"/>
-        <text x="874" y="153" text-anchor="middle" class="op" font-size="9">tanh</text>
-        <path d="M896,149 L910,149" stroke="var(--dim)" fill="none" marker-end="url(#na)"/>
-        <text x="916" y="145" class="rtx" font-weight="700">v</text>
-        <text x="916" y="162" class="sh" font-size="10">B·1</text>
+        <path d="M856,149 L868,149" stroke="var(--dim)" fill="none" marker-end="url(#na)"/>
+        <text x="876" y="145" class="rtx" font-weight="700"><title>三分类 logit [负|和|胜]；MCTS 用的期望分 v=p胜−p负 在头外折算</title>v</text>
+        <text x="876" y="162" class="sh" font-size="10">B·3</text>
         <text x="403" y="204" text-anchor="middle" class="op" font-size="9.5">① 通道数　② 残差块数　③ value 隐层　④ SE 注意力</text>
       </svg>
       <div class="row" style="margin-top:8px">
@@ -597,6 +596,17 @@
     <div class="panel" style="margin-top:12px"><h2>任务日志 <span class="lg" id="task-log-name">—</span></h2>
       <pre id="task-log" style="max-height:340px">点击任务上的「查看日志」在此显示</pre></div>
   </section>
+
+  <!-- ============ 服务（Hub / 对弈服务 / 显存） ============ -->
+  <section class="tab" id="tab-services">
+    <div class="cards" id="svc-cards"></div>
+    <div class="panel"><h2>推理引擎 <span class="lg">每模型全进程一份 · 空闲 30s 自动回收</span></h2>
+      <div style="overflow:auto;max-height:320px"><table id="t_hub"></table></div></div>
+    <div class="panel"><h2>对弈会话 <span class="lg">心跳超时 60s 自动回收</span></h2>
+      <div style="overflow:auto;max-height:320px"><table id="t_sess"></table></div></div>
+    <div class="panel"><h2>显存占用（按进程） <span class="lg" id="vram-sum">—</span></h2>
+      <div style="overflow:auto;max-height:300px"><table id="t_vram"></table></div></div>
+  </section>
 </main>
 <div class="toast" id="toast"></div>
 
@@ -616,7 +626,12 @@ async function api(path, opt={}){
   const tk = localStorage.getItem('zz_admin_token'); if(tk) headers['X-ZZ-Token'] = tk;
   const r = await fetch(path, {headers, cache:'no-store', ...opt});
   const txt = await r.text();
-  let data; try{ data = JSON.parse(txt); }catch(_){ data = {error:txt.slice(0,300)}; }
+  let data; try{ data = JSON.parse(txt); }catch(_){
+    // HTML 错误页（Flask 404/500 整页）别原样糊进 toast：抽 <title> + 状态码提示旧服务
+    data = {error: /^\s*</.test(txt)
+        ? `HTTP ${r.status} · ${(txt.match(/<(?:h1|title)>([^<]*)/)||[])[1]||'非 JSON 响应'}`
+        : txt.slice(0,300)};
+  }
   if(!r.ok) throw new Error((data && data.error) || ('HTTP '+r.status));
   return data;
 }
@@ -832,6 +847,9 @@ function gauge(pct, label, colorOverride){
     <text x="${cx}" y="${cy - 13}" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--fg)">${Math.round(pct)}<tspan font-size="7">%</tspan></text>
   </svg>`;
 }
+/* arch 短名：结构差异（头拓扑）要在面板上一眼看出来，光看 256×8 猜不到是 WDL 三头 */
+const ARCH_CN = {resnet_wdl_v1:'WDL', resnet_v1:'单值'};
+const archCn = a => ARCH_CN[a] || String(a||'?').replace(/^resnet_/,'') || '?';
 function card(k,v,s){ return `<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s||''}</div></div>`; }
 /* 迷你图形件：spark 折线 / hb 单进度条 / ss 堆叠占比条 */
 function spark(arr, color, w=64, h=20){
@@ -864,6 +882,31 @@ function renderSnapshot(s){
       : {size: last.buffer_size, capacity: last.buffer_capacity, live: false};
   const inferStale = (inf.age_s||0) > 15;
   const gpmLive = (L.gpm !== undefined && L.gpm !== null) ? L.gpm : null;
+  // 代数 / 王者：缺值绝不 `||0` 渲染成「第 0 代」。本轮代数读不到就用后端记录下的
+  // 「上次训练到第几代」（last_iteration：perf 最近一行 → 最新 checkpoint）；连它都没有
+  // 就整段不显示代数（用户 2026-11-08：可以不说，但不能编第 0/1 代）。
+  const itLive = (L.iteration!=null && L.iteration>=0) ? L.iteration : null;
+  const lastIt = (L.last_iteration!=null && L.last_iteration>=0) ? L.last_iteration : null;
+  const itNow = itLive!=null ? itLive : lastIt;
+  const itFallback = itLive==null && lastIt!=null;
+  const bestNow = (L.best_index!=null && L.best_index>=0) ? L.best_index
+                : (s.best!=null && s.best>=0 ? s.best : null);
+  // 守擂卡：本批还没打过就直说「待评估」，不拿缺值冒充（此前 ev.new 缺失被 `||0`
+  // 渲染成「第 0 代 攻 王座（冷启动）」，2026-11-08 截图）。
+  const TH = 100*((s.meta||{}).win_threshold||0.52);
+  const evNew = (ev.new!=null && ev.new>=0) ? ev.new : null;
+  const evBest = (ev.best!=null && ev.best>=0) ? ev.best : null;
+  const evHas = evNew!=null && !ev.batch_stale;
+  const evHead = evNew!=null
+      ? `第 ${fmt(evNew,0)} 代 攻 ${evBest!=null? '第 '+fmt(evBest,0)+' 代' : '王座（冷启动）'}`
+      : (itNow!=null
+          ? `第 ${fmt(itNow,0)} 代 攻 ${bestNow!=null? '第 '+fmt(bestNow,0)+' 代' : '王座'} · 待评估`
+          : (bestNow!=null ? `待评估 · 王者 第 ${fmt(bestNow,0)} 代` : '本轮尚未评估'));
+  const evScore = evHas
+      ? `得分 ${fmt(ev.win + ev.draw/2,1)}/${fmt(ev.games,0)} · 晋升线 ${fmt(TH,0)}%`
+      : (ev.batch_stale && evNew!=null
+          ? `本批未打 · 上条第 ${fmt(evNew,0)} 代 · 晋升线 ${fmt(TH,0)}%`
+          : `本轮 fit 完成后开打 · 晋升线 ${fmt(TH,0)}%`);
   window.__inf = inf;                       // 顶部"推理"卡数据源（训练侧）
   $('cards').innerHTML = [
     card('局/分钟', (gpmLive!==null? fmt(gpmLive,1) : fmt(sp.games_per_min,1)) + spark(gpmSer, phColor),
@@ -897,13 +940,12 @@ function renderSnapshot(s){
           : (fit.val? `holdout ${fmt(fit.val.n_samples||0,0)} 样本` + (fit.val.stale? ' · 上一代' : ((fit.val.age_s||0) > 600? ` · ${fmt((fit.val.age_s||0)/60,0)}min前` : '')) : '—'))
       + `</div></div>`,
     `<div class="card" title="最新一次守擂：挑战者对王者的 100 盘战绩。和棋算半分，得分率超过门槛即晋升新冠军。" style="justify-content:space-between">`
-      + `<div class="k">评估守擂 <span style="letter-spacing:0">· 第 ${fmt(ev.new||0,0)} 代 攻 第 ${fmt(ev.best||0,0)} 代</span></div>`
+      + `<div class="k">评估守擂 <span style="letter-spacing:0">· ${evHead}</span></div>`
       + `<div class="v" style="display:flex;gap:14px;align-items:baseline;flex-wrap:wrap">`
-      + `<span ${!ev.batch_stale && ev.win_rate!==undefined? `class="${ev.win_rate >= ((s.meta||{}).win_threshold||0.52) ? 'ok' : 'bad'}"` : ''}>`
-      + `${(!ev.batch_stale && ev.win_rate!==undefined) ? (ev.win_rate*100).toFixed(1)+'%' : '—'}</span>`
-      + (ev.batch_stale? '' : (ev.games? `<span style="font-size:13px;color:var(--dim)">胜${ev.win} 负${ev.lose} 和${ev.draw}</span>` : ''))
-      + `</div><div class="s">${ev.batch_stale? `本批未打 · 上条第${fmt(ev.new,0)}代`
-          : `得分 ${fmt(ev.win + ev.draw/2,1)}/${fmt(ev.games,0)} · 晋升线 ${fmt(100*((s.meta||{}).win_threshold||0.52),0)}%`}</div></div>`,
+      + `<span ${evHas && ev.win_rate!==undefined? `class="${ev.win_rate >= ((s.meta||{}).win_threshold||0.52) ? 'ok' : 'bad'}"` : ''}>`
+      + `${evHas && ev.win_rate!==undefined ? (ev.win_rate*100).toFixed(1)+'%' : '—'}</span>`
+      + (evHas && ev.games? `<span style="font-size:13px;color:var(--dim)">胜${ev.win} 负${ev.lose} 和${ev.draw}</span>` : '')
+      + `</div><div class="s">${evScore}</div></div>`,
   ].join('');
   $('strip_cards').innerHTML = [
     card('CPU', `<div class="cgv">${gauge(hw.cpu)}</div>`,
@@ -917,7 +959,7 @@ function renderSnapshot(s){
   ].join('');
   $('appver').textContent = 'v' + (s.meta.version || '?');
   $('appver').title = '应用版本（构建 ' + (s.meta.revision || '未知') + '）· 表示/网络/模型代数见下行';
-  window.__meta = `${GAME_CN(s.meta.game)} · ${s.meta.profile} · ${s.meta.device} · ${s.meta.net.n_filters}x${s.meta.net.n_res_blocks}`
+  window.__meta = `${GAME_CN(s.meta.game)} · ${s.meta.profile} · ${s.meta.device} · ${s.meta.net.n_filters}x${s.meta.net.n_res_blocks} · ${archCn(s.meta.net.arch)} v${s.meta.net.feature_version||1}`
       + ` · K=${s.meta.batch_leaves}` + (sims? ` · ${fmt(sims,0)} sims/手` : '');
   renderStrip(s);
   window.__lastProgress = L.progress || {};
@@ -931,7 +973,7 @@ function renderSnapshot(s){
     else if((L.age_s||0) > 30){ chip += ' stalled'; txt += ` · 日志 ${fmt(L.age_s,0)}s 未更新`; }
   }
   window.__trTask = {cls: chip, text: txt, running};
-  window.__liveTask = {phase: L.phase, it: L.iteration, best: L.best_index,
+  window.__liveTask = {phase: L.phase, it: itNow, itStale: itFallback, best: bestNow,
                        vs: L.eval_vs, dev: L.engine_device, sims: L.sims_per_move,
                        prog: L.progress};
   document.body.classList.toggle('stalled', !running);
@@ -1331,20 +1373,20 @@ async function loadProfiles(){
   PROFILES = d.profiles || [];
   $('pf_rows').innerHTML = PROFILES.map(p=>`<tr>
       <td class="num">${esc(p.name)}${p.builtin?'':' <span class="pill" style="font-size:10px">自定义</span>'}</td>
-      <td class="hint">${esc(String(p.net.n_filters||'?'))}×${esc(String(p.net.n_res_blocks||'?'))} · vh ${esc(String(p.net.n_value_hidden_channels||'?'))}${p.net.use_se?' · SE':''}</td>
-      <td class="hint">${p.builtin?'内置':'profiles.json'}</td>
+      <td class="hint">${esc(archCn(p.net.arch))} v${esc(String(p.net.feature_version||1))} · ${esc(String(p.net.n_filters||'?'))}×${esc(String(p.net.n_res_blocks||'?'))} · vh ${esc(String(p.net.n_value_hidden_channels||'?'))}${p.net.use_se?' · SE':''}</td>
+      <td class="hint">${p.builtin?'内置 · 双棋种':'自定义 · '+(p.games||[]).map(g=>({ChineseChess:'象棋',Gomoku:'五子棋'}[g]||g)).join('/')}</td>
       <td class="num">${p.models}${p.best>=0?` <span class="pill" style="font-size:10px">best ${p.best}</span>`:''}</td>
       <td>${p.builtin?'':`<button class="mini danger" onclick="pfDel('${esc(p.name)}',${p.models})">删名</button>`}</td></tr>`).join('')
     || '<tr><td colspan="5" class="hint">无</td></tr>';
   // 两个神经网络下拉：内置在前、自定义带 ✦；保留当前选中值
   ['f_profile','a_profile'].forEach(id=>{
     const sel = $(id), old = sel.value;
-    sel.innerHTML = PROFILES.map(p=>`<option value="${esc(p.name)}">${esc(p.name)}${p.builtin?'':' ✦'} ${p.net.n_filters||'?'}×${p.net.n_res_blocks||'?'}</option>`).join('');
+    sel.innerHTML = PROFILES.map(p=>`<option value="${esc(p.name)}">${esc(p.name)}${p.builtin?'':' ✦'} ${p.net.n_filters||'?'}×${p.net.n_res_blocks||'?'}·${esc(archCn(p.net.arch))}</option>`).join('');
     if (PROFILES.some(p=>p.name===old)) sel.value = old;
   });
 }
 $('pf_add').onclick = async ()=>{
-  const body = {name: $('pf_name').value.trim(), net: {
+  const body = {name: $('pf_name').value.trim(), game: $('f_game').value, net: {
     n_filters: +$('pf_filters').value, n_res_blocks: +$('pf_blocks').value,
     n_value_hidden_channels: +$('pf_vh').value, use_se: $('pf_se').value==='1'}};
   try{
@@ -1357,7 +1399,7 @@ async function pfDel(name, models){
   const a = await uiAsk({title:`删除神经网络配置「${name}」`, danger:true, okLabel:'删除配置', body: extra.trim() || '该配置没有任何模型，直接移除。'});
   if(!a.ok) return;
   try{
-    const body = {name};
+    const body = {name, game:$('f_game').value};
     if(models) body.confirm = 'delete-profile-with-models';
     const r = await api('/api/admin/profiles/delete', {method:'POST', body: JSON.stringify(body)});
     r.ok ? (toast('已删除配置 '+name, true), loadProfiles()) : toast('删除被拒: '+r.error);
@@ -1967,6 +2009,7 @@ function switchTab(name){
   if(name==='artifacts') loadArtifacts();
   if(name==='logs'){ loadLogList(); }
   if(name==='tasks') loadTasks(true);
+  if(name==='services') loadServices();
   if(name==='arena'){ $('ar_game').value=ARENA.game; arenaReloadAll(); arenaPoll(true); }
   else arenaPoll(false);
 }
@@ -2061,17 +2104,26 @@ function renderTask(){
     const PH_FULL = {fill:'蓄仓对局', selfplay:'自博弈采集', fit:'神经网络训练', eval:'守擂评估'};
     const pg = lt.prog || {}, pd = pg.done!=null?pg.done:'', pt = pg.total!=null?pg.total:'';
     const unit = ph==='fit' ? '步' : '局';
+    const bestN = (lt.best!=null && lt.best>=0) ? lt.best : null;
+    // 有本轮代数就写本轮，没有就写记录下的「上次练到第几代」；两样都没有就整段省略——
+    // 绝不出现「第 0 代」或「第 — 代」这种占位（用户 2026-11-08 明确要求）。
+    const itTxt = lt.it!=null ? `第 ${fmt(lt.it,0)} 代` : null;
+    const segs = [];
+    if (itTxt) segs.push(itTxt);
+    if (bestN!=null) segs.push(`最佳 第 ${bestN} 代`);
     const l2 = ph === 'eval'
-        ? `第 ${fmt(lt.it||0,0)} 代 攻 ${lt.vs!=null?lt.vs:'?'} 代王座`
-        : `第 ${fmt(lt.it||0,0)} 代 · 最佳 ${lt.best!=null&&lt.best>=0? '第 '+lt.best+' 代' : '—'}`;
+        ? `${itTxt || '本轮'} 攻 ${lt.vs!=null&&lt.vs>=0 ? lt.vs : (bestN!=null? bestN : '?')} 代王座`
+        : segs.join(' · ');
+    const l2Title = '最佳 = 当前王者（守擂评估里的 best_index）。新模型得分率超过晋升线才会替换；冷启动第一代直接登基。'
+        + (lt.itStale ? ' 代数取自上次训练记录（本轮心跳/日志暂无代数）。' : '');
     taskCard = card('任务', pill((warn ? '⚠ ' : '') + (PH_FULL[ph] || '训练中'), warn ? '#b4530f' : (PH_C[ph] || '#4a90d9'), false),
-        `<div style="white-space:nowrap">${l2}</div>`
+        (l2 ? `<div style="white-space:nowrap" title="${l2Title}">${l2}</div>` : '')
         + `<div class="hint" style="margin:0">${pd!==''? fmt(pd,0)+'/'+(pt||'?')+' '+unit : PH_FULL[ph]||''}`
         + (warn ? ` <b style="color:#b4530f" title="GPU 不可用或被占满，引擎降在 CPU：每手 sims 已封顶 ${esc(String(lt.sims||100))}，吞吐大降；本机大脑占卡建议 baton 换班">· CPU 推理</b>` : '')
         + `</div>`);
   } else
     taskCard = card('任务', `<span class="tchip2" style="color:var(--dim)">未运行</span>`,
-        lt.it ? `上次 第 ${fmt(lt.it,0)} 代 · 王 ${lt.best!=null?lt.best:'—'}` : '去竞技场或训练页启动任务');
+        lt.it ? `上次 第 ${fmt(lt.it,0)} 代 · 最佳 ${(lt.best!=null&&lt.best>=0)? '第 '+lt.best+' 代':'—'}` : '去竞技场或训练页启动任务');
   tbox.innerHTML = taskCard;
   tbox.dataset.go = go;
 
@@ -2079,6 +2131,67 @@ function renderTask(){
 $('strip_task').addEventListener('click',()=>{
   const go = $('strip_task').dataset.go; if(go) switchTab(go);
 });
+/* ---------- 服务页：Hub 引擎 / 对弈服务会话 / 显存按进程归因 ---------- */
+async function loadServices(){
+  try{
+    const d = await api('/api/admin/services');
+    const sv = d.server, h = d.hub||{}, v = d.vram||{}, engs = h.engines||[];
+    const idleN = engs.filter(e=>e.idle).length;
+    $('svc-cards').innerHTML = [
+      sv ? card('对弈服务', `运行中 <span style="font-size:12px;color:var(--dim)">pid ${sv.pid}</span>`,
+                `${secs(sv.uptime_s)} · ${esc((sv.listen&&sv.listen.host)||'?')}:${(sv.listen&&sv.listen.port)||'5000'} · ${esc(String(sv.device||'?'))}`)
+         : card('对弈服务', '未运行', esc(d.note||'')),
+      card('推理引擎', `${engs.length}`, `空闲 ${idleN} · ${fmt(h.evict_interval||30,0)}s 自动回收`),
+      card('对弈会话', `${sv? sv.sessions.length : 0}`),
+      v.available ? card('显存', `${fmt(v.used_mb,0)}<span style="font-size:12px;color:var(--dim)"> / ${fmt(v.total_mb,0)} MB</span>`,
+                v.torch? `本进程 权重 ${fmt(v.torch.allocated_mb,0)} · 缓存 ${fmt(v.torch.reserved_mb,0)} MB` : '')
+        : card('显存', '无 GPU', 'nvidia-smi 不可用'),
+    ].join('');
+    $('t_hub').innerHTML = engs.length
+      ? `<tr><th>引擎</th><th>设备</th><th>用户</th><th>排队</th><th>req/s</th><th>前向 ms</th><th>最近批</th><th>状态</th></tr>`
+        + engs.map(e=>`<tr><td>${esc(e.name)} <span style="color:var(--dim);font-size:11px">v${e.feature_version}·${esc(String(e.arch))}</span></td>`
+        + `<td>${esc(String(e.device))}</td><td class="num">${e.users}</td><td class="num">${e.queued||0}</td>`
+        + `<td class="num">${fmt(e.req_per_s,1)}</td><td class="num">${fmt(e.fwd_ms_mean,2)}</td><td class="num">${fmt(e.batch_recent_mean,0)}</td>`
+        + `<td>${e.idle? '<span style="color:var(--dim)">空闲</span>' : '<span class="pill run">在用</span>'}</td></tr>`).join('')
+      : '<tr><td class="hint" style="padding:10px">无常驻引擎</td></tr>';
+    if (h.error) $('t_hub').innerHTML += `<tr><td class="hint">引擎清单读取失败：${esc(h.error)}</td></tr>`;
+    const sess = (sv&&sv.sessions)||[];
+    $('t_sess').innerHTML = sess.length
+      ? `<tr><th>会话</th><th>棋种</th><th>档位</th><th>模型</th><th>sims</th><th>τ</th><th>占用引擎</th><th>心跳</th><th></th></tr>`
+        + sess.map(x=>`<tr${x.dead?' style="opacity:.55"':''}><td>${esc(x.pid)}</td><td>${esc(x.game)}</td>`
+        + `<td>${esc(String(x.profile||'—'))}</td><td class="num">${x.model_id>=0? '第 '+x.model_id+' 代' : '—'}</td>`
+        + `<td class="num">${fmt(x.n_sim,0)}</td><td class="num">${fmt(x.temp,1)}</td>`
+        + `<td>${esc(String(x.engine||'—'))}</td>`
+        + `<td class="num" style="color:${(x.beat_age_s||0)>15?'var(--orange)':'inherit'}">${secs(x.beat_age_s)} 前</td>`
+        + `<td><button class="mini danger" data-kill="${esc(x.pid)}">踢掉</button></td></tr>`).join('')
+      : '<tr><td class="hint" style="padding:10px">无活动会话</td></tr>';
+    $('vram-sum').textContent = v.available
+      ? `${v.gpu_name? v.gpu_name+' · ' : ''}${fmt(v.used_mb,0)} / ${fmt(v.total_mb,0)} MB`
+      : 'nvidia-smi 不可用';
+    $('t_vram').innerHTML = (v.procs||[]).length
+      ? `<tr><th>PID</th><th>身份</th><th>显存</th><th>命令</th></tr>`
+        + v.procs.map(pg=>`<tr${pg.role.indexOf('其它')<0?' style="color:var(--blue)"':''}><td class="num">${pg.pid}</td>`
+        + `<td>${esc(pg.role)}</td><td class="num">${fmt(pg.mb,0)} MB</td>`
+        + `<td style="font-family:var(--mono,monospace);font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;max-width:380px;text-overflow:ellipsis" title="${esc(pg.cmd||'')}">${esc(pg.cmd||'')}</td></tr>`).join('')
+      : `<tr><td class="hint" style="padding:10px">${v.available?'当前没有进程占着显存':'—'}</td></tr>`;
+  }catch(e){
+    // 本页 3s 自轮询：错误就地渲染，别 toast 刷屏（风格对齐监控页 #err 的做法）
+    $('svc-cards').innerHTML = card('服务状态读取失败', `<span class="bad">—</span>`,
+        esc(String(e.message||e).slice(0,140)) + ' · 服务重启后强刷本页');
+  }
+}
+async function killSession(pid){
+  // 统一走 uiAsk——原生 confirm/alert 已全站禁用（Daniel 纪律 2026-11-09）
+  const a = await uiAsk({title:`踢掉会话 ${pid}`, danger:true, okLabel:'踢掉',
+      body:'该局会被终止，其引擎随之可回收。'});
+  if(!a.ok) return;
+  try{
+    const r = await api('/api/admin/services/session_kill', {method:'POST', body: JSON.stringify({pid})});
+    toast(`已踢掉会话 ${r.killed.join('、')}`, true);
+    loadServices();
+  }catch(e){ toast('踢除失败：'+e.message); }
+}
+
 const MON_KEY = 'zz_mon_target';
 async function tickSeries(){
   if(tab!=='monitor') return;
@@ -2205,11 +2318,15 @@ window.addEventListener('resize', ()=>{ if(tab==='monitor') tickSeries(); });
   tick(); tickSeries();
   // 深链支持：/admin#arena 直达并停留可刷新恢复；点导航同步 hash
   const boot = (location.hash||'').replace('#','');
-  if(['monitor','train','artifacts','logs','arena','tasks'].includes(boot)) switchTab(boot);
+  if(['monitor','train','artifacts','logs','arena','tasks','services'].includes(boot)) switchTab(boot);
   document.querySelectorAll('nav a').forEach(a2=>a2.addEventListener('click',()=>{ history.replaceState(null,'','#'+a2.dataset.tab); }));
   window.addEventListener('hashchange',()=>{ const h=(location.hash||'').replace('#',''); if(h && h!==tab) switchTab(h); });
   setInterval(tick, 2000);
   setInterval(()=>{ if(tab==='tasks') loadTasks(false); }, 5000);
+  setInterval(()=>{ if(tab==='services') loadServices(); }, 3000);
+  $('t_sess').addEventListener('click', e=>{
+    const b = e.target.closest('[data-kill]'); if(b) killSession(b.dataset.kill);
+  });
   setInterval(tickSeries, 8000);
   setInterval(()=>{ if(tab==='logs' && $('l_follow').checked) loadLog(); }, 5000);
   setInterval(()=>{ if(tab==='artifacts') loadArtifacts(); }, 15000);

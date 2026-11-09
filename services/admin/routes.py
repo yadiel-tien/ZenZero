@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 
 from flask import Blueprint, jsonify, request, send_from_directory
@@ -84,16 +85,9 @@ def admin_page():
 def snapshot():
     snap = _m().snapshot()
     snap['trainer'] = _r().status()
-    # 最佳代数（擂主编号）：监控状态卡要区分"练到哪代"和"最强是哪代"
-    try:
-        from core.network.functions import read_best_index
-        meta = snap.get('meta') or {}
-        if meta.get('game') and meta.get('profile'):
-            snap['best'] = int(read_best_index(meta['game'], meta['profile']))
-        else:
-            snap['best'] = None
-    except Exception:                                 # noqa: BLE001 读不到不影响快照主体
-        snap['best'] = None
+    # 最佳代数（擂主编号）：监控状态卡要区分"练到哪代"和"最强是哪代"。
+    # 读盘兜底只在 Monitor._fill_best 一处做，这里复用它的结果，不再第二次 import read_best_index。
+    snap['best'] = (snap.get('live') or {}).get('best_index')
     return jsonify(snap)
 
 
@@ -270,7 +264,7 @@ def buffers_create():
 @bp.get('/api/admin/profiles')
 def profiles_list():
     """内置档位(s/m/l) ∪ data/profiles.json 自定义命名配置，含各自模型数。"""
-    from core.utils.config import CONFIG, available_profiles, net_config_for
+    from core.utils.config import CONFIG, available_profiles, custom_profile_games, net_config_for
     game = str(request.args.get('game') or CONFIG['game_name'])
     try:
         builtin = set((CONFIG[game].get('presets') or {}).keys())
@@ -291,8 +285,10 @@ def profiles_list():
         except Exception:                                # noqa: BLE001
             pass
         out.append({'name': name, 'builtin': name in builtin,
+                    'games': None if name in builtin else custom_profile_games(name),
                     'net': {k: cfg.get(k) for k in ('arch', 'n_filters', 'n_res_blocks',
-                                                    'n_value_hidden_channels', 'use_se')},
+                                                    'n_value_hidden_channels', 'use_se',
+                                                    'feature_version')},
                     'override': over, 'models': n_models, 'best': best})
     return jsonify({'game': game, 'profiles': out})
 
@@ -304,7 +300,8 @@ def profiles_save():
         return err
     from core.utils.config import save_custom_profile
     ok, msg = save_custom_profile(str(data.get('name') or ''),
-                                  data.get('net') if isinstance(data.get('net'), dict) else {})
+                                  data.get('net') if isinstance(data.get('net'), dict) else {},
+                                  str(data.get('game') or '') or None)
     res = {'ok': ok, 'message': msg} if ok else {'ok': False, 'error': msg}
     return jsonify(res), (200 if ok else 400)
 
@@ -327,7 +324,7 @@ def profiles_delete():
         return jsonify({'ok': False,
                         'error': f'{name} 名下还有 {n_pt} 个模型文件；确认删除配置名请输入 confirm='
                                  f'"delete-profile-with-models"（模型文件保留在磁盘）'}), 409
-    ok, msg = delete_custom_profile(name)
+    ok, msg = delete_custom_profile(name, game)
     return jsonify({'ok': ok, 'message': msg} if ok else {'ok': False, 'error': msg}), (200 if ok else 400)
 
 
@@ -506,6 +503,196 @@ def health():
         'gpu': (snap.get('hardware') or {}).get('gpu'),
         'cpu': (snap.get('hardware') or {}).get('cpu'),
     })
+
+# ================= 服务管理（对弈服务 / 推理 Hub / 显存） =================
+
+def _srv():
+    """正在运行的 PlayApiServer 实例。admin blueprint 注册在它同一个进程同一个 app 上
+    （见 play_api.__init__），hub 与会话都是进程内对象，跨模块只靠这个指针拿。"""
+    try:
+        from services.inference import play_api
+        return play_api.CURRENT
+    except Exception:                                    # noqa: BLE001 独立部署时可为空
+        return None
+
+
+def _proc_cmd(pid: int) -> str:
+    """/proc/<pid>/cmdline → 可读命令行（认不出的进程给空串，前端自行省列）。"""
+    try:
+        with open(f'/proc/{pid}/cmdline', 'rb') as fp:
+            return fp.read(400).replace(b'\0', b' ').decode('utf-8', 'replace').strip()
+    except OSError:
+        return ''
+
+
+def _vram_view() -> dict:
+    """显存全景：整卡读数与进程清单复用 Hardware（查卡逻辑全站只有一份），
+    routes 只做"这卡是谁"的归因——面板要回答"显存被谁吃了"。
+
+    本进程的空闲引擎我们能释放；训练/工具进程要页面上对应入口去停；机器上常驻的
+    其它 GPU 进程（如本机大脑）只如实列出，不处置。
+    """
+    hw = _m().hw
+    gpu = hw.gpu_now()
+    if not gpu:
+        return {'available': False, 'procs': []}
+    own = os.getpid()
+    trainer_pid = 0
+    try:
+        trainer_pid = int((_r().status() or {}).get('pid') or 0)
+    except Exception:                                    # noqa: BLE001
+        pass
+    task_pids: dict[int, str] = {}
+    try:
+        for t in _t().status()['tasks']:
+            if t.get('running') and t.get('pid'):
+                task_pids[int(t['pid'])] = t['name']
+    except Exception:                                    # noqa: BLE001
+        pass
+    procs = []
+    for pg in hw.gpu_procs():
+        pid, mb = pg['pid'], pg['mb']
+        if pid == own:
+            role = '对弈服务（本进程）'
+        elif trainer_pid and pid == trainer_pid:
+            role = '训练进程'
+        elif pid in task_pids:
+            role = f'工具任务 · {task_pids[pid]}'
+        else:
+            role = '其它进程'
+        procs.append({'pid': pid, 'mb': mb, 'role': role, 'cmd': _proc_cmd(pid)})
+    out = {'available': True, 'gpu_name': gpu.get('name'),
+           'used_mb': int(gpu['mem_used_mb']),
+           'total_mb': int(gpu['mem_total_mb']), 'procs': procs}
+    try:
+        import torch
+        if torch.cuda.is_available():
+            out['torch'] = {'allocated_mb': round(torch.cuda.memory_allocated() / 2**20),
+                            'reserved_mb': round(torch.cuda.memory_reserved() / 2**20)}
+    except Exception:                                    # noqa: BLE001
+        pass
+    return out
+
+
+@bp.get('/api/admin/services')
+def services_status():
+    srv = _srv()
+    now = time.time()
+    server = None
+    hub: dict = {'engines': []}
+    if srv is not None:
+        hub = {'evict_interval': srv.hub.evict_interval, 'engines': []}
+        try:
+            hub['engines'] = srv.hub.snapshot()
+        except Exception as e:                           # noqa: BLE001 清单失败不拦整页
+            hub['error'] = str(e)[:150]
+        sessions = []
+        from core.network.functions import read_latest_index
+        with srv.lock:
+            for pid, p in srv.ai_players.items():
+                mid = p.model_id
+                if mid == 0:                             # 0 = "用最新模型"的哨兵，面板要看到实际代数
+                    try:
+                        mid = int(read_latest_index(p.env_class.__name__, p.profile))
+                    except Exception:                    # noqa: BLE001 读不到就照原样显示
+                        pass
+                sessions.append({
+                    'pid': pid[:8],
+                    'game': p.env_class.__name__,
+                    'profile': p.profile, 'model_id': mid,
+                    'n_sim': p._n_simulation, 'temp': p.temperature,
+                    'engine': p._engine_name, 'dead': bool(p._dead),
+                    'beat_age_s': round(now - srv.clients_live_time.get(pid, 0), 1),
+                })
+        server = {'pid': os.getpid(), 'uptime_s': round(now - srv.started_ts),
+                  'listen': srv.listen or {}, 'device': CONFIG.get('device'),
+                  'sessions': sessions}
+    idle = [e['name'] for e in hub['engines'] if e.get('idle')]
+    return jsonify({'ok': True, 'server': server,
+                    'hub': hub, 'idle_engines': idle,
+                    'vram': _vram_view(),
+                    'note': None if srv else '对弈服务未在本进程运行（/admin 独立挂载）'})
+
+
+def _torch_empty_cache() -> None:
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:                                    # noqa: BLE001
+        pass
+
+
+@bp.post('/api/admin/services/release')
+def services_release():
+    """释放本进程 Hub 里所有没有使用方的引擎并 empty_cache——"清除显存占用"主按钮。
+
+    有对弈会话挂着的引擎（users>0）绝不动；要腾那份显存得先踢会话。"""
+    err, _data = _guard()
+    if err:
+        return err
+    srv = _srv()
+    if srv is None:
+        return jsonify({'ok': False, 'error': '对弈服务未在本进程运行'}), 409
+    before = _vram_view()
+    try:
+        freed = srv.hub.release_idle()
+    except Exception as e:                               # noqa: BLE001
+        return jsonify({'ok': False, 'error': str(e)[:150]}), 500
+    _torch_empty_cache()
+    after = _vram_view()
+    busy = [e['name'] for e in srv.hub.snapshot() if not e.get('idle')]
+    return jsonify({'ok': True, 'freed': freed, 'busy': busy,
+                    'before_mb': before.get('used_mb'), 'after_mb': after.get('used_mb')})
+
+
+@bp.post('/api/admin/services/cleanup')
+def services_cleanup():
+    """立即清理心跳超时的僵尸会话（后台线程 60s 一轮，这里给按钮用）。"""
+    err, data = _guard()
+    if err:
+        return err
+    srv = _srv()
+    if srv is None:
+        return jsonify({'ok': False, 'error': '对弈服务未在本进程运行'}), 409
+    try:
+        timeout = float(data.get('timeout_s') or 60)
+    except (TypeError, ValueError):
+        timeout = 60.0
+    cleaned = srv.cleanup_stale(timeout)
+    if cleaned:
+        srv.logger.info('控制台手动清理超时会话: ' + ', '.join(c[:8] for c in cleaned))
+    _torch_empty_cache()
+    return jsonify({'ok': True, 'cleaned': [c[:8] for c in cleaned]})
+
+
+@bp.post('/api/admin/services/session_kill')
+def services_session_kill():
+    """踢掉一个指定会话（pid 前缀即可）：shutdown 释放引擎引用，随后可被"释放空闲"回收。"""
+    err, data = _guard()
+    if err:
+        return err
+    srv = _srv()
+    if srv is None:
+        return jsonify({'ok': False, 'error': '对弈服务未在本进程运行'}), 409
+    pid = str(data.get('pid') or '')
+    if not pid:
+        return jsonify({'ok': False, 'error': '缺 pid'}), 400
+    with srv.lock:
+        hit = [k for k in srv.ai_players if k.startswith(pid)]
+        if not hit:
+            return jsonify({'ok': False, 'error': f'会话 {pid[:8]} 不存在（可能已超时被回收）'}), 404
+        for k in hit:
+            srv.clients_live_time.pop(k, None)
+            player = srv.ai_players.pop(k, None)
+            if player:
+                try:
+                    player.shutdown()
+                except Exception:                        # noqa: BLE001
+                    srv.logger.warning(f'session {k[:8]} kill failed', exc_info=True)
+    _torch_empty_cache()
+    return jsonify({'ok': True, 'killed': [k[:8] for k in hit]})
+
 
 # ================= 竞技场（多场次） =================
 @bp.get('/api/arena/list')

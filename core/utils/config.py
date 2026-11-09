@@ -468,22 +468,59 @@ def profiles_file() -> str:
     return os.path.join(CONFIG['data_dir'], 'profiles.json')
 
 
-def _read_custom_profiles() -> dict:
-    """读 data/profiles.json；文件缺失/损坏返回空（训练与对战绝不被配置文件带崩）。"""
+def _custom_doc() -> dict:
+    """profiles.json 原始条目 → {name: net(含可选 games)}。损坏返回空。"""
     try:
         with open(profiles_file(), encoding='utf-8') as fp:
             data = json.load(fp)
     except (OSError, ValueError):
         return {}
+    if not isinstance(data, dict):
+        return {}
+    if data.get('version') == 2:
+        profs = data.get('profiles')
+        return profs if isinstance(profs, dict) else {}
+    # v1 遗留（全局无归属）：按 data/<Game>/<name>/ 目录存在与否推断归属；
+    # 哪边都没目录的保持双棋种可见（旧行为，不凭空变没用户的名字）
     out = {}
-    for name, net in (data or {}).items():
+    for name, net in data.items():
+        if not isinstance(net, dict):
+            continue
+        games = sorted(g for g in _NET_BASES
+                       if os.path.isdir(os.path.join(CONFIG['data_dir'], g, str(name).strip().lower())))
+        out[name] = {**net, 'games': games or sorted(_NET_BASES)}
+    return out
+
+
+def _write_custom_doc(profs: dict) -> None:
+    os.makedirs(CONFIG['data_dir'], exist_ok=True)
+    tmp = profiles_file() + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as fp:
+        json.dump({'version': 2, 'profiles': profs}, fp, ensure_ascii=False, indent=2, sort_keys=True)
+    os.replace(tmp, profiles_file())
+
+
+def _read_custom_profiles(game: str | None = None) -> dict:
+    """自定义档位表；game 给定时只返回"属于该棋种"的条目（v1 全局时代 m8 泄漏给
+    五子棋下拉的错位，从 v2 起按 games 归属隔离）。"""
+    out = {}
+    for name, net in _custom_doc().items():
         name = str(name).strip().lower()
         if not _PROFILE_SLUG.match(name) or not isinstance(net, dict):
             continue
         if set(net) & _PRESET_FORBIDDEN:        # 带禁键的条目整体忽略（写入侧同样拒）
             continue
-        out[name] = dict(net)
+        games = net.get('games') or []
+        if game and games and game not in games:
+            continue
+        out[name] = {k: v for k, v in net.items() if k != 'games'}
     return out
+
+
+def custom_profile_games(name: str) -> list[str]:
+    """该自定义档位归属的棋种列表（面板"来源"列用）；内置档位返回全部。"""
+    net = _custom_doc().get(str(name or '').strip().lower()) or {}
+    return list(net.get('games') or sorted(_NET_BASES))
 
 
 def validate_profile_net(net: dict) -> tuple[dict | None, str]:
@@ -509,7 +546,9 @@ def validate_profile_net(net: dict) -> tuple[dict | None, str]:
     return clean, ''
 
 
-def save_custom_profile(name: str, net: dict) -> tuple[bool, str]:
+def save_custom_profile(name: str, net: dict, game: str | None = None) -> tuple[bool, str]:
+    """保存/更新自定义档位。game 给定时"只加归属不摘旧归属"：m8 已属象棋，
+    再在五子棋创建同名=共享规格；要收窄归属走单独入口，别在这里隐式删。"""
     name = str(name or '').strip().lower()
     if not _PROFILE_SLUG.match(name):
         return False, '名字需匹配 [a-z][a-z0-9_]{0,23}（小写字母开头）'
@@ -519,35 +558,32 @@ def save_custom_profile(name: str, net: dict) -> tuple[bool, str]:
     clean, err = validate_profile_net(net)
     if err:
         return False, err
-    cur = {}
-    try:
-        with open(profiles_file(), encoding='utf-8') as fp:
-            cur = json.load(fp) or {}
-    except (OSError, ValueError):
-        cur = {}
-    cur[name] = clean
-    os.makedirs(CONFIG['data_dir'], exist_ok=True)
-    tmp = profiles_file() + '.tmp'
-    with open(tmp, 'w', encoding='utf-8') as fp:
-        json.dump(cur, fp, ensure_ascii=False, indent=2, sort_keys=True)
-    os.replace(tmp, profiles_file())
+    cur = _custom_doc()
+    games = set(cur.get(name, {}).get('games') or [])
+    if game:
+        if game not in _NET_BASES:
+            return False, f'未知棋种 {game}'
+        games |= {game}
+    cur[name] = {**clean, 'games': sorted(games) or sorted(_NET_BASES)}
+    _write_custom_doc(cur)
     return True, f'已保存配置 {name}'
 
 
-def delete_custom_profile(name: str) -> tuple[bool, str]:
+def delete_custom_profile(name: str, game: str | None = None) -> tuple[bool, str]:
+    """删名字；game 给定时只摘该棋种的归属，别的棋种继续用（都不剩才整条删除）。"""
     name = str(name or '').strip().lower()
-    try:
-        with open(profiles_file(), encoding='utf-8') as fp:
-            cur = json.load(fp) or {}
-    except (OSError, ValueError):
-        return False, '没有自定义配置文件'
+    cur = _custom_doc()
     if name not in cur:
         return False, f'{name} 不在自定义配置里（内置档位不可删）'
-    cur.pop(name)
-    tmp = profiles_file() + '.tmp'
-    with open(tmp, 'w', encoding='utf-8') as fp:
-        json.dump(cur, fp, ensure_ascii=False, indent=2, sort_keys=True)
-    os.replace(tmp, profiles_file())
+    if game:
+        games = [g for g in (cur[name].get('games') or []) if g != game]
+        if not games:
+            cur.pop(name)
+        else:
+            cur[name]['games'] = games
+    else:
+        cur.pop(name)
+    _write_custom_doc(cur)
     return True, f'已删除配置 {name}（其数据目录保留，删名字不删模型）'
 
 
@@ -556,19 +592,25 @@ def available_profiles(game: str | None = None) -> dict:
     但不能改名字含义之外的东西——目录与模型仍按该名字走）。"""
     g = game or game_name
     out = dict(CONFIG[g].get('presets') or {})
-    out.update(_read_custom_profiles())
+    out.update(_read_custom_profiles(g))
     return out
 
 
 def set_profile(profile: str) -> str:
-    """切换档位：把 preset（内置 ∪ 自定义）就地合并进两个游戏的 default_net
-    （保持 dict 引用不变，已按引用取默认参数的调用方同步生效）。返回生效档位。"""
+    """切换档位：把 preset（内置 ∪ 自定义）就地合并进各游戏的 default_net
+    （保持 dict 引用不变，已按引用取默认参数的调用方同步生效）。返回生效档位。
+
+    v2 起档位有 games 归属：档位只属于象棋（如 m8）时，五子棋侧**保持原默认网络**
+    跳过合并——但对"当前棋种"仍然严格要求存在，配错照常报错，不静默降级。"""
     global PROFILE
     p = (profile or 'm').strip().lower()
+    active = CONFIG['game_name']
     for g, base in _NET_BASES.items():
         presets = available_profiles(g)
         if p not in presets:
-            raise ValueError(f"Unknown profile '{p}' for {g}. Available: {sorted(presets)}")
+            if g == active:
+                raise ValueError(f"Unknown profile '{p}' for {g}. Available: {sorted(presets)}")
+            continue
         over = dict(presets[p])
         bad = over.keys() & _PRESET_FORBIDDEN
         if bad:

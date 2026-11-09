@@ -6,6 +6,79 @@
 
 ## Unreleased
 
+- **fix(profiles): 自定义档位按棋种归属——修"选五子棋带出象棋网络"**（Daniel 两问同一事）：
+  data/profiles.json 是全局的，m8/mini/mini2 为象棋创建却五子棋下拉照单全收（v1 时代
+  已知遗留）。schema 升 v2：`{"version":2,"profiles":{name:{games:[…], …net}}}`；
+  读旧文件按 `data/<Game>/<name>/` 目录存在与否推断归属（没目录=双棋种可见，不凭空
+  变没名字），生产文件已迁移（v1 备份 profiles.json.v1.bak）。`save/delete_custom_profile`
+  带 game 参数（同名多棋种=共享规格；删名字只摘当前棋种归属，最后一个归属没了才整条删）；
+  `set_profile` 只对**当前棋种**严格要求档位存在，别的棋种缺了跳过合并不再连坐报错。
+  面板：创建/删除按钮随 f_game 传棋种；配置表"来源"列显示归属（`自定义 · 象棋`）。
+  ② 顺带把 arch 显形（上一轮）：profiles 接口补 feature_version 字段（白名单漏了的
+  真 bug），顶栏 meta 行/配置表/档名下拉显示 `WDL v2 · 256×8`（Daniel：标签就叫 WDL，
+  别拖「三头」尾巴——拓扑细节归文档画）；architecture.html §4.1 新增**图 4-1 网络结构
+  SVG**：stem→ResBlock×N→policy 头 + value 三头 [负|和|胜]（softmax CE→期望分 p胜−p负），
+  注册表文字同步补漏掉的 WDLNet 行（原文只写 resnet_v1 双头/bigame，现行默认从未入表）。
+  验证：test_network_registry 11 项（含 m8 泄漏回归/双归属/摘边不伤另一侧）；重启后
+  实测 ?game=Gomoku 只剩 s(128×6)/m(256×11)/l(256×15)，象棋侧 m8/mini/mini2 带 games 标。
+
+- **fix(train): 自适应 K 只降不升的棘轮 bug——一夜丢 23% 吞吐**（Daniel：昨晚变慢了，
+  自动调节合理吗；复盘 11-08 m8 run）：
+  ① 根因A（死区）：升档判据读 `batch_mean`＝**整轮累计直方图均值**，而 m8 常态 1300~1500
+  恒 >900，条件数学上永不成立——K 只能降不能升；② 根因B（触发面）：22:50 ComfyUI 抢卡，
+  轮末近窗 fwd 15.19ms 擦过 15 阈值单轮触发减半，干扰撤后（引擎整夜 fwd 2~5ms）回不去。
+  修复：升降档统一近窗口径（`batch_recent_mean`/`fwd_ms_mean`），降档加**两轮迟滞**
+  （单分钟毛刺不降档），升档保持即时（错了下一轮自纠）。
+  回归：tests/test_auto_tune_k.py 重写 12 例（含事故剧本）全过；**用昨晚 20:00→今晨
+  10:00 的 46 轮真实 infer 序列回放新控制器：降档 0 次（现场 1 次），22:30 反而升 128
+  后自动稳定**——整夜 gpm 40 vs 旧基线 64 档 52+ 的差距消除。K 为进程内状态，重启
+  训练即从 config 64 起步。
+
+- **feat(ui): 新增「服务」标签页——Hub / 对弈服务 / 显存三合一看板**（Daniel：要能看到
+  hub 与 play server 的管理情况，还要能一键清显存）：
+  ① ServerHub 加 `snapshot()/release_idle()`（只动 users==0 的引擎，在对弈的绝不碰），
+  引擎表：设备/用户/排队/req·s/前向 ms/最近批/空闲标记；
+  ② 对弈服务卡：pid·运行时长·监听·设备 + 会话表（棋种/档位/模型代数·model_id=0 按最新
+  解析/心跳龄），支持行级踢除；超时回收保持全自动（后台 60s 线程），不做按钮——
+  /api/admin/services/cleanup 接口留着给脚本救急；
+  ③ 显存按进程归因（nvidia-smi compute-apps）：本进程/训练进程/工具任务/其它进程各占多少，
+  无卡环境自动退化为「无 GPU」不报错。`play_api.CURRENT` 进程内指针 + 四个接口
+  `/api/admin/services{,/release,/cleanup,/session_kill}`（写操作吃 X-ZZ-Token 鉴权）。
+  面板不设"释放"按钮（Daniel：引擎 30s 自动回收、会话 60s 自动清理，自动在跑的事不配
+  手动键）；/release 与 /cleanup 留给脚本救急。唯一手动入口 = 会话行级「踢掉」。
+  复用整改（Daniel：代码复用、风格统一，别每次自己写）：查卡只留 Hardware 一个门——
+  `gpu_now()/gpu_procs()` 进 collect.Hardware（带缓存），routes 的 _vram_view 只写归因；
+  snapshot 路由的 best 不再第二次 read_best_index，复用 _fill_best；_cleanup_loop 与
+  控制台按钮共用 cleanup_stale（一份实现，日志各归调用方）；api() 对 HTML 错误页统一抽
+  HTTP 状态码（旧服务 404 不再把整页糊进 toast）；服务页错误就地渲染不刷屏；
+  killSession 原生 confirm → uiAsk 全站统一；hub.evict_interval 转公开属性供跨模块读。
+  验证：tests/test_services_tab.py 2 项；真机起服务跑通 会话→挂引擎（Gomoku_97 users=1）
+  →踢会话→释放（freed 1，卡上清零）全链路。
+  文案整改（Daniel：别啰嗦、别造重复）：「服务」标签排到「工具」前；面板副题/按钮/hint/toast
+  全砍成一句准话（如显存 hint 三行→一行）；「释放显存」「清超时」两个按钮都删除——
+  自动回收已在跑的事不配手动键，重复入口反而误导。
+
+- **fix(ui): 任务卡在任何阶段都点名「最佳」**（Daniel：训练阶段不要显示「尚无守擂者」，
+  要看到最佳是谁）：
+  ① 训练心跳的 fit / eval 写点补上 `best_index`——此前只有自博弈的写点带它，于是
+  **训练阶段**面板只能显示「最佳 —」；
+  ② 监控快照兜底：心跳缺 `best_index`（含心跳超 12s、退回日志启发式那条路）时直接从磁盘读
+  `best_index`，同档位没有 `best_index.pkl` 就退回最新 checkpoint，只有一局没练过的冷启动
+  才是 -1；前端任务卡（含"未运行"态与监控页「评估守擂」卡）统一显示
+  「第 N 代 · 最佳 第 M 代」/「攻 第 M 代王座」，冷启动显式写「—」，不再出现「尚无守擂者」。
+  ③ 顺手修掉「第 0 代」：`_phase()` 的日志启发式原来不产 iteration/best_index，而 fit 阶段
+  心跳只在开头写一次、十几分钟后必然过期走日志路径，缺值被前端 `||0` 渲染成「第 0 代 ·
+  最佳 第 64 代」（守擂卡同病：ev 为空 → 「第 0 代 攻 王座（冷启动）」）。现在日志启发式
+  解析每轮首行 `Starting selfplay, iteration: N, best index: M`，心跳过期时也沿用其中的
+  iteration/round/best_index。
+  ④ 代数缺值不再写占位符（Daniel：可以不显示，但不能编第 0/1 代，最好是记住练到哪代）：
+  快照新增 `last_iteration`（perf.jsonl 最近一轮的 iteration，按档位过滤 → 最新 checkpoint），
+  前端"本轮代数 → 上次练到的代数"逐级回落；两者都没有就整段省略代数、只留「最佳 第 M 代」
+  （"未运行"态的「上次 第 N 代」同样吃这个记录）。守擂卡无战报时显式「第 N 代 攻 第 M 代 ·
+  待评估」/「待评估 · 王者 第 M 代」/「本轮尚未评估」。
+  验证：DOM 桩跑七种场景（fit 有/无代数、有/无记录、全无、守擂卡三种缺值）卡片文案全对，
+  且不含「第 0 代」「第 — 代」；tests/test_snapshot_best.py 9 项钉死心跳/日志/perf/checkpoint 四条兜底。
+
 - **feat(train): CPU 训练需弹窗确认 + 任务卡版式重做**（Daniel：跑 CPU 要确认；卡看不懂）：
   ① 「启动训练」在设备=自动时先探测——无 GPU 或空闲显存 <4G 弹 uiAsk 确认（文案含
   baton 换班建议），用户知情才落 CPU；② 顶栏任务卡从一串挤爆的字符串改为四行结构：
