@@ -78,6 +78,10 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
   <div class="sub">ZenZero 上手手册 —— 安装、对战、训练、监控与排障，全部命令可复制</div>
   <div class="crumbs">ZenZero 文档集 · 第 1 篇｜<a href="index.html">目录</a> ·
     <a href="xiangqi-env.html">§2 环境</a> · <a href="mcts.html">§3 MCTS</a> · <a href="inference-engine.html">§4 推理引擎</a> · <a href="training.html">§5 训练管线</a> · <a href="architecture.html">§6 架构与 API</a></div>
+  <div style="margin-top:10px;font-size:12.5px">
+    <a style="color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:2px 10px;border-radius:99px" href="usage.html">中文</a>
+    <a style="color:#e8dfc8;text-decoration:none;border:1px dashed rgba(232,223,200,.4);padding:2px 10px;border-radius:99px;margin-left:6px" href="en/usage.html">English</a>
+  </div>
 </header>
 
 <nav>
@@ -190,7 +194,7 @@ l（30M）天花板实验；m8/mini/mini2 为自定义命名配置（profiles.js
 ZZ_GAMES_PER_ROUND / ZZ_BATCH_LEAVES / ZZ_MAX_BATCH / ZZ_INFER_WORKERS / ZZ_ADMIN_TOKEN</code>），
 语义与默认值见 §6 篇表 4；不改仓库 config 文件。</li>
 <li><b>版本从哪看</b>：对弈页「设置」底部与控制台标题徽章（形如 <code>v2.3.0 · 9f2c1ab</code>），
-或 <code>python main.py --version</code>；四轴版本（应用/表示/网络/模型代数）的分工见 §6 篇 4.4。
+或 <code>python main.py --version</code>；四轴版本（应用/表示/网络/模型代数）的分工见 §6 篇 4.4。</li>
 <li><b>静态默认值</b>在 <code>core/utils/config.py</code>（c_puct、温度调度、dirichlet、阈值、sims 爬坡、presets 规模）。</li>
 </ul>
 
@@ -213,11 +217,12 @@ for t in tests/test_*.py; do echo "== $t"; ZZ_DEVICE=cpu .venv/bin/python "$t" |
 <p>文档各篇的附录各自列出"哪条测试覆盖哪个结论"；改 <code>core/env</code>、<code>deepMcts</code>、
 凑批窗口/退役顺序之前，至少跑对应篇附录点名的套件。改完记得 <code>python scripts/build_cython.py --check</code>。</p>
 
-<div class="callout good"><b>读文档的路线：</b>掌握用法后深入原理 → §1 环境 → §2 MCTS → §3 推理引擎 → §4 训练管线；
-要接系统/写脚本 → §5 架构与接口。</div>
+<div class="callout good"><b>读文档的路线：</b>掌握用法后深入原理 → §2 环境 → §3 MCTS → §4 推理引擎 → §5 训练管线；
+要接系统/写脚本 → §6 架构与接口。</div>
 
 <footer>ZenZero 文档集 · §1 如何使用 · 2026-11 · 命令与 README、代码注释冲突时，以后两者为准</footer>
 </main>
+<script>try{if(localStorage.getItem('zz_lang')==='en'&&!/[?&]nolang/.test(location.search))location.replace('en/usage.html');}catch(e){}</script>
 <script>
 /* 离线模式（file:// 直开）：指向服务的入口（← 对弈 / ⚙ 控制台 / 首页）不可用，
    就地改跳本篇文档集的使用指南《如何使用》（含起服务的步骤），悬停给一句短提示。

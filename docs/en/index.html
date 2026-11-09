@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZenZero Docs · Overview &amp; Contents</title>
+<style>
+:root{
+  --ink:#1c1c1c; --paper:#faf7f0; --panel:#f2ede2; --line:#d8d0be;
+  --accent:#8b0000; --accent2:#2f4f4f; --muted:#6b6557; --code-bg:#efe9db;
+  --ok:#3d6b35; --warn:#b8860b;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Georgia,"Noto Serif",serif;
+  background:var(--paper);color:var(--ink);line-height:1.75;font-size:15.5px}
+header{background:linear-gradient(135deg,#1a2f2f 0%,#2f4f4f 60%,#3d5a5a 100%);color:#f0ead8;
+  padding:46px 24px 38px;text-align:center}
+header h1{margin:0 0 6px;font-size:32px;letter-spacing:2px}
+header .sub{opacity:.85;font-size:14.5px;letter-spacing:1px}
+header .langrow{margin-top:12px;font-size:12.5px}
+header .langrow a{color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:2px 10px;border-radius:99px}
+header .langrow .on{opacity:.55;border-style:dashed}
+main{max-width:960px;margin:0 auto;padding:30px 22px 80px}
+h2{font-size:20px;margin:34px 0 12px;padding-left:12px;border-left:5px solid var(--accent);letter-spacing:.3px}
+p{margin:9px 0;text-align:justify}
+code{font-family:"JetBrains Mono",Consolas,monospace;background:var(--code-bg);
+  padding:1.5px 6px;border-radius:4px;font-size:.9em;color:#4d3a1a}
+a{color:var(--accent2)}
+.abstract{border:1px solid var(--line);background:#fffdf7;border-radius:10px;padding:16px 22px;margin:18px 0}
+.abstract b.t{color:var(--accent2);letter-spacing:3px;font-size:14px}
+.abstract p{font-size:14.3px;color:#333}
+.toc{display:flex;flex-direction:column;gap:13px;margin:20px 0}
+.toc a{display:block;text-decoration:none;color:inherit;background:#fffdf7;border:1px solid var(--line);
+  border-radius:12px;padding:15px 20px;transition:transform .12s, box-shadow .12s}
+.toc a:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(28,28,28,.08);border-color:var(--accent2)}
+.toc .no{font-size:12px;color:var(--muted);letter-spacing:1.5px}
+.toc .t{font-size:18px;font-weight:600;margin:2px 0 4px}
+.toc .d{font-size:13.2px;color:var(--muted);line-height:1.7}
+.toc .k{display:inline-block;font-family:monospace;font-size:11.3px;background:#eef0e4;border:1px solid var(--line);
+  border-radius:4px;padding:0 6px;margin:6px 4px 0 0;color:#4d3a1a}
+.toc .en{display:inline-block;font-size:11px;color:var(--ok);border:1px solid var(--ok);border-radius:4px;padding:0 6px;margin-left:8px;vertical-align:2px}
+.toc .zw{display:inline-block;font-size:11px;color:var(--muted);border:1px dashed var(--line);border-radius:4px;padding:0 6px;margin-left:8px;vertical-align:2px}
+.map{border:1px solid var(--line);background:#fffdf7;border-radius:10px;padding:14px 18px;margin:16px 0;font-size:13.8px}
+.map table{border-collapse:collapse;width:100%;font-size:13.3px}
+.map th{text-align:left;background:#eef0e4;color:var(--accent2);border:1px solid var(--line);padding:6px 9px}
+.map td{border:1px solid var(--line);padding:6px 9px;vertical-align:top}
+footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 50px;border-top:1px solid var(--line)}
+.zh{font-size:.85em;color:var(--muted)}
+  html{scroll-padding-top:58px}
+  .eq{overflow-x:auto}
+  @media(max-width:900px){
+    main{padding-left:12px;padding-right:12px}
+    table{display:block;overflow-x:auto}
+    header h1{letter-spacing:1px}
+  }
+  @media print{
+    nav{display:none}
+    header{padding:24px}
+    body{background:#fff;font-size:12.5px}
+    figure,.eq,table,.callout{break-inside:avoid}
+    a{color:inherit;text-decoration:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ZenZero Documentation</h1>
+  <div class="sub">A high-performance AlphaZero board-game AI framework · design rationale · implementation details · API contracts</div>
+  <div style="margin-top:14px;font-size:13px">
+    <a href="/" style="color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:4px 12px;border-radius:99px">← Play</a>
+    <a href="/admin" style="color:#e8dfc8;text-decoration:none;border:1px solid rgba(232,223,200,.35);padding:4px 12px;border-radius:99px;margin-left:8px">⚙ Console</a>
+  </div>
+  <div class="langrow"><a href="../index.html" onclick="try{localStorage.setItem('zz_lang','zh')}catch(e){}">中文</a> <a class="on" href="index.html">English</a></div>
+</header>
+
+<main>
+
+<div class="abstract">
+  <b class="t">PREFACE</b>
+  <p>These documents form six chapters organised around “one AlphaZero loop”: Chapter 1 is the getting-started manual, the other five explain
+  the design. The technical chapters follow a paper-like house style: abstract, numbered sections, a notation table, captioned figures,
+  numbered equations; every number states its measurement conditions, and negative results and post-mortems are written in as honestly as
+  the wins. Suggested reading order: §1 How to Use (run it first) → §6 Architecture → §2 → §3 → §4 → §5 (then go deep); every chapter is
+  self-contained, so skimming like a reference book is fine. Formula symbols are defined up front in each chapter's notation section;
+  cross-chapter references look like “§4 ch. eq. (1)”.</p>
+</div>
+
+<h2>The six chapters</h2>
+<div class="toc">
+
+  <a href="usage.html">
+    <div class="no">Chapter 1 · Getting started</div>
+    <div class="t">How to Use<span class="en">EN</span></div>
+    <div class="d">Three-step quick start · install &amp; Cython build · playing &amp; services · starting/stopping training from the console ·
+      monitor tour · CLI / protocol / ladder / strength-measurement entries · environment variables &amp; network quick sheet ·
+      troubleshooting · tests &amp; acceptance.</div>
+    <span class="k">docs/en/usage.html</span>
+  </a>
+
+  <a href="../xiangqi-env.html">
+    <div class="no">Chapter 2 · Physics</div>
+    <div class="t">ChineseChess Environment<span class="zw">中文</span></div>
+    <div class="d">state array &amp; history window · viewpoint normalisation · the 2086-action ABI · legal-move rule engine
+      (suicide filter / mate &amp; stalemate / threefold repetition / perpetual check / clocks) · 26-plane board representation ·
+      feature-epoch coexistence. The single source of truth for rules — human, self-play, gauntlet and arena all share one implementation.</div>
+    <span class="k">core/env/chess.py</span><span class="k">chess_cython.pyx</span><span class="k">rule_ctx.py</span>
+  </a>
+
+  <a href="../mcts.html">
+    <div class="no">Chapter 3 · Decider</div>
+    <div class="t">MCTS &amp; Virtual Loss<span class="zw">中文</span></div>
+    <div class="d">PUCT scoring (eq. 1) and its compact implementation · the virtual-loss ledger and conservation invariants (eq. 2) ·
+      barrier-free pipeline: one returns, one departs (fig. 2 timing) · terminal short-circuit · root noise (eq. 4) · π &amp; temperature (eq. 3) ·
+      viewpoint sign chain · throughput evolution experiments (table 3: 5.8k→62.9k positions/s).</div>
+    <span class="k">core/mcts/deepMcts.py</span><span class="k">run_pipelined</span><span class="k">VIRTUAL_LOSS</span>
+  </a>
+
+  <a href="../inference-engine.html">
+    <div class="no">Chapter 4 · Compute</div>
+    <div class="t">The Inference Engine<span class="zw">中文</span></div>
+    <div class="d">Forward cost model t(b)=t₀+κb (eq. 1, fig. 1) · four-stage thread pipeline (fig. 2) ·
+      adaptive batching window (table 2) · request-side symmetry augmentation and its equivalence (eq. 3) ·
+      device-consistency triad · ServerHub multi-model sharing · dual-scope statistics and failure discipline ·
+      throughput bookkeeping (table 3, incl. the 2026-11 upgraded end state).</div>
+    <span class="k">services/inference/engine.py</span><span class="k">client.py</span><span class="k">hub.py</span>
+  </a>
+
+  <a href="../training.html">
+    <div class="no">Chapter 5 · Learner</div>
+    <div class="t">The Training Pipeline<span class="zw">中文</span></div>
+    <div class="d">The big loop and where a round's time goes (fig. 1, 3) · rolling 400-game amortisation · absolute-iteration sims ramp (eq. 1)
+      and quantifying “two thirds of a 200-sim teacher is noise” (eq. 4) · store-once-sample-many buffer (eq. 3) with disjoint holdout ·
+      metric methodology: CE = KL + D(π) (eq. 6, table 3, fig. 2 KL traces) · challenger promotion (eq. 7) ·
+      the full semantics of three kinds of stop · an overnight report card against iteration 498 (table 5).</div>
+    <span class="k">services/train/selfplay.py</span><span class="k">train_server.py</span><span class="k">core/utils/replay.py</span>
+  </a>
+
+  <a href="../architecture.html">
+    <div class="no">Chapter 6 · System</div>
+    <div class="t">Architecture, Deployment &amp; APIs<span class="zw">中文</span></div>
+    <div class="d">Glossary · process topology and the four contract surfaces (fig. 1) · repository tour · architecture registry and
+      s/m/l networks (measured parameter table) · full environment-variable table · <b>complete play-API and console-API contract tables</b> ·
+      build-free frontend with browser-side rule cross-checks · operations handbook (incl. behaviour when the GPU is taken).</div>
+    <span class="k">scripts/</span><span class="k">services/admin/</span><span class="k">apps/web/</span>
+  </a>
+
+</div>
+
+<h2>Find answers by question</h2>
+<div class="map">
+<table>
+<tr><th style="width:42%">You want to know…</th><th>Where</th></tr>
+<tr><td>How to install, run the service, and start training or playing?</td><td><b>§1 How to Use</b> (three-step quick start)</td></tr>
+<tr><td>Why can it train an order of magnitude more in the same wall-clock time?</td><td>§3 ch. table 3 (throughput evolution) + §5 ch. 10.3 (vs iteration 498)</td></tr>
+<tr><td>Does virtual loss mess up the statistics?</td><td>§3 ch. 5.2–5.3 (two invariants) + appendix tests</td></tr>
+<tr><td>How are batches assembled? Why do they fluctuate?</td><td>§4 ch. 3–5 (cost model + adaptive window)</td></tr>
+<tr><td>Policy loss falls slowly — is it not learning?</td><td>§5 ch. 7 (CE has a hard floor; watch KL; fig. 2 traces)</td></tr>
+<tr><td>When should training stop?</td><td>§5 ch. 7 criteria + §6 ch. 9 operations handbook</td></tr>
+<tr><td>Can a buffer serve a bigger network?</td><td>§6 ch. 4.2 (cross-network pooling) + §5 ch. 5 (quality-ceiling caveat)</td></tr>
+<tr><td>What does each number on the console mean — live or cached?</td><td>§6 ch. 7 (snapshot fields) + console card hover help</td></tr>
+<tr><td>Does graceful stopping lose data?</td><td>§5 ch. 9 three-level stop table (incl. implementation bottom line)</td></tr>
+<tr><td>Want to add a new game / new network?</td><td>readme “extensibility” three steps + §6 ch. 4.1 registry</td></tr>
+</table>
+</div>
+
+<h2>House rules</h2>
+<p>① Performance numbers carry their measurement environment (hardware, sims/move, threads); where omitted, they follow §3 ch. table 3 stage 3.
+② “Measured/observed” distinguishes first-hand experiments from log forensics; inferences are labelled “extrapolated/estimated”.
+③ Each chapter ends with its code paths and matching test suites; where docs and code disagree, code wins — file an issue and we'll fix the doc.
+④ Major incidents and revised judgements are recorded in the relevant chapter as “measured / negative result / regression-covered”.</p>
+
+<p class="note" style="margin-top:18px">Chapters 2–6 currently ship in Chinese; English translations are being added chapter by chapter — the Chinese pages share the same layout, figures and numbers.</p>
+
+<footer>ZenZero · docs overview · 2026-11 · corresponds to v2.3.0 · online: http://&lt;host&gt;:5000/docs/ or GitHub Pages · offline: open this file in a browser</footer>
+</main>
+<script>
+(function () {
+  try { localStorage.setItem('zz_lang', 'en'); } catch (e) {}
+  if (location.protocol !== 'file:') return;
+  document.querySelectorAll('a[href^="/"]').forEach(function (a) {
+    a.setAttribute('data-offline-href', a.getAttribute('href'));
+    a.setAttribute('href', 'usage.html');
+    a.style.opacity = '.62';
+    a.style.borderBottom = '1px dashed currentColor';
+    a.title = 'Not available offline · opens How to Use (incl. starting the service)';
+  });
+})();
+</script>
+</body>
+</html>

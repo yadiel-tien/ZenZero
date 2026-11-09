@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZenZero Docs · §1 How to Use</title>
+<style>
+:root{
+  --ink:#1c1c1c; --paper:#faf7f0; --panel:#f2ede2; --line:#d8d0be;
+  --accent:#8b0000; --accent2:#2f4f4f; --muted:#6b6557; --code-bg:#efe9db;
+  --ok:#3d6b35; --warn:#b8860b;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Georgia,"Noto Serif",serif;
+  background:var(--paper);color:var(--ink);line-height:1.78;font-size:15.5px}
+header{background:linear-gradient(135deg,#1a2f2f 0%,#2f4f4f 60%,#3d5a5a 100%);color:#f0ead8;
+  padding:42px 24px 34px;text-align:center}
+header h1{margin:0 0 6px;font-size:29px;letter-spacing:1px}
+header .sub{opacity:.85;font-size:14px;letter-spacing:.4px}
+header .crumbs{margin-top:14px;font-size:13px;opacity:.7}
+header .crumbs a{color:#e8dfc8}
+header .langrow{margin-top:10px;font-size:12.5px}
+header .langrow a{color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:2px 10px;border-radius:99px}
+header .langrow .on{opacity:.55;border-style:dashed}
+nav{position:sticky;top:0;z-index:9;background:#1a2f2f;padding:9px 18px;display:flex;flex-wrap:wrap;gap:4px 16px;
+  font-size:13.5px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+nav a{color:#d8d0be;text-decoration:none;padding:2px 6px;border-radius:4px}
+nav a:hover{background:rgba(255,255,255,.12);color:#fff}
+main{max-width:1080px;margin:0 auto;padding:26px 22px 80px;counter-reset:tbl}
+h2{font-size:21px;margin:44px 0 12px;padding-left:12px;border-left:5px solid var(--accent);letter-spacing:.2px}
+h3{font-size:16.5px;margin:26px 0 8px;color:var(--accent2)}
+p{margin:9px 0;text-align:justify}
+code{font-family:"JetBrains Mono",Consolas,monospace;background:var(--code-bg);
+  padding:1.5px 6px;border-radius:4px;font-size:.88em;color:#4d3a1a}
+pre{background:#22261f;color:#e6e0cc;padding:14px 16px;border-radius:8px;overflow-x:auto;
+  font-family:"JetBrains Mono",Consolas,monospace;font-size:13px;line-height:1.65}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.6px;background:#fffdf7}
+th{background:#2f4f4f;color:#f0ead8;padding:7px 10px;text-align:left;font-weight:600}
+td{border:1px solid var(--line);padding:6px 10px;vertical-align:top}
+tr:nth-child(even) td{background:#f7f2e6}
+td code{font-size:.85em}
+.callout{border-left:4px solid var(--warn);background:#fbf5e4;padding:10px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+.callout.danger{border-color:var(--accent);background:#faeeee}
+.callout.good{border-color:var(--ok);background:#eef5ea}
+ul,ol{padding-left:22px}
+a{color:var(--accent2)}
+footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 50px;border-top:1px solid var(--line)}
+.abstract{border:1px solid var(--line);background:#fffdf7;border-radius:10px;padding:16px 22px;margin:20px 0}
+.abstract b.t{color:var(--accent2);letter-spacing:3px;font-size:14px}
+.abstract p{font-size:14.3px;color:#333}
+.tbl-cap{font-size:12.8px;color:var(--muted);margin:14px 0 2px;counter-increment:tbl}
+.tbl-cap b::before{content:"Table " counter(tbl) "　";color:var(--accent);font-weight:700}
+.step{display:flex;gap:14px;align-items:flex-start;margin:14px 0}
+.step .n{flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:#2f4f4f;color:#f0ead8;
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;margin-top:2px}
+.step .b{flex:1}
+.step .b b{color:var(--accent2)}
+.note{font-size:13.2px;color:var(--muted)}
+.kbd{font-family:monospace;background:#fffdf7;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 6px;font-size:.85em}
+  .zh{font-size:.85em;color:var(--muted)}
+  html{scroll-padding-top:58px}
+  @media(max-width:900px){
+    main{padding-left:12px;padding-right:12px}
+    table{display:block;overflow-x:auto}
+    header h1{letter-spacing:1px}
+  }
+  @media print{
+    nav{display:none}
+    header{padding:24px}
+    body{background:#fff;font-size:12.5px}
+    table,.callout{break-inside:avoid}
+    a{color:inherit;text-decoration:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>How to Use</h1>
+  <div class="sub">ZenZero getting-started manual — install, play, train, monitor and troubleshoot; every command copy-pastable</div>
+  <div class="crumbs">ZenZero Docs · Chapter 1｜<a href="index.html">Contents</a> ·
+    <a href="../xiangqi-env.html">§2 Env <span class="zh">中文</span></a> · <a href="../mcts.html">§3 MCTS <span class="zh">中文</span></a> ·
+    <a href="../inference-engine.html">§4 Engine <span class="zh">中文</span></a> · <a href="../training.html">§5 Training <span class="zh">中文</span></a> ·
+    <a href="../architecture.html">§6 Architecture <span class="zh">中文</span></a></div>
+  <div class="langrow"><a href="../usage.html" onclick="try{localStorage.setItem('zz_lang','zh')}catch(e){}">中文</a> <a class="on" href="usage.html">English</a></div>
+</header>
+
+<nav>
+  <a href="#s0">Quick start</a><a href="#s1">1 Install</a><a href="#s2">2 Playing</a><a href="#s3">3 Training</a>
+  <a href="#s4">4 Console</a><a href="#s5">5 Other modes</a><a href="#s6">6 Nets &amp; config</a><a href="#s7">7 Troubleshooting</a>
+  <a href="#s8">8 Tests</a>
+
+  <a href="/" style="margin-left:auto;color:#f0d9a8!important;opacity:.85" title="Back to the play page">← Play</a>
+  <a href="/admin" style="opacity:.85" title="Training console">⚙ Console</a>
+</nav>
+
+<main>
+
+<div class="abstract">
+  <b class="t">ONE-LINER</b>
+  <p>ZenZero has exactly one process to keep: <code>python main.py</code> (play + console + docs, 127.0.0.1:5000 by default).
+  Once it is up, the browser gives you the game page, the admin console and these docs; open <code>/admin</code> to start/stop
+  training, watch curves and manage models. Training is one more command on the same box (or launched for you by the console).
+  The three-step quick start below covers 90% of use cases.</p>
+</div>
+
+<h2 id="s0">0　Three-step quick start</h2>
+<div class="step"><div class="n">1</div><div class="b"><b>Set up the environment</b> (one-off) — Python 3.14t + dependencies, see section 1.</div></div>
+<div class="step"><div class="n">2</div><div class="b"><b>Start the service</b>: <code>python main.py</code> (binds to 127.0.0.1:5000 by default;
+ add <code>--host 0.0.0.0</code> to expose it on the LAN, <code>--port 8080</code> to change port). Open <code>http://&lt;host&gt;:5000/</code> in a browser and play.</div></div>
+<div class="step"><div class="n">3</div><div class="b"><b>Train a model</b>: open <code>http://&lt;host-IP&gt;:5000/admin</code> → Training tab →
+ review game / network / parameters → click “Start training”; when done, click “Stop after round”. No terminal needed.</div></div>
+
+<h2 id="s1">1　Installation</h2>
+<p>One environment, managed with <a href="https://docs.astral.sh/uv/">uv</a> (a single dependency list,
+<code>requirements-backend.txt</code>; the frontend has zero dependencies):</p>
+<pre><code>uv venv -p cpython-3.14t .venv                          # free-threading interpreter (fall back to -p 3.14 if unavailable — throughput only)
+source .venv/bin/activate
+uv pip install -r requirements-backend.txt --extra-index-url https://download.pytorch.org/whl/cu132   # NVIDIA Linux
+# other backends: swap the extra-index for rocm6.4 / xpu, or use plain pip (MPS/CPU) — torch is unpinned, pick the wheel for your GPU</code></pre>
+<ul>
+<li><b>Cython acceleration (optional, strongly recommended)</b>: <code>python scripts/build_cython.py</code>; use <code>--check</code> to only verify.
+Without the <code>.so</code> files it silently falls back to pure Python (identical correctness, lower speed). Do <b>not</b> run
+<code>setup.py build_ext --inplace</code> directly — overwriting in place while training runs is blocked by the kernel (ETXTBSY)
+and can leave a half-new binary; the build script already stages and swaps atomically.</li>
+<li><b>Model weights</b>: want strong play without training? Grab <code>.pt</code> files from Releases and drop them into
+<code>data/ChineseChess/</code> (the m network); the highest iteration is taken as best. For another network (s/l/m8/mini…)
+create <code>data/ChineseChess/s/</code> and put the weights there.</li>
+</ul>
+
+<h2 id="s2">2　Playing</h2>
+<p>With the service up (step 0.2), the game page opens a match in three picks: <b>game → mode → model</b>. Modes:
+<b>human vs AI</b> (either colour) · <b>two players, one screen</b> · <b>AI vs AI spectate</b>. Model selection is a two-level cascade:
+network first (s/m/l/m8/mini/custom), then the checkpoint iteration within that network. Before the game you can set a
+<b>per-move time limit</b> (30–300 s, default 100 s; a human who exceeds it loses on time, the AI is not clocked).
+AI modes also offer an “AI settings” popover configuring <b>each AI player separately</b>:
+simulation count (MCTS depth) and sampling temperature (move randomness, 0 = always strongest).</p>
+<figure style="margin:14px 0"><img src="../assets/launcher-model.png" alt="Launcher: cascaded model pick and game setup" style="max-width:100%;border:1px solid var(--line);border-radius:10px">
+<figcaption class="note">Fig: model step — each AI side cascades network then iteration; per-move clock and AI settings below.</figcaption></figure>
+<figure style="margin:14px 0"><img src="../assets/playing.png" alt="AI vs AI spectating" style="max-width:100%;border:1px solid var(--line);border-radius:10px">
+<figcaption class="note">Fig: mid-game — ink-wash board, Chinese notation (cannon-8 across-5 style), win-rate bars and thinking clocks; the ⋯ menu offers undo (paired in human games) and resign.</figcaption></figure>
+<p>Phones/tablets on the same network just visit the URL; narrow screens move controls into a bottom drawer.
+Two-player mode is purely local and works without the AI service.</p>
+<table>
+<tr><th>Case</th><th>Behaviour</th></tr>
+<tr><td>No models installed</td><td>Two-player works; vs-AI/spectate report an empty model list (the error names the drop path)</td></tr>
+<tr><td>GPU fully busy</td><td>New games fall back to CPU automatically (device chip shows cpu; vs-AI caps at 60 sims/move to stay playable). Once the GPU frees up, switch back in one click from settings — engines migrate online, mid-game</td></tr>
+<tr><td>Service restarted</td><td>The running vs-AI session expires; start a new game. The frontend transparently re-creates a dead session and replays the position (often seamless)</td></tr>
+<tr><td>CLI / Gomocup protocol</td><td>Section 5</td></tr>
+</table>
+
+<h2 id="s3">3　Training</h2>
+<h3>3.1　Recommended path: the console</h3>
+<pre><code>http://&lt;host-IP&gt;:5000/admin　→　“Training” tab　→　Start training</code></pre>
+<p>Every form field is a training knob: game, network (s/m/l/m8/mini/custom), worker threads, games per round,
+virtual-loss K (adaptive — leave it blank), and optionally batch cap and device. The three <b>goal</b> fields may stay
+empty (= config defaults): stop-at iteration with graceful wrap-up, sims ramp band, and the promotion win-rate threshold.
+Watch live curves on the Monitor tab after starting. Three stop levels: <b>Stop after round</b> (recommended — self-play +
+fit + challenger all finish) · <b>Graceful stop</b> (running games are collected into the buffer, then exit) ·
+<b>Kill now</b> (kill -9, loses the current round's unsaved data).</p>
+<h3>3.2　Bare command (any terminal outside the service)</h3>
+<pre><code>python -X gil=0 -m scripts.train_server          # repo config defaults
+# full-parameter env form:
+ZZ_GAME=ChineseChess ZZ_PROFILE=s ZZ_WORKERS=32 ZZ_GAMES_PER_ROUND=400 \
+ZZ_BATCH_LEAVES=64 ZZ_DEVICE=auto python -X gil=0 -m scripts.train_server</code></pre>
+<ul>
+<li><code>-X gil=0</code> is mandatory (the first forward lazily imports triton and would re-enable the GIL; without it the multi-threaded MCTS only pretends to parallelize).</li>
+<li>Resume is automatic from “latest checkpoint + buffer”: any ckpt in the network's directory means warm start; the very first model is promoted unconditionally (no reigning champion).</li>
+<li>Representation-epoch changes are handled too: if feature_version mismatches the best model, training starts from a fresh network while the old best keeps the throne (§2 ch. §6).</li>
+<li>When to stop: the four criteria in §5 ch. section 7 (KL flat 10 generations / value plateau / promotion win-rate mean &lt;54% / cross-generation score rate &lt;60%).</li>
+</ul>
+
+<h2 id="s4">4　Console tour (<code>/admin</code>)</h2>
+<p class="note"><b>Platform note</b>: the console targets desktop browsers (wheel zoom / drag pan / double-click reset);
+it is fully phone-adapted too — the top strip collapses to a mini 3×2 table, tabs scroll horizontally, tables scroll,
+chart cards fall to two columns; one finger pans, two pinch, double-tap resets.</p>
+<figure style="margin:14px 0"><img src="../assets/admin-monitor.png" alt="Training console, monitor tab" style="max-width:100%;border:1px solid var(--line);border-radius:10px">
+<figcaption class="note">Fig: Monitor tab — status badges up top (version/theme/running/training config), live metric cards (subtitle states the data source), throughput/loss/win-rate/hardware curves below.</figcaption></figure>
+<table>
+<tr><th>Tab</th><th>What it does</th></tr>
+<tr><td>Services</td><td>Engine registry (ServerHub), play-server sessions (kick one), GPU memory per process (incl. CUDA-context baseline)</td></tr>
+<tr><td>Tools</td><td>Web control for the rest of scripts/: piskvork (Gomocup protocol server, network/model cascaders) / bench (engine batch sweep) / build_cython (safe build) — whitelisted args, live logs, tasks re-adopted after service restart</td></tr>
+<tr><td>Monitor</td><td>Six overview cards (games/min &amp; engine throughput, search efficiency split select/wait, training steps, buffer, validation set, challenger) + eight curves (loss·policy/value, policy KL+entropy, win rate, throughput, hardware); wheel zoom, double-click reset, per-card hover help</td></tr>
+<tr><td>Arena</td><td>Matchmaking platform: multiple arenas each with its own rating list, roster transfer dialog, smart-pairing / gauntlet / custom duel modes, adaptive table parallelism; live games + rankings/strength ladder/head-to-head matrix</td></tr>
+<tr><td>Training</td><td>Start/stop with three stop levels; the form maps one-to-one to environment variables (§6 ch. section 5 table)</td></tr>
+<tr><td>Assets</td><td>Checkpoints / buffers (incl. clone) / run dirs; all three tables support checked batch delete (per-item guardrails; best refuses); <b>Set as best</b> (rollback the champion)</td></tr>
+<tr><td>Logs</td><td>Live tail of the training process pinned first (linked with the stop buttons); tail any log file: module logs, rotated history, raw console output</td></tr>
+</table>
+<p class="note">API contracts (for scripts/integrations) live in §6 ch. section 7; write calls need header <code>X-ZZ-Token</code> when <code>ZZ_ADMIN_TOKEN</code> is set.</p>
+
+<h2 id="s5">5　Other ways to play</h2>
+<table>
+<tr><th>Command</th><th>Scenario</th></tr>
+<tr><td><code>python -m scripts.cli_play</code></td><td>Terminal chess: in-process engine, no service needed</td></tr>
+<tr><td><code>python -m scripts.piskvork_server --host 0.0.0.0 --port 12345</code></td><td>Gomocup protocol for the outside world (Piskvork GUI compatible)</td></tr>
+<tr><td colspan="2"><b>piskvork / bench / build_cython are all wired into the console's Tools tab</b> (arena matches live on the Arena tab): online start/stop, whitelisted args, log viewing (contract in §6 ch. 7).</td></tr>
+<tr><td><code>python -m scripts.arena</code></td><td>ELO ladder: write candidates (e.g. <code>10,20,34</code>) into <code>data/&lt;Game&gt;/rates/candidates.txt</code> for round-robin rating</td></tr>
+<tr><td><code>python -m tests.drills.model_match --a s:48 --b m:498 --games 40 --sims 800</code></td><td>Real matches between any two “network:iteration” checkpoints, strength judged at ±2σ (<b>run on GPU</b>: CPU measurement is invalid, §5 ch. 10.2)</td></tr>
+<tr><td><code>python scripts/bench_batch_sweep.py</code></td><td>Engine batch sweep — is the cost model still honest?</td></tr>
+</table>
+
+<h2 id="s6">6　Choosing a network &amp; config quick sheet</h2>
+<ul>
+<li><b>Start point &amp; buffer</b>: the training form offers <b>start point</b> (resume / fresh training with monotonic iterations / fork from a given iteration) and <b>buffer</b>. The buffer is a
+<b>game-level resource</b> (<code>data/&lt;Game&gt;/buffers/&lt;name&gt;/</code>, main + holdout as a pair), not per-network — the dropdown lists existing pools, hover shows details (representation version, capacity/used,
+<b>which network and iteration produced the latest data</b>), last item creates one. Any network may continue on any pool (cross-representation-version is rejected by the startup gate, §6 ch. 4.3).
+Want to experiment on an old pool without corrupting it: Assets → buffers → “⧉ Clone” (full copy to an auto-numbered pool; pick the clone in the form; disabled mid-training). <b>A buffer must be chosen</b> — the console offers no “none”;
+new pools are auto-numbered per game (pool1, pool2…) and can be renamed later. In-place pools inside model dirs remain only for bare-command compatibility.</li>
+<li><b>Custom networks</b>: console → Training → Network configs names any size combination (e.g. <code>mini64</code>); after saving it is instantly selectable in the training form, game page and assets. Deleting removes only the name — weights on disk stay (a same-named config picks them back up).</li>
+<li><b>Which network?</b>: s (8M) trains fast — one night catches the legacy m (§5 ch. 10.3); m (25M) is the default and holds the old assets; l (30M) is the ceiling experiment; m8/mini/mini2 are custom named configs (profiles.json, per game since today). <b>Pools are shared across networks</b> (same representation version) — warm up a big net by pointing it at a small net's pool.</li>
+<li><b>All runtime knobs</b> are environment variables (full table in §6 ch.): <code>ZZ_GAME / ZZ_PROFILE / ZZ_DEVICE / ZZ_WORKERS /
+ZZ_GAMES_PER_ROUND / ZZ_BATCH_LEAVES / ZZ_MAX_BATCH / ZZ_INFER_WORKERS / ZZ_ADMIN_TOKEN</code>; semantics and defaults in §6 ch. Table 4 — the repo config file is never edited at runtime.</li>
+<li><b>Where to read versions</b>: game page “Settings” footer and the console title badge (e.g. <code>v2.3.0 · 9f2c1ab</code>), or <code>python main.py --version</code>; the four version axes (app / representation / network / iteration) are explained in §6 ch. 4.4.</li>
+<li><b>Static defaults</b> live in <code>core/utils/config.py</code> (c_puct, temperature schedule, dirichlet noise, thresholds, sims ramp, preset sizes).</li>
+</ul>
+
+<h2 id="s7">7　Troubleshooting</h2>
+<table>
+<tr><th>Symptom</th><th>Look here first</th></tr>
+<tr><td>Port already in use at startup</td><td>Use another <code>--port</code>; or find the old process (training runs as a child managed by the console and never collides with the web port)</td></tr>
+<tr><td>UI says “cannot fetch model list”</td><td>Service not up / no <code>.pt</code> in that network's directory; switch network or iteration in the dropdown</td></tr>
+<tr><td>Training starts then stops immediately</td><td>Follow the “● live” tail on the Logs tab (file: <code>logs/train/console.log</code>, appended across runs). Most common: buffer can't fill one batch (auto pre-fill kicks in — just wait); or an explicitly requested device is unavailable (by design; use <code>ZZ_DEVICE=auto</code>)</td></tr>
+<tr><td>A console number looks stale</td><td>Read the card subtitle: “live” follows the heartbeat; “last round/stopped” is a perf record or log heuristic; greyed-out values while no training process runs are normal</td></tr>
+<tr><td>Suspect a crash</td><td><code>logs/crash/latest.log</code> (thread-level exceptions with stacks); the red banner at the top of the console points to the same place</td></tr>
+<tr><td>GPU training throughput tanks</td><td>On Monitor, check GPU utilization and “batch wait”: if another process is on the GPU, stagger runs; if the collection window is pinned but batch stays small, raise <code>ZZ_MAX_BATCH</code> (§4 ch. 5)</td></tr>
+</table>
+
+<h2 id="s8">8　Tests &amp; acceptance</h2>
+<pre><code># full regression (tests/, 13 suites, no external framework, CPU only, ~20 min):
+for t in tests/test_*.py; do echo "== $t"; ZZ_DEVICE=cpu .venv/bin/python "$t" || break; done
+# single suite: e.g. the 21 chess-rule checks — .venv/bin/python tests/test_chess_rules.py</code></pre>
+<p class="note">tests/ ships with the repo: drills/ are measurement tools (model_match cross-generation duels etc.), test_*.py are framework-free self-running regressions.</p>
+<p>Each chapter's appendix lists which test covers which conclusion; before touching <code>core/env</code>,
+<code>deepMcts</code>, the batching window or eviction order, run at least the suites named in that appendix.
+Afterwards remember <code>python scripts/build_cython.py --check</code>.</p>
+
+<div class="callout good"><b>Reading route:</b> after mastering usage, go deep → §2 Environment → §3 MCTS → §4 Inference Engine → §5 Training;
+to integrate systems / write scripts → §6 Architecture &amp; APIs.</div>
+
+<footer>ZenZero Docs · §1 How to Use · 2026-11 · where commands disagree with the README or code comments, those two win</footer>
+</main>
+<script>
+/* Offline mode (opened via file://): entries pointing at the running service are dead;
+   retarget them to this getting-started chapter (which explains how to start the service).
+   Zero effect when served over HTTP (first line returns). */
+(function () {
+  try { localStorage.setItem('zz_lang', 'en'); } catch (e) {}
+  if (location.protocol !== 'file:') return;
+  document.querySelectorAll('a[href^="/"]').forEach(function (a) {
+    a.setAttribute('data-offline-href', a.getAttribute('href'));
+    a.setAttribute('href', 'usage.html');
+    a.style.opacity = '.62';
+    a.style.borderBottom = '1px dashed currentColor';
+    a.title = 'Not available offline · opens How to Use (incl. starting the service)';
+  });
+})();
+</script>
+</body>
+</html>
