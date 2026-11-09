@@ -89,6 +89,11 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
   <div class="sub">一轮一夜如何炼成 —— 自博弈数据生成、目标质量、仓与验证、晋升机制、停止语义</div>
   <div class="crumbs">ZenZero 文档集 · 第 5 篇｜<a href="index.html">目录</a> ·
     <a href="usage.html">§1 如何使用</a> · <a href="xiangqi-env.html">§2 环境</a> · <a href="mcts.html">§3 MCTS</a> · <a href="inference-engine.html">§4 推理引擎</a> · <a href="architecture.html">§6 架构与 API</a></div>
+  <div style="margin-top:10px;font-size:12.5px">
+    <a style="color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:2px 10px;border-radius:99px" href="training.html">中文</a>
+    <a style="color:#e8dfc8;text-decoration:none;border:1px dashed rgba(232,223,200,.4);padding:2px 10px;border-radius:99px;margin-left:6px" href="en/training.html">English</a>
+  </div>
+<script>try{if(localStorage.getItem('zz_lang')==='en'&&!/[?&]nolang/.test(location.search))location.replace('en/training.html');}catch(e){}</script>
 </header>
 
 <nav>
@@ -287,8 +292,7 @@ CE 的表面进步里有多少是地板下移，一目了然）。</div>
 <p>两条提前终止规则省掉无信息局：即便余局全胜/全负也翻不了盘时立刻掐断——通常 85–96 局收工、
 约 50 秒。候选编号恒取"现存最大号 +1"，未晋升模型的 checkpoint 当场删除——于是下一位候选会复用同一编号，
 "代数"曲线出现平台甚至回退一格（实测 5,4,4,5,5,6,7,7 的段式前进）——面板如实呈现：这是语义行为，不是缺陷。</p>
-<div class="callout"><b>和棋率曾达四到五成，协议修正后降至 ~24%</b>（库线无放回 + 开局多样化，11-05 实测；病理性三次重复大减）——剩余和局仍是象棋规则属性：三次重复判和、长将判负、120 步时钟（久无进展判和）都按官方口径裁决（§2 篇 4.1），但缺少按子力结构评估"和局必然性"的裁决——进展缓慢的残局多被拖至重复判和或时钟判和。和棋样本的 z≈0 并非坏数据
-三次重复判和、长将判负、120 步时钟（久无进展判和）都按官方口径裁决（§2 篇 4.1），但缺少按子力结构评估"和局必然性"的裁决——进展缓慢的残局多被拖至重复判和或时钟判和。和棋样本的 z≈0 并非坏数据
+<div class="callout"><b>和棋率曾达四到五成，协议修正后降至 ~24%</b>（库线无放回 + 开局多样化，11-05 实测；病理性三次重复大减）——剩余和局仍是象棋规则属性：三次重复判和、长将判负、120 步时钟（久无进展判和）都按官方口径裁决（§2 篇 4.2），但缺少按子力结构评估"和局必然性"的裁决——进展缓慢的残局多被拖至重复判和或时钟判和。和棋样本的 z≈0 并非坏数据
 （教会模型"均势观"），但晋升判定的区分度会因此下降。改进路线（子力不足细分、逼和规则调参）
 属于 §2 篇的规则层，见彼处"边界与待办"。</div>
 <p>晋升率本身是健康度指标（下为 11-05 修复 versus 胜负映射并清榜前的旧口径断面，只示意量级）：s 网络累计 25 次评估 14 次晋升（56%），胜率分布集中在 52–63%——

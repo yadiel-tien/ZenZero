@@ -91,34 +91,34 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
 
   <a href="usage.html">
     <div class="no">Chapter 1 · Getting started</div>
-    <div class="t">How to Use<span class="en">EN</span></div>
+    <div class="t">How to Use</div>
     <div class="d">Three-step quick start · install &amp; Cython build · playing &amp; services · starting/stopping training from the console ·
       monitor tour · CLI / protocol / ladder / strength-measurement entries · environment variables &amp; network quick sheet ·
       troubleshooting · tests &amp; acceptance.</div>
     <span class="k">docs/en/usage.html</span>
   </a>
 
-  <a href="../xiangqi-env.html">
+  <a href="xiangqi-env.html">
     <div class="no">Chapter 2 · Physics</div>
-    <div class="t">ChineseChess Environment<span class="zw">中文</span></div>
+    <div class="t">ChineseChess Environment</div>
     <div class="d">state array &amp; history window · viewpoint normalisation · the 2086-action ABI · legal-move rule engine
       (suicide filter / mate &amp; stalemate / threefold repetition / perpetual check / clocks) · 26-plane board representation ·
       feature-epoch coexistence. The single source of truth for rules — human, self-play, gauntlet and arena all share one implementation.</div>
     <span class="k">core/env/chess.py</span><span class="k">chess_cython.pyx</span><span class="k">rule_ctx.py</span>
   </a>
 
-  <a href="../mcts.html">
+  <a href="mcts.html">
     <div class="no">Chapter 3 · Decider</div>
-    <div class="t">MCTS &amp; Virtual Loss<span class="zw">中文</span></div>
+    <div class="t">MCTS &amp; Virtual Loss</div>
     <div class="d">PUCT scoring (eq. 1) and its compact implementation · the virtual-loss ledger and conservation invariants (eq. 2) ·
       barrier-free pipeline: one returns, one departs (fig. 2 timing) · terminal short-circuit · root noise (eq. 4) · π &amp; temperature (eq. 3) ·
       viewpoint sign chain · throughput evolution experiments (table 3: 5.8k→62.9k positions/s).</div>
     <span class="k">core/mcts/deepMcts.py</span><span class="k">run_pipelined</span><span class="k">VIRTUAL_LOSS</span>
   </a>
 
-  <a href="../inference-engine.html">
+  <a href="inference-engine.html">
     <div class="no">Chapter 4 · Compute</div>
-    <div class="t">The Inference Engine<span class="zw">中文</span></div>
+    <div class="t">The Inference Engine</div>
     <div class="d">Forward cost model t(b)=t₀+κb (eq. 1, fig. 1) · four-stage thread pipeline (fig. 2) ·
       adaptive batching window (table 2) · request-side symmetry augmentation and its equivalence (eq. 3) ·
       device-consistency triad · ServerHub multi-model sharing · dual-scope statistics and failure discipline ·
@@ -126,9 +126,9 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
     <span class="k">services/inference/engine.py</span><span class="k">client.py</span><span class="k">hub.py</span>
   </a>
 
-  <a href="../training.html">
+  <a href="training.html">
     <div class="no">Chapter 5 · Learner</div>
-    <div class="t">The Training Pipeline<span class="zw">中文</span></div>
+    <div class="t">The Training Pipeline</div>
     <div class="d">The big loop and where a round's time goes (fig. 1, 3) · rolling 400-game amortisation · absolute-iteration sims ramp (eq. 1)
       and quantifying “two thirds of a 200-sim teacher is noise” (eq. 4) · store-once-sample-many buffer (eq. 3) with disjoint holdout ·
       metric methodology: CE = KL + D(π) (eq. 6, table 3, fig. 2 KL traces) · challenger promotion (eq. 7) ·
@@ -136,9 +136,9 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
     <span class="k">services/train/selfplay.py</span><span class="k">train_server.py</span><span class="k">core/utils/replay.py</span>
   </a>
 
-  <a href="../architecture.html">
+  <a href="architecture.html">
     <div class="no">Chapter 6 · System</div>
-    <div class="t">Architecture, Deployment &amp; APIs<span class="zw">中文</span></div>
+    <div class="t">Architecture, Deployment &amp; APIs</div>
     <div class="d">Glossary · process topology and the four contract surfaces (fig. 1) · repository tour · architecture registry and
       s/m/l networks (measured parameter table) · full environment-variable table · <b>complete play-API and console-API contract tables</b> ·
       build-free frontend with browser-side rule cross-checks · operations handbook (incl. behaviour when the GPU is taken).</div>

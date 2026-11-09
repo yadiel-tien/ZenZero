@@ -90,6 +90,11 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
   <div class="sub">从「每步一次问答」到「永远 K 条在飞」—— 决策层的并行化与它的正确性</div>
   <div class="crumbs">ZenZero 文档集 · 第 3 篇｜<a href="index.html">目录</a> ·
     <a href="usage.html">§1 如何使用</a> · <a href="xiangqi-env.html">§2 环境</a> · <a href="inference-engine.html">§4 推理引擎</a> · <a href="training.html">§5 训练管线</a> · <a href="architecture.html">§6 架构与 API</a></div>
+  <div style="margin-top:10px;font-size:12.5px">
+    <a style="color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:2px 10px;border-radius:99px" href="mcts.html">中文</a>
+    <a style="color:#e8dfc8;text-decoration:none;border:1px dashed rgba(232,223,200,.4);padding:2px 10px;border-radius:99px;margin-left:6px" href="en/mcts.html">English</a>
+  </div>
+<script>try{if(localStorage.getItem('zz_lang')==='en'&&!/[?&]nolang/.test(location.search))location.replace('en/mcts.html');}catch(e){}</script>
 </header>
 
 <nav>
@@ -123,7 +128,7 @@ MCTS（Monte Carlo Tree Search，蒙特卡洛树搜索）负责把"网络的直�
 <li><b>串行依赖</b>：一次推演的下降路径依赖此前所有推演的统计量——天真实现里"问网络 → 回填 → 再下降"
 必须顺序执行，GPU 每时刻只收到 1 个局面；</li>
 <li><b>高固定成本</b>：GPU 一次前向的开销大头是固定的（§4 篇式 (1)），单局面入批与 256 局面入批的
-耗时差不到一倍，摊到每个局面的成本却差十几倍。</li>
+耗时差不到一倍，摊到每个局面的成本却差一百多倍。</li>
 </ul>
 <p>因此本篇的全部内容可以概括为一句话：<b>在不改变搜索语义的前提下，把"一次一问"重排成
 "多问并行、随到随批"。</b>手段是虚拟损失（空间维并行）与流水线（时间维连续）。</p>
@@ -378,7 +383,7 @@ feature_version（§2 篇 §6，错位会被引擎的面数闸拒绝）；<code>
 非端侧估算；批统计另存整轮直方图，面板头条取整轮均值、滑动窗口只作尾部指示——
 用滑动窗口当整轮均值曾把 245 误报成 16（已由回归测试覆盖；§4 篇"整轮 237"即同批数据的整轮口径）。</li>
 <li>线程数存在实测拐点：24–32 线程 ≈ 47–50k 模拟/秒，64 线程回落到 35.9k——free-threading 下
-锁竞争与内存带宽接棒成为瓶颈，故 G=32 为默认。</li>
+锁竞争与内存带宽接棒成为瓶颈，故该阶段默认 G=32（现行默认见第 9 节表 3 阶段 5：G=128）。</li>
 <li>每次模拟的 CPU 账本随统计输出：选叶子 0.13–0.14ms、等推理 0.28–0.33ms（阶段 3 配置）——
 两者之比用于判断瓶颈迁移（CPU 搜索 vs GPU 推理）。</li>
 </ul>

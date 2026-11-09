@@ -118,11 +118,11 @@ Six chapters — a getting-started manual plus five design articles. Read them i
 | Chapter | Contents |
 | :--- | :--- |
 | [§1 How to Use](docs/en/usage.html) | three-step quick start, install & build, console, troubleshooting, tests ([中文](docs/usage.html)) |
-| [§2 ChineseChess Environment](docs/xiangqi-env.html) | state encoding, 2086-action ABI, legal-move rule engine, 26-plane representation, feature epochs |
-| [§3 MCTS & Virtual Loss](docs/mcts.html) | PUCT, batched virtual loss, barrier-free pipeline, π & temperature, measured 5.8k→60k req/s |
-| [§4 Inference Engine](docs/inference-engine.html) | four-stage thread pipeline, adaptive batching, symmetry augmentation, device consistency, multi-model hub |
-| [§5 Training Pipeline](docs/training.html) | the big loop, sims ramp, holdout set, CE = KL + entropy, stop semantics |
-| [§6 Architecture & APIs](docs/architecture.html) | process topology, repo tour, full env-var table, play/console API contracts |
+| [§2 ChineseChess Environment](docs/en/xiangqi-env.html) | state encoding, 2086-action ABI, legal-move rule engine, 26-plane representation, feature epochs ([中文](docs/xiangqi-env.html)) |
+| [§3 MCTS & Virtual Loss](docs/en/mcts.html) | PUCT, batched virtual loss, barrier-free pipeline, π & temperature, measured 5.8k→60k req/s ([中文](docs/mcts.html)) |
+| [§4 Inference Engine](docs/en/inference-engine.html) | four-stage thread pipeline, adaptive batching, symmetry augmentation, device consistency, multi-model hub ([中文](docs/inference-engine.html)) |
+| [§5 Training Pipeline](docs/en/training.html) | the big loop, sims ramp, holdout set, CE = KL + entropy, stop semantics ([中文](docs/training.html)) |
+| [§6 Architecture & APIs](docs/en/architecture.html) | process topology, repo tour, full env-var table, play/console API contracts ([中文](docs/architecture.html)) |
 
 > **Feature epoch 2 (2026-10)**: Xiangqi rules upgraded to the official code (moving into check is illegal; checkmate and stalemate are losses; draw by threefold repetition; perpetual check loses; 120-move clock) and the board representation re-laid out to 26 planes. Old models keep playing under their birth epoch; after the switch training resumes from a fresh network automatically. Regression: `tests/test_chess_rules.py` (21 checks).
 
