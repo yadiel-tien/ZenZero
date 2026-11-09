@@ -42,6 +42,7 @@ OVERRIDE = {
     '秒': 's', '纯最强': 'argmax only', '按设备': 'per device',
     '跨机器对战时填写后端地址，例如': 'For cross-machine play, enter the backend address, e.g.',
     '游戏': 'game',
+    '池': 'Buffer', '批': 'batch', '桌': 'table', '局': 'games',
     '交换位置': 'Swap sides', '对局操作': 'Game controls',
     '应用版本（神经网络与模型代数见控制台）': 'App version (network & model iteration: see console)',
     '背景音乐': 'Background music', '音乐音量': 'Music volume', '音效音量': 'Sound FX volume', '音效': 'SFX',
@@ -163,7 +164,7 @@ TEMPLATES = [
 ]
 
 def junk_key(k):
-    return bool(re.search(r'''["'`(){}]|=>|::|\bfmt\(|\bconst\b|function''', k))
+    return bool(re.search(r'''["'`]|{ | }|\(\)|=>|::|\bfmt\(|\bconst\b|function''', k))
 
 TOOL_DESC_EN = {
     'piskvork': 'Serve Gomoku over the Gomocup protocol so Piskvork-compatible GUIs and external engines can join.\nPick network & model, hit Start, then point the opponent at <host-IP>:<port> (default 12345); games auto-match the opponent think limit; Stop releases VRAM.',
