@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZenZero 文档集 · 总览与目录</title>
+<style>
+:root{
+  --ink:#1c1c1c; --paper:#faf7f0; --panel:#f2ede2; --line:#d8d0be;
+  --accent:#8b0000; --accent2:#2f4f4f; --muted:#6b6557; --code-bg:#efe9db;
+  --ok:#3d6b35; --warn:#b8860b;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Source Han Serif SC","Noto Serif CJK SC","Songti SC",Georgia,serif;
+  background:var(--paper);color:var(--ink);line-height:1.75;font-size:15.5px}
+header{background:linear-gradient(135deg,#1a2f2f 0%,#2f4f4f 60%,#3d5a5a 100%);color:#f0ead8;
+  padding:46px 24px 38px;text-align:center}
+header h1{margin:0 0 6px;font-size:32px;letter-spacing:8px}
+header .sub{opacity:.85;font-size:14.5px;letter-spacing:2px}
+main{max-width:960px;margin:0 auto;padding:30px 22px 80px}
+h2{font-size:20px;margin:34px 0 12px;padding-left:12px;border-left:5px solid var(--accent);letter-spacing:1px}
+p{margin:9px 0;text-align:justify}
+code{font-family:"Sarasa Mono SC","JetBrains Mono",Consolas,monospace;background:var(--code-bg);
+  padding:1.5px 6px;border-radius:4px;font-size:.9em;color:#4d3a1a}
+a{color:var(--accent2)}
+.abstract{border:1px solid var(--line);background:#fffdf7;border-radius:10px;padding:16px 22px;margin:18px 0}
+.abstract b.t{color:var(--accent2);letter-spacing:4px;font-size:14px}
+.abstract p{font-size:14.3px;color:#333}
+.toc{display:flex;flex-direction:column;gap:13px;margin:20px 0}
+.toc a{display:block;text-decoration:none;color:inherit;background:#fffdf7;border:1px solid var(--line);
+  border-radius:12px;padding:15px 20px;transition:transform .12s, box-shadow .12s}
+.toc a:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(28,28,28,.08);border-color:var(--accent2)}
+.toc .no{font-size:12px;color:var(--muted);letter-spacing:2px}
+.toc .t{font-size:18px;font-weight:600;margin:2px 0 4px}
+.toc .d{font-size:13.2px;color:var(--muted);line-height:1.7}
+.toc .k{display:inline-block;font-family:monospace;font-size:11.3px;background:#eef0e4;border:1px solid var(--line);
+  border-radius:4px;padding:0 6px;margin:6px 4px 0 0;color:#4d3a1a}
+.map{border:1px solid var(--line);background:#fffdf7;border-radius:10px;padding:14px 18px;margin:16px 0;font-size:13.8px}
+.map table{border-collapse:collapse;width:100%;font-size:13.3px}
+.map th{text-align:left;background:#eef0e4;color:var(--accent2);border:1px solid var(--line);padding:6px 9px}
+.map td{border:1px solid var(--line);padding:6px 9px;vertical-align:top}
+footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 50px;border-top:1px solid var(--line)}
+
+  /* —— 体例统一：锚点偏置 / 窄屏表格 / 公式横滚 / 打印 —— */
+  html{scroll-padding-top:58px}
+  .eq{overflow-x:auto}
+  @media(max-width:900px){
+    main{padding-left:12px;padding-right:12px}
+    table{display:block;overflow-x:auto}
+    header h1{letter-spacing:3px}
+  }
+  @media print{
+    nav{display:none}
+    header{padding:24px}
+    body{background:#fff;font-size:12.5px}
+    figure,.eq,table,.callout{break-inside:avoid}
+    a{color:inherit;text-decoration:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ZenZero 文档集</h1>
+  <div class="sub">高性能 AlphaZero 棋类 AI 框架 · 设计思想 · 实现细节 · 接口契约</div>
+  <div style="margin-top:14px;font-size:13px">
+    <a href="/" class="svc-link" style="color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:4px 12px;border-radius:99px">← 返回对弈</a>
+    <a href="/admin" class="svc-link" style="color:#e8dfc8;text-decoration:none;border:1px solid rgba(232,223,200,.35);padding:4px 12px;border-radius:99px;margin-left:8px">⚙ 训练控制台</a>
+  </div>
+  <div style="margin-top:10px;font-size:12.5px">
+    <a style="color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:2px 10px;border-radius:99px" href="index.html">中文</a>
+    <a style="color:#e8dfc8;text-decoration:none;border:1px dashed rgba(232,223,200,.4);padding:2px 10px;border-radius:99px;margin-left:6px" href="../index.html">English</a>
+  </div>
+</header>
+
+<main>
+
+<div class="abstract">
+  <b class="t">引　言</b>
+  <p>这套文档按"一个 AlphaZero 闭环"组织为六篇：第 1 篇是使用手册，其余五篇阐述原理；技术篇体例统一为科技文章式：每篇有摘要、编号章节、
+  记号表、图注与公式编号，数字全部标注测量条件，负结果与故障教训如实入文。
+  阅读顺序建议 §1 如何使用（上手运行）→ §6 → §2 → §3 → §4 → §5（深入原理），但每篇都自足，可当参考手册跳读。
+  全部公式符号在所在篇的"记号"一节先行定义；跨篇引用形如"§4 篇式 (1)"。</p>
+</div>
+
+<h2>六篇目录</h2>
+<div class="toc">
+
+  <a href="usage.html">
+    <div class="no">第 1 篇 · 使用手册</div>
+    <div class="t">如何使用（Getting Started）</div>
+    <div class="d">三步上手 · 安装与 Cython 构建 · 对战与服务 · 管理台启停训练 · 监控速览 ·
+      命令行/协议/天梯/强度测量入口 · 环境变量与神经网络速查 · 排障表 · 测试验收。</div>
+    <span class="k">docs/usage.html</span>
+  </a>
+
+  <a href="xiangqi-env.html">
+    <div class="no">第 2 篇 · 物理层</div>
+    <div class="t">象棋环境（ChineseChess Env）</div>
+    <div class="d">state 数组与历史窗口 · 视角归一 · 2086 动作 ABI · 合法着法制规则引擎
+      （送将过滤 / 将死困毙 / 三次重复 / 长将 / 时钟）· 26 面棋盘表示 · feature epoch 多版本共存。
+      对局规则的单一事实源——人机、自博弈、擂台、竞技场全部走同一份判定。</div>
+    <span class="k">core/env/chess.py</span><span class="k">chess_cython.pyx</span><span class="k">rule_ctx.py</span>
+  </a>
+
+  <a href="mcts.html">
+    <div class="no">第 3 篇 · 决策层</div>
+    <div class="t">MCTS 搜索与虚拟损失</div>
+    <div class="d">PUCT 打分（式 1）与紧凑实现 · 虚拟损失的账本与守恒不变量（式 2）·
+      无屏障流水线：收一条补一条（图 2 时序）· 终局短路 · 根噪声（式 4）· π 与温度（式 3）·
+      视角符号链 · 吞吐演进实验（表 3：5.8k→62.9k 局面/秒）。</div>
+    <span class="k">core/mcts/deepMcts.py</span><span class="k">run_pipelined</span><span class="k">VIRTUAL_LOSS</span>
+  </a>
+
+  <a href="inference-engine.html">
+    <div class="no">第 4 篇 · 算力层</div>
+    <div class="t">推理引擎</div>
+    <div class="d">前向成本模型 t(b)=t₀+κb（式 1，图 1 曲线）· 四段线程流水（图 2）·
+      自适应凑批窗口（表 2）· 请求侧镜像增强及其等价性（式 3）· 设备一致性三件套 ·
+      ServerHub 多模型共享 · 统计双口径与失败纪律 · 吞吐账面核对（表 3，含 2026-11 提档端态）。</div>
+    <span class="k">services/inference/engine.py</span><span class="k">client.py</span><span class="k">hub.py</span>
+  </a>
+
+  <a href="training.html">
+    <div class="no">第 5 篇 · 学习层</div>
+    <div class="t">训练管线</div>
+    <div class="d">大闭环与一轮的时间去哪了（图 1、3）· 400 局滚动摊薄 · sims 绝对代数爬坡（式 1）
+      与"200-sim 教材六成是噪声"的量化（式 4）· 仓的一存多采（式 3）与互斥留出 ·
+      指标方法论：CE = KL + D(π)（式 6、表 3、图 2 KL 轨迹）· 守擂晋升（式 7）·
+      三种停止的完整语义 · 一夜成绩单与 498 对照（表 5）。</div>
+    <span class="k">services/train/selfplay.py</span><span class="k">train_server.py</span><span class="k">core/utils/replay.py</span>
+  </a>
+
+  <a href="architecture.html">
+    <div class="no">第 6 篇 · 系统层</div>
+    <div class="t">架构、部署与接口</div>
+    <div class="d">术语表 · 进程拓扑与四个契约面（图 1）· 目录导读 · 架构注册表与 s/m/l 神经网络
+      （参数量实表）· 环境变量全表 · <b>对战 API 与控制台 API 的完整契约表</b> ·
+      零构建前端与浏览器端规则对拍 · 运维手册（含 GPU 被占时的行为）。</div>
+    <span class="k">scripts/</span><span class="k">services/admin/</span><span class="k">apps/web/</span>
+  </a>
+
+</div>
+
+<h2>按问题找答案</h2>
+<div class="map">
+<table>
+<tr><th style="width:42%">你想知道…</th><th>在这</th></tr>
+<tr><td>如何安装、部署服务并开始训练或对局？</td><td><b>§1 如何使用</b>（三步上手）</td></tr>
+<tr><td>为什么同等时间能多练一个数量级？</td><td>§3 篇 表 3（吞吐演进）＋ §5 篇 10.3（与 498 对照）</td></tr>
+<tr><td>虚拟损失会不会把统计记乱？</td><td>§3 篇 5.2–5.3（两条不变量）＋ 附录测试</td></tr>
+<tr><td>批是怎么凑出来的？为什么有时大有时小？</td><td>§4 篇 3–5（成本模型 + 自适应窗口）</td></tr>
+<tr><td>policy loss 降得慢，是学不动吗？</td><td>§5 篇 7（CE 有硬下界，看 KL；图 2 轨迹）</td></tr>
+<tr><td>什么时候该停止训练？</td><td>§5 篇 7 判据 + §6 篇 9 运维手册</td></tr>
+<tr><td>经验池能给大网络模型用吗？</td><td>§6 篇 4.2（跨网络通用）＋ §5 篇 5（质量上限提醒）</td></tr>
+<tr><td>面板上每个数字什么意思、是实时还是缓存？</td><td>§6 篇 7（snapshot 各字段）＋ 控制台卡片悬停说明</td></tr>
+<tr><td>优雅停止会丢数据吗？</td><td>§5 篇 9 三档表（含实现底线）</td></tr>
+<tr><td>想接入新棋种 / 新网络？</td><td>readme「扩展性」三步 ＋ §6 篇 4.1 注册表</td></tr>
+</table>
+</div>
+
+<h2>约定</h2>
+<p>① 性能数字标注测量环境（硬件、sims/手、线程数），无标注即沿用 §3 篇表 3 阶段 3 的配置；
+② "实测/观测"区分一手实验与日志回顾，推断会写明"外推/估计"；
+③ 每篇末列代码路径与对应测试套件，文档与代码冲突时以代码为准、差异以代码为准，欢迎经 issue 指正；
+④ 关键故障与改判均已在对应篇正文以「实测/负结果/回归覆盖」形式落档。</p>
+
+<footer>ZenZero · 文档集总览 · 2026-11 · 对应 v2.3.0 · 在线：http://&lt;主机&gt;:5000/docs/ · 离线：浏览器直接打开本文件</footer>
+</main>
+<script>try{if(localStorage.getItem('zz_lang')==='en'&&!/[?&]nolang/.test(location.search))location.replace('../index.html');}catch(e){}</script>
+<script>
+(function () {
+  var hide = function () { document.querySelectorAll('.svc-link').forEach(function (a) { a.style.display = 'none'; }); };
+  fetch('/info', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json().catch(function () { return null; }) : null; })
+    .then(function (d) { if (!d || d.device === undefined) hide(); })
+    .catch(hide);
+})();
+</script>
+</body>
+
+</html>

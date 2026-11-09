@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZenZero 文档 · 象棋环境（ChineseChess Env）</title>
+<title>ZenZero Docs · §2 ChineseChess Environment</title>
 <style>
 :root{
   --ink:#1c1c1c; --paper:#faf7f0; --panel:#f2ede2; --line:#d8d0be;
@@ -11,133 +11,140 @@
   --ok:#3d6b35; --warn:#b8860b;
 }
 *{box-sizing:border-box}
-body{margin:0;font-family:"Source Han Serif SC","Noto Serif CJK SC","Songti SC",Georgia,serif;
-  background:var(--paper);color:var(--ink);line-height:1.75;font-size:15.5px}
+body{margin:0;font-family:Georgia,"Noto Serif",serif;
+  background:var(--paper);color:var(--ink);line-height:1.78;font-size:15.5px}
 header{background:linear-gradient(135deg,#1a2f2f 0%,#2f4f4f 60%,#3d5a5a 100%);color:#f0ead8;
   padding:42px 24px 34px;text-align:center}
-header h1{margin:0 0 6px;font-size:30px;letter-spacing:6px}
-header .sub{opacity:.85;font-size:14.5px;letter-spacing:2px}
+header h1{margin:0 0 6px;font-size:29px;letter-spacing:1px}
+header .sub{opacity:.85;font-size:14px;letter-spacing:.4px}
 header .crumbs{margin-top:14px;font-size:13px;opacity:.7}
 header .crumbs a{color:#e8dfc8}
+header .langrow{margin-top:10px;font-size:12.5px}
+header .langrow a{color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:2px 10px;border-radius:99px}
+header .langrow .on{opacity:.55;border-style:dashed}
 nav{position:sticky;top:0;z-index:9;background:#1a2f2f;padding:9px 18px;display:flex;flex-wrap:wrap;gap:4px 16px;
   font-size:13.5px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 nav a{color:#d8d0be;text-decoration:none;padding:2px 6px;border-radius:4px}
 nav a:hover{background:rgba(255,255,255,.12);color:#fff}
-main{max-width:1080px;margin:0 auto;padding:30px 22px 80px}
-h2{font-size:22px;margin:46px 0 14px;padding-left:12px;border-left:5px solid var(--accent);letter-spacing:1px}
-h3{font-size:17px;margin:28px 0 10px;color:var(--accent2)}
-p{margin:9px 0}
-code, .kbd{font-family:"Sarasa Mono SC","JetBrains Mono",Consolas,monospace;background:var(--code-bg);
-  padding:1.5px 6px;border-radius:4px;font-size:.9em;color:#4d3a1a}
+main{max-width:1080px;margin:0 auto;padding:26px 22px 80px;counter-reset:tbl}
+h2{font-size:21px;margin:44px 0 12px;padding-left:12px;border-left:5px solid var(--accent);letter-spacing:.2px}
+h3{font-size:16.5px;margin:26px 0 8px;color:var(--accent2)}
+p{margin:9px 0;text-align:justify}
+code{font-family:"JetBrains Mono",Consolas,monospace;background:var(--code-bg);
+  padding:1.5px 6px;border-radius:4px;font-size:.88em;color:#4d3a1a}
 pre{background:#22261f;color:#e6e0cc;padding:14px 16px;border-radius:8px;overflow-x:auto;
-  font-family:"Sarasa Mono SC","JetBrains Mono",Consolas,monospace;font-size:13px;line-height:1.6}
+  font-family:"JetBrains Mono",Consolas,monospace;font-size:13px;line-height:1.65}
 pre code{background:none;color:inherit;padding:0}
-table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.8px;background:#fffdf7}
-th{background:#2f4f4f;color:#f0ead8;padding:8px 10px;text-align:left;font-weight:600}
-td{border:1px solid var(--line);padding:7px 10px;vertical-align:top}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.6px;background:#fffdf7}
+th{background:#2f4f4f;color:#f0ead8;padding:7px 10px;text-align:left;font-weight:600}
+td{border:1px solid var(--line);padding:6px 10px;vertical-align:top}
 tr:nth-child(even) td{background:#f7f2e6}
-.center td{text-align:center}
-.tag{display:inline-block;font-size:11.5px;padding:1px 8px;border-radius:10px;margin-right:4px;font-family:monospace}
-.tag.new{background:#e4efe0;color:var(--ok);border:1px solid #bcd4b5}
-.tag.keep{background:#eef0e4;color:#6b6557;border:1px solid #d4d4bc}
-.tag.dead{background:#f4e3e3;color:var(--accent);border:1px solid #dcbcbb}
+td code{font-size:.85em}
 .callout{border-left:4px solid var(--warn);background:#fbf5e4;padding:10px 16px;border-radius:0 8px 8px 0;margin:14px 0}
 .callout.danger{border-color:var(--accent);background:#faeeee}
 .callout.good{border-color:var(--ok);background:#eef5ea}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-@media(max-width:820px){.grid2{grid-template-columns:1fr}}
-.card{background:#fffdf7;border:1px solid var(--line);border-radius:10px;padding:16px 18px}
-.card h4{margin:0 0 8px;color:var(--accent2)}
-footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 50px;border-top:1px solid var(--line)}
-.boardwrap{display:flex;justify-content:center;margin:10px 0}
-.small{font-size:12.5px;color:var(--muted)}
-.planebar{display:flex;flex-wrap:wrap;gap:3px;margin:8px 0}
-.planebar .p{border-radius:4px;padding:2px 7px;font-family:monospace;font-size:11.5px;border:1px solid var(--line);background:#fff}
-.p.piece{background:#e6ecf5}.p.hist{background:#f0ece0;color:#999;text-decoration:line-through}
-.p.clock{background:#efe6d8}.p.newf{background:#e4efe0;border-color:#bcd4b5}
-.legend{font-size:12px;color:var(--muted);margin:2px 0 10px}
-.flow{display:flex;flex-direction:column;gap:0;align-items:center;margin:16px 0}
-.flow .step{background:#fffdf7;border:1.5px solid var(--accent2);border-radius:8px;padding:8px 16px;min-width:320px;
-  text-align:center;font-size:13.5px}
-.flow .arr{color:var(--accent2);font-size:18px;line-height:1.3}
-ul{padding-left:22px}
-ol{padding-left:22px}
+ul,ol{padding-left:22px}
 a{color:var(--accent2)}
-hr{border:none;border-top:1px dashed var(--line);margin:34px 0}
-.num{font-family:monospace;color:var(--accent);font-weight:700}
-
-  /* —— 体例统一：锚点偏置 / 窄屏表格 / 公式横滚 / 打印 —— */
+footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 50px;border-top:1px solid var(--line)}
+.abstract{border:1px solid var(--line);background:#fffdf7;border-radius:10px;padding:16px 22px;margin:20px 0}
+.abstract b.t{color:var(--accent2);letter-spacing:3px;font-size:14px}
+.abstract p{font-size:14.3px;color:#333}
+.tbl-cap{font-size:12.8px;color:var(--muted);margin:14px 0 2px;counter-increment:tbl}
+.tbl-cap b::before{content:"Table " counter(tbl) "　";color:var(--accent);font-weight:700}
+.step{display:flex;gap:14px;align-items:flex-start;margin:14px 0}
+.step .n{flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:#2f4f4f;color:#f0ead8;
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;margin-top:2px}
+.step .b{flex:1}
+.step .b b{color:var(--accent2)}
+.note{font-size:13.2px;color:var(--muted)}
+.kbd{font-family:monospace;background:#fffdf7;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 6px;font-size:.85em}
+  .zh{font-size:.85em;color:var(--muted)}
   html{scroll-padding-top:58px}
-  .eq{overflow-x:auto}
   @media(max-width:900px){
     main{padding-left:12px;padding-right:12px}
     table{display:block;overflow-x:auto}
-    header h1{letter-spacing:3px}
+    header h1{letter-spacing:1px}
   }
   @media print{
     nav{display:none}
     header{padding:24px}
     body{background:#fff;font-size:12.5px}
-    figure,.eq,table,.callout{break-inside:avoid}
+    table,.callout{break-inside:avoid}
     a{color:inherit;text-decoration:none}
   }
+  /* —— page-specific classes carried over from the Chinese edition —— */
+  .center td{text-align:center}
+  .tag{display:inline-block;font-size:11.5px;padding:1px 8px;border-radius:10px;margin-right:4px;font-family:monospace}
+  .tag.new{background:#e4efe0;color:var(--ok);border:1px solid #bcd4b5}
+  .tag.keep{background:#eef0e4;color:#6b6557;border:1px solid #d4d4bc}
+  .tag.dead{background:#f4e3e3;color:var(--accent);border:1px solid #dcbcbb}
+  .boardwrap{display:flex;justify-content:center;margin:10px 0}
+  .small{font-size:12.5px;color:var(--muted)}
+  .planebar{display:flex;flex-wrap:wrap;gap:3px;margin:8px 0}
+  .planebar .p{border-radius:4px;padding:2px 7px;font-family:monospace;font-size:11.5px;border:1px solid var(--line);background:#fff}
+  .p.piece{background:#e6ecf5}.p.clock{background:#efe6d8}.p.newf{background:#e4efe0;border-color:#bcd4b5}
+  .legend{font-size:12px;color:var(--muted);margin:2px 0 10px}
+  .flow{display:flex;flex-direction:column;gap:0;align-items:center;margin:16px 0}
+  .flow .step{display:block;background:#fffdf7;border:1.5px solid var(--accent2);border-radius:8px;padding:8px 16px;min-width:320px;
+    text-align:center;font-size:13.5px}
+  .flow .arr{color:var(--accent2);font-size:18px;line-height:1.3}
+  hr{border:none;border-top:1px dashed var(--line);margin:34px 0}
+  .num{font-family:monospace;color:var(--accent);font-weight:700}
+  figure{break-inside:avoid}
+  .eq{overflow-x:auto}
 </style>
 </head>
 <body>
 
 <header>
-  <h1>象 棋 环 境</h1>
-  <div class="sub">ZenZero · core/env/chess.py 详解 —— 状态、表示、规则与版本管理</div>
-  <div class="crumbs">ZenZero 文档集 · <a href="index.html">目录</a>｜第 2 篇（表示版本 2）｜
-    <a href="usage.html">§1 如何使用</a> · <a href="mcts.html">§3 MCTS</a> · <a href="inference-engine.html">§4 推理引擎</a> · <a href="training.html">§5 训练管线</a> · <a href="architecture.html">§6 架构与 API</a></div>
-  <div style="margin-top:10px;font-size:12.5px">
-    <a style="color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:2px 10px;border-radius:99px" href="xiangqi-env.html">中文</a>
-    <a style="color:#e8dfc8;text-decoration:none;border:1px dashed rgba(232,223,200,.4);padding:2px 10px;border-radius:99px;margin-left:6px" href="en/xiangqi-env.html">English</a>
-  </div>
-<script>try{if(localStorage.getItem('zz_lang')==='en'&&!/[?&]nolang/.test(location.search))location.replace('en/xiangqi-env.html');}catch(e){}</script>
+  <h1>ChineseChess Environment</h1>
+  <div class="sub">ZenZero · core/env/chess.py in detail — state, representation, rules and version management</div>
+  <div class="crumbs">ZenZero Docs · Chapter 2｜<a href="index.html">Contents</a> ·
+    <a href="usage.html">§1 How to Use</a> · <a href="mcts.html">§3 MCTS</a> · <a href="inference-engine.html">§4 Engine</a> · <a href="training.html">§5 Training</a> · <a href="architecture.html">§6 Architecture</a></div>
 </header>
 
 <nav>
-  <a href="#tldr">定位</a>
-  <a href="#state">state 数组</a>
-  <a href="#view">视角归一</a>
-  <a href="#action">动作编码</a>
-  <a href="#rules">规则引擎</a>
-  <a href="#planes">26 面</a>
-  <a href="#epoch">表示版本</a>
-  <a href="#flow">数据流</a>
-  <a href="#api">API 速查</a>
-  <a href="#test">测试</a>
-  <a href="#bound">边界与待办</a>
+  <a href="#tldr">Positioning</a>
+  <a href="#state">State array</a>
+  <a href="#view">Viewpoint norm.</a>
+  <a href="#action">Action encoding</a>
+  <a href="#rules">Rule engine</a>
+  <a href="#planes">26 planes</a>
+  <a href="#epoch">Feature epoch</a>
+  <a href="#flow">Data flow</a>
+  <a href="#api">API cheat sheet</a>
+  <a href="#test">Tests</a>
+  <a href="#bound">Limits &amp; TODOs</a>
 
-  <a href="usage.html">如何使用</a>
-  <a href="/" class="svc-link" style="margin-left:auto;color:#f0d9a8!important;opacity:.85" title="返回对弈首页">← 对弈</a>
-  <a href="/admin" class="svc-link" style="opacity:.85" title="训练控制台">⚙ 控制台</a>
+  <a href="usage.html">How to Use</a>
+  <a href="/" class="svc-link" style="margin-left:auto;color:#f0d9a8!important;opacity:.85" title="Back to the play page">← Play</a>
+  <a href="/admin" class="svc-link" style="opacity:.85" title="Training console">⚙ Console</a>
 </nav>
 
 <main>
 
-<h2 id="tldr">0　这个 env 是什么</h2>
-<p>象棋环境是 ZenZero 里 AlphaZero 闭环的<b>物理层</b>：MCTS 只向它要三样东西——<code>get_valid_actions</code>（能走什么）、
-<code>virtual_step</code>（走完什么样）、<code>check_winner / game_over</code>（走完后分胜负没有）；
-训练采样额外要 <code>convert_to_network</code>（盘面变照片）。它同时是<b>对局规则的单一事实源</b>：
-人机对战、selfplay、竞技场、Piskvork、Web 后端全部走同一份判定。</p>
-<div class="callout good"><b>表示版本 2（2026-10-27）两项升级：</b>
-①规则从"吃王制"改为官方<b>合法着法制</b>（送将非法，将死/困毙统一判负）；
-②棋盘表示从 20 面（棋子+差分+时钟）重排为 <b>26 面清洁布局</b>（last-move / 被将 / 重复 / 时钟 / 兵力 / 将位）。
-旧模型（如 checkpoint_498）通过<b>版本感知转换</b>继续原样工作，见 <a href="#epoch">§6</a>。</div>
+<h2 id="tldr">0　What this environment is</h2>
+<p>The Chinese Chess (Xiangqi) environment is the <b>physics layer</b> of ZenZero's AlphaZero loop: MCTS asks it for only three things —
+<code>get_valid_actions</code> (which moves exist), <code>virtual_step</code> (what results after a move) and
+<code>check_winner / game_over</code> (whether the game is decided after a move); training sampling additionally asks for
+<code>convert_to_network</code> (turning the board into a snapshot). It is at the same time the <b>single source of truth for the rules of play</b>:
+human vs AI, self-play, the arena, Piskvork and the web backend all run on one and the same adjudication.</p>
+<div class="callout good"><b>Feature epoch 2 (2026-10-27), two upgrades:</b>
+① the rules move from the capture-the-king convention to the official <b>legal-move formulation</b> (leaving one's own king en prise is illegal; checkmate and stalemate are scored as losses under one rule);
+② the board representation is re-laid out from 20 planes (pieces + difference + clock) into a <b>clean 26-plane layout</b> (last-move / check / repetition / clock / material / king position).
+Old models (e.g. checkpoint_498) keep working exactly as before through <b>version-aware conversion</b>, see <a href="#epoch">§6</a>.</div>
 
-<h3>实现文件一览</h3>
+<h3>Implementation files at a glance</h3>
 <table>
-<tr><th>文件</th><th>职责</th></tr>
-<tr><td><code>core/env/env.py</code></td><td>BaseEnv 抽象契约（step / virtual_step / get_valid_actions / check_winner / convert_to_network / augment_data …）</td></tr>
-<tr><td><code>core/env/chess.py</code></td><td>ChineseChess 实现：动作表、走法生成（Python 参考版）、规则裁决、双布局编码</td></tr>
-<tr><td><code>core/env/chess_cython.pyx</code></td><td>热路径 C 加速：合法着法（含送将过滤）、判将；与 Python 版<b>互为镜像实现</b>，随机对拍逐一比对</td></tr>
-<tr><td><code>core/env/rule_ctx.py</code></td><td>RuleContext：对局过程状态（位置出现计数 + 被将标记）</td></tr>
+<tr><th>File</th><th>Responsibility</th></tr>
+<tr><td><code>core/env/env.py</code></td><td>BaseEnv abstract contract (step / virtual_step / get_valid_actions / check_winner / convert_to_network / augment_data …)</td></tr>
+<tr><td><code>core/env/chess.py</code></td><td>ChineseChess implementation: action table, move generation (Python reference), rule adjudication, dual-layout encoding</td></tr>
+<tr><td><code>core/env/chess_cython.pyx</code></td><td>C-accelerated hot path: legal moves (incl. leaving-one's-own-king-en-prise filtering), check detection; a <b>mirror implementation</b> of the Python version, compared entry-by-entry in random differential testing</td></tr>
+<tr><td><code>core/env/rule_ctx.py</code></td><td>RuleContext: game-progression state (position occurrence counts + check flags)</td></tr>
 </table>
 
-<h2 id="state">1　state：(7, 10, 9) 的 int32 张量</h2>
-<p>环境的唯一盘面真相。<b>行 0 在顶部（黑方底线），行 9 在底部（红方底线）</b>；值：-1 空位，0~6 红子，7~13 黑子。</p>
+<h2 id="state">1　state: a (7, 10, 9) int32 tensor</h2>
+<p>The environment's single board truth. <b>Row 0 is at the top (Black's home rank), row 9 at the bottom (Red's home rank)</b>; values: −1 empty, 0–6 Red pieces, 7–13 Black pieces.</p>
 <div class="boardwrap">
 <svg width="560" height="330" viewBox="0 0 560 330">
   <g font-family="serif">
@@ -151,10 +158,10 @@ hr{border:none;border-top:1px dashed var(--line);margin:34px 0}
     <circle cx="160" cy="300" r="13" fill="#fff" stroke="#8b0000" stroke-width="2"/><text x="160" y="305" text-anchor="middle" font-size="14" fill="#8b0000">帥</text>
     <circle cx="40" cy="20" r="13" fill="#fff" stroke="#1c1c1c" stroke-width="2"/><text x="40" y="25" text-anchor="middle" font-size="14" fill="#1c1c1c">車</text>
     <circle cx="160" cy="20" r="13" fill="#fff" stroke="#1c1c1c" stroke-width="2"/><text x="160" y="25" text-anchor="middle" font-size="14" fill="#1c1c1c">將</text>
-    <text x="430" y="30" font-size="13" fill="#6b6557">通道[0] 当前盘</text>
-    <text x="430" y="55" font-size="13" fill="#6b6557">通道[1..5] 最近5步盘</text>
-    <text x="430" y="80" font-size="13" fill="#6b6557">通道[6] 未吃子计数</text>
-    <text x="430" y="120" font-size="13" fill="#6b6557">(广播到整个10×9)</text>
+    <text x="430" y="30" font-size="11" fill="#6b6557">chan[0] current board</text>
+    <text x="430" y="55" font-size="11" fill="#6b6557">chan[1..5] history</text>
+    <text x="430" y="80" font-size="11" fill="#6b6557">chan[6] no-capture</text>
+    <text x="430" y="120" font-size="11" fill="#6b6557">(broadcast over 10×9)</text>
     <text x="30" y="322" font-size="12" fill="#6b6557">col 0</text>
     <text x="152" y="322" font-size="12" fill="#6b6557">col 4</text>
     <text x="388" y="322" font-size="12" fill="#6b6557">col 8</text>
@@ -164,220 +171,221 @@ hr{border:none;border-top:1px dashed var(--line);margin:34px 0}
 </svg>
 </div>
 <table>
-<tr><th>通道</th><th>内容</th><th>更新方式</th></tr>
-<tr><td><code>state[0]</code></td><td>当前盘面（唯一"现在"）</td><td rowspan="2"><code>virtual_step</code>：落子后先做 <code>[1:6]=[0:5]</code> 历史平移，再执行移动——所以层[1] = 上一步之前的盘，依此类推。<b>6 层历史窗口是 last-move 面和窗口重复面的信息来源</b>，树内（搜索路径）与对局天然同构。</td></tr>
-<tr><td><code>state[1..5]</code></td><td>最近 5 步的历史盘</td></tr>
-<tr><td><code>state[6]</code></td><td>未吃子步数（broadcast 到 10×9）</td><td>不吃子 +1，吃子归零。判和阈值见 <code>DRAW_NO_CAPTURE_PLIES = 120</code>。</td></tr>
+<tr><th>Channel</th><th>Content</th><th>How it is updated</th></tr>
+<tr><td><code>state[0]</code></td><td>Current board (the only "now")</td><td rowspan="2"><code>virtual_step</code>: once a move lands, the history shift <code>[1:6]=[0:5]</code> runs first, then the move is executed — so layer [1] = the board before the previous move, and so on. <b>The 6-layer history window is the information source of the last-move planes and the window-repetition planes</b>; in the tree (search path) and in a game it is structurally identical by construction.</td></tr>
+<tr><td><code>state[1..5]</code></td><td>History boards of the last 5 moves</td></tr>
+<tr><td><code>state[6]</code></td><td>Ply count since the last capture (broadcast over 10×9)</td><td>+1 on a non-capture, reset to zero on a capture. Draw threshold: see <code>DRAW_NO_CAPTURE_PLIES = 120</code>.</td></tr>
 </table>
-<p class="small"><b>术语·手（ply）</b>：任一方走一步算 1 手；一回合 = 2 手；env.steps 按手计数（代码参数名保留 ply，中文行文说"手"）。注意：state 里<b>没有</b>轮走方、没有全对局重复计数——轮走方是环境/树节点的属性；全对局历史在 RuleContext（不进 state，开局库 npz 因此跨版本兼容）。</p>
+<p class="small"><b>Terminology · ply</b>: one move by either side counts as 1 ply; one full move = 2 plies; env.steps counts plies (code parameter names keep the term ply; Chinese prose writes 手). Note: state contains <b>no</b> side-to-move and no whole-game repetition counters — the side to move is an attribute of the environment/tree node; whole-game history lives in RuleContext (kept out of state, which is why opening-book npz files remain compatible across epochs).</p>
 
-<h2 id="view">2　视角归一化（红黑对称编码）</h2>
-<p>网络永远只看一种"照片"：<b>当前行棋方永远在下方、永远是 0~6 号子</b>。由 <code>convert_to_network</code> 完成三步：</p>
+<h2 id="view">2　Viewpoint normalisation (Red–Black symmetric encoding)</h2>
+<p>The network ever sees only one kind of "snapshot": <b>the side to move is always at the bottom and always uses pieces 0–6</b>. <code>convert_to_network</code> does it in three steps:</p>
 <div class="flow">
-  <div class="step">① 几何翻转：<code>np.flip(state, axis=(1,2))</code>（180°，当 current_player == 1）<br><span class="small">黑视角 = 把棋盘转半圈，黑子来到下方</span></div>
+  <div class="step">① Geometric flip: <code>np.flip(state, axis=(1,2))</code> (180°, when current_player == 1)<br><span class="small">Black's viewpoint = the board rotated half a turn; Black pieces come to the bottom</span></div>
   <div class="arr">↓</div>
-  <div class="step">② 子力重新编号：<code>ID_SWAP_MAP</code>（黑子 7~13 ⇄ 0~6）<br><span class="small">"行棋方视角"——自己人永远是 0~6</span></div>
+  <div class="step">② Piece renumbering: <code>ID_SWAP_MAP</code> (Black 7–13 ⇄ 0–6)<br><span class="small">"side-to-move viewpoint" — one's own pieces are always 0–6</span></div>
   <div class="arr">↓</div>
-  <div class="step">③ 出网后换回：<code>switch_side_policy()</code> = 左右+上下两次动作镜像<br><span class="small">网络的 2086 维 policy 翻回真实坐标，MCTS 才接得上</span></div>
+  <div class="step">③ Swap back after the network: <code>switch_side_policy()</code> = two action mirrors, left–right and up–down<br><span class="small">the network's 2086-dim policy is flipped back to true coordinates before MCTS can consume it</span></div>
 </div>
-<div class="callout"><b>为什么必须换回来：</b>策略头的输出下标语义绑定在动作编码（全局坐标）上，而照片坐标系已被翻转。
-换号只在"照片"这一层发生——盘面 state、动作表、树节点永远保持红方视角的全局坐标。<b>任何新增特征面都必须遵守"在翻转后的视角里仍然自洽"</b>
-（26 面全部满足：广播面天然不变；单格面随棋盘一起翻转）。这正是增强/镜像体系能全局通用的前提。</div>
+<div class="callout"><b>Why swapping back is mandatory:</b> the output-index semantics of the policy head are bound to the action encoding (global coordinates), while the snapshot frame has been flipped.
+Renumbering happens only in the "snapshot" layer — board state, action table and tree nodes always keep the global coordinates of the Red viewpoint. <b>Every new feature plane must satisfy "still self-consistent in the flipped viewpoint"</b>
+(all 26 planes do: broadcast planes are invariant by nature; single-cell planes flip with the board). This is precisely the precondition for the augmentation/mirroring machinery to hold globally.</div>
 
-<h2 id="action">3　动作编码：2086 = 几何可达的 (from, to) 对</h2>
-<p>动作是<b>静态、全局、冻结的 ABI</b>（棋盘表示可以开新表示版本，动作编码不行——它被 Cython 表、JS 引擎、policy 语义、镜像表四方引用）。构造见 <code>init_class_dicts()</code>：</p>
+<h2 id="action">3　Action encoding: 2086 = the geometrically reachable (from, to) pairs</h2>
+<p>Actions are a <b>static, global, frozen ABI</b> (the board representation may open a new feature epoch; the action encoding may not — four parties reference it: the Cython table, the JS engine, policy semantics and the mirror tables). Construction: <code>init_class_dicts()</code>:</p>
 <table class="center">
-<tr><th>区间</th><th>数量</th><th>含义</th></tr>
-<tr><td>0 ~ 1529</td><td>1530</td><td>直线走法：每格 17 个（同列 9 个 + 同行 8 个），按格序 r·9+c 排布</td></tr>
-<tr><td>1530 ~ 1545</td><td>16</td><td>士的宫对角</td></tr>
-<tr><td>1546 ~ 1577</td><td>32</td><td>象的田字（含双方半场）</td></tr>
-<tr><td>1578 ~ 2085</td><td>508</td><td>马的日字（板内全部跳点）</td></tr>
+<tr><th>Range</th><th>Count</th><th>Meaning</th></tr>
+<tr><td>0 ~ 1529</td><td>1530</td><td>Straight-line moves: 17 per square (9 in the same column + 8 in the same row), laid out in square order r·9+c</td></tr>
+<tr><td>1530 ~ 1545</td><td>16</td><td>Advisor palace diagonals</td></tr>
+<tr><td>1546 ~ 1577</td><td>32</td><td>Elephant "field" diagonals (both halves)</td></tr>
+<tr><td>1578 ~ 2085</td><td>508</td><td>Horse "day" jumps (all in-board landing squares)</td></tr>
 </table>
-<p>关键理解：<b>编码只枚举"几何上某子力能到达"的格对</b>，不区分是谁走。车、炮、兵共用直线段——合法性（哪个格上真有你的子、蹩腿、炮架、送将）全部由 <code>get_valid_actions</code> 在运行时决定。
-因此动作空间永不随规则/表示变化，policy 向量的 2086 维语义跨版本 稳定。</p>
+<p>Key point: <b>the encoding enumerates only square pairs that some piece type could geometrically reach</b>, without regard to who moves. Chariot, cannon and pawn share the straight-line ranges — legality (whether one of your pieces actually stands on a square, horse blocks, cannon mounts, leaving one's own king en prise) is decided entirely at runtime by <code>get_valid_actions</code>.
+The action space therefore never changes with the rule set or the representation, and the 2086-dimensional semantics of the policy vector are stable across epochs.</p>
 <pre><code>action ←→ move : (r, c, tr, tc)
-查表加速: np_move2action[r,c,tr,tc] = action   # C 端索引 r·810 + c·90 + tr·9 + tc
-mirror_lr_actions / mirror_ud_actions : 2086 维置换表，用于数据增强与 policy 换边</code></pre>
+Table lookup: np_move2action[r,c,tr,tc] = action   # C-side index r·810 + c·90 + tr·9 + tc
+mirror_lr_actions / mirror_ud_actions : 2086-dim permutation tables, for data augmentation and policy side-swapping</code></pre>
 
-<h2 id="rules">4　规则引擎（版本 2）：合法着法制</h2>
-<h3>4.1 一次判定解决三件旧事</h3>
-<p>版本 1 是"吃王制"：送将合法、靠下回合吃掉老将分胜负；连将判负用 6 张历史盘的 ABAB 图案匹配 hack。
-版本 2 改为官方规则：</p>
-<pre><code>合法着法 = 伪合法着法 − 走完使己方老将被攻击的着法   # R2 过滤，get_valid_actions 内完成</code></pre>
-<p>这一个减法自动带来：<b>飞将</b>（照面 = 被敌方帅射线攻击，无需特判）、<b>牵制子不可动</b>、
-<b>将死/困毙统一表达</b>（轮走方合法着法集为空即负——象棋里困毙本就判负）、
-搜索树少掉约 10~20% 的送将废节点、且不再需要"等老将真被吃"的慢一拍终局。</p>
+<h2 id="rules">4　Rule engine (epoch 2): the legal-move formulation</h2>
+<h3>4.1 One adjudication settles three old problems</h3>
+<p>Epoch 1 used the capture-the-king convention: leaving one's own king en prise was legal, and the result was decided by capturing the enemy general on the next move; the perpetual-check loss was a hack matching ABAB patterns over the 6 history boards.
+Epoch 2 switches to the official rules:</p>
+<pre><code>legal moves = pseudo-legal moves − moves that leave one's own king attacked   # the R2 filter, done inside get_valid_actions</code></pre>
+<p>This single subtraction automatically delivers: <b>flying general</b> (facing generals = the king attacked along the file by the enemy general, no special case needed), <b>pinned pieces cannot move</b>,
+<b>a unified expression of checkmate and stalemate</b> (the side to move with an empty legal-move set loses — in Xiangqi, stalemated already loses),
+roughly 10~20% fewer wasted en-prise nodes in the search tree, and no more one-beat-late termination that has to "wait for the king to actually be captured".</p>
 
-<h3>4.2 game_over：终局裁决的唯一入口</h3>
-<p><code>game_over(state, player_just_moved, action, ctx=None, valid_actions_next=None) → GameResult</code>（相对走子方：1胜/0平/−1负/2未终）按优先级：</p>
+<h3>4.2 game_over: the single entry point of termination adjudication</h3>
+<p><code>game_over(state, player_just_moved, action, ctx=None, valid_actions_next=None) → GameResult</code> (relative to the side that just moved: 1 win / 0 draw / −1 loss / 2 not over), checked in priority order:</p>
 <table>
-<tr><th>#</th><th>条件</th><th>判定</th><th>层级</th></tr>
-<tr><td>0</td><td>盘面缺老将</td><td>缺方负（<span class="tag dead">防御兜底</span>R2 下正常对局不可能出现）</td><td>树内+对局</td></tr>
-<tr><td>1</td><td>轮走方合法着法为空</td><td>走子方胜（将死/困毙合一）</td><td>树内+对局</td></tr>
-<tr><td>2</td><td>未吃子计数 ≥ 120</td><td>和</td><td>树内+对局</td></tr>
-<tr><td>3</td><td>双方均无进攻子（车马炮兵）</td><td>和</td><td>树内+对局</td></tr>
-<tr><td>4</td><td>同局面(盘面+轮走方)第 <b>3</b> 次出现，且<b>每次都被将军</b> + <b>走子方正连续不停照将（≥3 手，一将一闲不罚）</b> + <b>着法循环不变（两次间隔相等，且相邻两圈着法序列逐一相同——等间隔只是重逢，着法复读才是循环）</b></td><td><b>将军方（=走子方）判负</b> —— 长将</td><td>仅对局（需 ctx）</td></tr>
-<tr><td>5</td><td>同局面第 3 次出现，但非循环长将（含"都被将却不等间隔"的散见重复）</td><td>和 —— 三次重复</td><td>仅对局（需 ctx）</td></tr>
+<tr><th>#</th><th>Condition</th><th>Verdict</th><th>Scope</th></tr>
+<tr><td>0</td><td>A general is missing from the board</td><td>The side without its general loses (<span class="tag dead">defensive fallback</span> impossible in normal play under R2)</td><td>tree + game</td></tr>
+<tr><td>1</td><td>The side to move has no legal move</td><td>The side that just moved wins (checkmate / stalemate unified)</td><td>tree + game</td></tr>
+<tr><td>2</td><td>No-capture counter ≥ 120</td><td>Draw</td><td>tree + game</td></tr>
+<tr><td>3</td><td>Neither side has attacking pieces (chariot, horse, cannon, pawn)</td><td>Draw</td><td>tree + game</td></tr>
+<tr><td>4</td><td>The same position (board + side to move) appears for the <b>3rd</b> time, and <b>every occurrence has the side to move in check</b> + <b>the side to move is giving uninterrupted consecutive checks (≥ 3 plies; alternating check-and-quiet is not punished)</b> + <b>the move sequence repeats cyclically (the two gaps equal, and the move sequences of adjacent cycles identical move-for-move — equal spacing alone is just a reunion; a verbatim move repeat is a loop)</b></td><td><b>the checking side (= the side that just moved) loses</b> — perpetual check</td><td>games only (needs ctx)</td></tr>
+<tr><td>5</td><td>The same position appears a 3rd time but it is not a cyclic perpetual check (incl. scattered repeats "all in check yet unevenly spaced")</td><td>Draw — threefold repetition</td><td>games only (needs ctx)</td></tr>
 </table>
-<div class="callout"><b>树内与对局的判定分层是有意设计。</b>MCTS 叶子走到的"重复"是假设着法，不构成对局事实，
-所以树内（<code>ctx=None</code>）只做位置级判定（1~3）；三次重复/长将由 <code>env.step</code> 在对局级裁决。
-网络则通过 26 面中的窗口重复面（19/20）感知"最近走过重复路"——这是<b>树内/对局分布一致</b>的信号面，判罚本体不在特征里。</div>
+<div class="callout"><b>The split between in-tree and in-game adjudication is deliberate.</b> A "repetition" reached by an MCTS leaf consists of hypothetical moves and is not a fact of the game,
+so in-tree nodes (<code>ctx=None</code>) apply only the position-level verdicts (1~3); threefold repetition and perpetual check are adjudicated at game level by <code>env.step</code>.
+The network perceives "a path recently repeated" through the window-repetition planes (19/20) of the 26 — a signal plane with an <b>identical distribution in tree and in games</b>; the punishment itself is not in the features.</div>
 
-<h3>4.3 RuleContext：对局过程状态的单一事实源</h3>
-<p class="small">pos 值格式 <code>[count, chk_red, chk_black, t_prev2, t_prev1]</code>，配一段真实长将轨迹（黑将在 (0,4)/(0,3) 躲红车照将，盯"黑将(0,4)+红车(9,4)+轮黑"这一局面）：</p>
-<pre><code>第 1 手  首次出现    [1, 0, 1, 1, 1]        两个时点槽都填手数 1
-第 5 手  第 2 次出现   [2, 0, 2, 1, 5]        滑窗: 上上次=1, 上次=5
-第 9 手  第 3 次出现   判定(先): total=2+1=3 ✓; checks=2+1=3==total ✓(全被将);
-                     9-5 == 5-1 ✓(等间隔循环) → 红长将判负; 再登记(后): [3, 0, 3, 5, 9]</code></pre>
-<p class="small">第三个条件的必要性（由评审对话发现）：同一局面完全可能由<b>不同路径</b>周期性重逢——黑将先绕左圈再绕右圈，红车步步照将、局面次次带将、间隔桩桩相等，但两圈的着法序列不同，按官方"着法循环<b>不变</b>"的标准并不成立。为此账本再记一条全局着法流水 <code>move_log</code>，<code>loop_ok()</code> 核查最近 d 手与再之前 d 手逐一相同（<code>seq[-d:] == seq[-2d:-d]</code>）才算复读循环；数据不足时宽松放行（只少罚、不误罚）。回归用例 test_equal_interval_different_moves_not_loop：绕左圈+绕右圈 → 判和；test_perpetual_check_lose：真复读 → 第 9 手判负；test_yijiangyixian_not_punished：一将一闲 → 不罚（三用例 11-05 经对局探针复核语义无误）。</p>
-<p class="small">账本之外 RuleContext 还维护 <code>run[红/黑]</code>＝各方当前的连续将军手数（将军 +1，走不将军的着清零）——长将判负要求走子方 <code>run+1 ≥ 3</code>，这正是"连续不停照将"的工程化：一将一闲交替的 run 永远在 0/1 之间摆动，逃过判负。</p>
-<p class="small"><b>规则出处（2026-10-27 核对）</b>：长将定义"走子连续不停照将而形成循环达三次，首着吃子不计算在内"（<a href="https://zh.wikipedia.org/zh-hans/%E9%95%B7%E6%89%93_(%E8%B1%A1%E6%A3%8B)">维基·长打</a>）；棋例总纲"任何情况下均不允许单方面长将""一方禁止一方允许，禁止方不变判负""一将一闲为允许着法"（<a href="https://www.xqbase.com/protocol/rule.htm">中协《象棋竞赛规则》</a>）；裁决时机"同一局面出现第三次即判"取引擎赛口径（<a href="https://www.pikafish.com/rule.html">皮卡鱼中国象棋程序竞赛规则</a>，人类比赛为"三次提示变着、再犯判负"，selfplay 无裁判故取等价直判）。</p>
-<p class="small">chk_red 恒 0 不是浪费：键含轮走方，同一键的"被将者"永远是同一方，两桶各归各账，判定式才能写成一行 checks == total。</p>
+<h3>4.3 RuleContext: the single source of truth for game-progression state</h3>
+<p class="small">pos value format <code>[count, chk_red, chk_black, t_prev2, t_prev1]</code>, shown against a real perpetual-check trace (the Black general at (0,4)/(0,3) dodging checks from the Red chariot; the tracked position is "Black general (0,4) + Red chariot (9,4) + Black to move"):</p>
+<pre><code>ply 1   first occurrence   [1, 0, 1, 1, 1]        both time slots filled with ply 1
+ply 5   2nd occurrence     [2, 0, 2, 1, 5]        sliding window: prev-prev = 1, prev = 5
+ply 9   3rd occurrence     verdict (first): total=2+1=3 ✓; checks=2+1=3==total ✓ (always in check);
+                          9-5 == 5-1 ✓ (cyclic at equal spacing) → Red loses on perpetual check; then register (after): [3, 0, 3, 5, 9]</code></pre>
+<p class="small">Why the third condition is necessary (found in a review conversation): the same position can well be revisited periodically along <b>different paths</b> — the Black general circles once to the left and once to the right while the Red chariot checks every move; every occurrence is in check and every gap is equal, yet the two circuits' move sequences differ, which fails the official standard of an <b>unchanged</b> cyclic move sequence. To that end the ledger also keeps a global move log <code>move_log</code>, and <code>loop_ok()</code> admits a repeated loop only when the last d plies are identical move-for-move to the d plies before them (<code>seq[-d:] == seq[-2d:-d]</code>); with insufficient data it passes leniently (only ever under-punishes, never mis-punishes). Regression cases test_equal_interval_different_moves_not_loop: left circuit + right circuit → draw; test_perpetual_check_lose: a true repeat → loss on ply 9; test_yijiangyixian_not_punished: alternating check and quiet → no punishment (all three cases re-verified for semantics via a game probe on 11-05).</p>
+<p class="small">Besides the ledger, RuleContext maintains <code>run[Red/Black]</code> — each side's current streak of consecutive checking plies (+1 on a check, reset by a move that does not check): a perpetual-check loss requires the side that just moved to reach <code>run+1 ≥ 3</code>. This is the engineering form of "uninterrupted consecutive checks": an alternating check–quiet pattern keeps run swinging between 0 and 1 and escapes punishment.</p>
+<p class="small"><b>Rule sources (verified 2026-10-27)</b>: the definition of perpetual check — "consecutive uninterrupted checks forming a cycle that reaches three occurrences; a capture on the first move is not counted" (<a href="https://zh.wikipedia.org/zh-hans/%E9%95%B7%E6%89%93_(%E8%B1%A1%E6%A3%8B)">Wikipedia · 长打 (perpetual pursuit)</a>); the general principles of the rules of repetition — "a unilateral perpetual check is never allowed", "where one move is forbidden and the other permitted, the forbidden side loses if it persists", "check then quiet is a permitted move pattern" (<a href="https://www.xqbase.com/protocol/rule.htm">CXA Competition Rules of Xiangqi</a>); on adjudication timing, "rule at the third occurrence of the same position" follows the engine-tournament convention (<a href="https://www.pikafish.com/rule.html">Pikafish Xiangqi Program Competition Rules</a>; human tournaments "notify at three occurrences and demand a variation, loss on persistence" — self-play has no arbiter, so the equivalent direct ruling is used).</p>
+<p class="small">The always-zero chk_red is not waste: the key includes the side to move, so for a given key the checked side is always the same one; the two buckets keep separate books, which is what lets the test collapse to one line, checks == total.</p>
 
 <table>
-<tr><th>成员</th><th>说明</th></tr>
-<tr><td><code>pos: dict[key, [count, chk_red, chk_black, t_prev2, t_prev1]]</code></td><td>键 = <b>当前盘面字节 + 轮走方</b>（同盘面不同轮走方是两个位置）；值 = 出现次数 + 按轮走方归类的"出现时被将"数 + 最近两次出现的步号（长将要求最后三次等间隔）</td></tr>
-<tr><td>登记时序</td><td><code>step</code>：<b>先判定、后登记</b>——判定时约定 total = 历史计数 + 1（本次出现）。开局时 <code>register_current_position()</code> 把初始局面计为第 1 次；<b>任何直接改写 env.state 的调用方（开局库/残局库）必须跟一次它</b></td></tr>
-<tr><td>为什么"连续循环"不需要额外窗口</td><td>吃子严格减少兵力，而键含全部盘面字节——<b>同一键的两次出现之间不可能有吃子</b>（材料单调性），三次出现必然落在同一个 ≤120 步的无吃子段内，天然不存在"隔全局散见累计"。段内再按"最后三次等间隔"确认处于循环着法中才判负，散见重复只判和。另外同一键的所有出现都由对方走出 ⇒ "每次出现都被将" 自动等价 "同一方在反复将军"，无需走法级图案匹配</td></tr>
+<tr><th>Member</th><th>Description</th></tr>
+<tr><td><code>pos: dict[key, [count, chk_red, chk_black, t_prev2, t_prev1]]</code></td><td>Key = <b>current board bytes + side to move</b> (same board, different side to move = two positions); value = occurrence count + "in check at occurrence" counts bucketed by side to move + ply indices of the last two occurrences (perpetual check requires the last three occurrences at equal spacing)</td></tr>
+<tr><td>Registration order</td><td><code>step</code>: <b>adjudicate first, register second</b> — at adjudication time, total = stored count + 1 (this occurrence) by convention. At the opening, <code>register_current_position()</code> counts the initial position as occurrence #1; <b>any caller that rewrites env.state directly (opening book / endgame tablebase) must call it once afterwards</b></td></tr>
+<tr><td>Why "consecutive cycles" need no extra window</td><td>Captures strictly reduce material, and the key carries every board byte — <b>no capture can occur between two occurrences of the same key</b> (monotonicity of material), so the three occurrences necessarily fall inside one capture-free span of ≤ 120 plies; "accumulated scatteredly across the whole game" cannot happen by construction. Within the span, a loss is declared only after the "last three at equal spacing" test confirms a cyclic move sequence; scattered repetitions are scored as draws. Moreover, all occurrences of one key are delivered by the same opposing side ⇒ "in check at every occurrence" is automatically equivalent to "one and the same side checking over and over" — no move-level pattern matching needed</td></tr>
 </table>
-<div class="callout good"><b>关于循环的数学保证：</b>周期 k 步的循环最多再走 ~3k 步必触发三次重复；即便双方不断变着，120 步时钟兜底。
-所有循环的 value 都可在有限深度内结算——这正是搜索不震荡的前提。<b>长捉/一将一捉等待判细则明确不做</b>（复杂度悬崖），
-其余重复一律判和；selfplay 日志会按终止原因统计（将死/困毙/和因分类），数据异常再升级规则。</div>
+<div class="callout good"><b>A mathematical guarantee on cycles:</b> a cycle of period k plies must trigger threefold repetition within at most ~3k further plies; and even if both sides keep varying, the 120-ply clock provides the backstop.
+Every cycle's value settles within finite depth — precisely the precondition for a non-oscillating search. <b>The remaining rules-of-repetition subtleties (perpetual chase, check-then-chase, etc.) are explicitly not implemented</b> (a complexity cliff);
+all other repetitions are draws; self-play logs tally termination causes (checkmate / stalemate / draw-cause breakdown) — the rules are upgraded only if the data says so.</div>
 
-<h3>4.3.1 为什么"巡回照将"（局面不重复）不判长将</h3>
-<div class="callout">规则里的长将判负，本质是<b>重复局面的裁决规则</b>：只有同一局面第三次出现（待判局面）才有判罚对象——"循环不变着、着着照将"。局面每步都在变（车换路线、将换方向）意味着被将方每一步都有<b>不同的</b>活路，棋局仍在真实进行，罚它没有规则依据；这类线自然滑向 120 手时钟判和，将军方占不到便宜。
-而实战中真正困死人的长将，在"将只有 8 个逃格 × 照将位置被几何锁死"下几乎必然在几手内形成循环——3 次 + 全带将 + 等间隔，恰好就是圈住它的那张网。
-<strong>不要加"连续将军计数"式变体</strong>：那会误伤合法连将杀（每步都将军的攻杀组合正是棋的灵魂），且网络已被面 18/19/20 喂了感知信号，时钟就是这类线的自然上限。</div>
-<h3>4.4 Python ⇄ Cython 双实现</h3>
-<p>热路径全在 C：<code>get_valid_actions</code>（伪合法生成 + tmp 盘 make/test 送将过滤）、<code>is_check</code>（王位直接攻击扫描）。
-<code>king_attacked</code> 在两侧互为镜像实现（注释互相锚定）：<b>改任何一侧必须跑 <code>tests/test_chess_rules.py</code> 的 2000 局面随机对拍</b>。
-无 C 扩展环境自动落回 Python 版（慢但同语义）。初局 44 个合法着法与象棋已知值一致，是过滤正确性的天然交叉验证。</p>
+<h3>4.3.1 Why a "wandering check" (no repeated position) is not perpetual check</h3>
+<div class="callout">In the rules, the perpetual-check loss is at heart an adjudication over <b>repeated positions</b>: only the third occurrence of the same position (a position under review) gives the punishment something to attach to — "an unchanged cycle of moves, every one a check". If the position changes every move (the chariot switches routes, the general switches direction), the checked side faces a <b>different</b> escape each step; the game is still genuinely progressing, and punishing it has no basis in the rules — such lines slide naturally into the 120-ply clock draw, and the checking side gains nothing.
+What genuinely traps people in practice is the perpetual check that — because "the general has only 8 escape squares × the checking geometry is locked" — almost inevitably forms a cycle within a few moves; 3 occurrences + all in check + equal spacing is exactly the net that encloses it.
+<strong>Do not add a "consecutive check counter" variant</strong>: it would punish legitimate consecutive-check mates (every-move-checks attacking combinations are the soul of the game), the network is already fed perception signals by planes 18/19/20, and the clock is the natural cap on such lines.</div>
+<h3>4.4 The Python ⇄ Cython dual implementation</h3>
+<p>The hot path is all in C: <code>get_valid_actions</code> (pseudo-legal generation + make/test en-prise filtering on a temporary board) and <code>is_check</code> (direct-attack scan of the king square).
+<code>king_attacked</code> exists as mirror implementations on both sides (comments cross-anchored): <b>any change on either side must be followed by the 2000-position random differential test in <code>tests/test_chess_rules.py</code></b>.
+Where C extensions are unavailable the code falls back to the Python version automatically (slower, identical semantics). The 44 legal moves of the initial position match the known Xiangqi value — a built-in cross-validation of the filter's correctness.</p>
 
-<h2 id="planes">5　网络输入：26 面（feature 版本 2 布局）</h2>
-<p>设计三原则（P1 一面一事实 / P2 规则事实必须显式 / P3 别用卷积查数据库），每面 10×9，float32，<b>当前视角</b>：</p>
+<h2 id="planes">5　Network input: 26 planes (feature epoch 2 layout)</h2>
+<p>Three design principles (P1 one fact per plane / P2 rule facts must be explicit / P3 do not use convolution as a database lookup); every plane is 10×9, float32, <b>from the current viewpoint</b>:</p>
 <div class="planebar">
-  <span class="p piece">0–13 棋子</span>
-  <span class="p newf">14/15 上一步 from·to</span>
-  <span class="p newf">16/17 上上步 from·to</span>
-  <span class="p newf">18 被将军</span>
-  <span class="p newf">19 窗口重复</span>
-  <span class="p newf">20 重复在即</span>
-  <span class="p clock">21 吃子时钟</span>
-  <span class="p newf">22/23 兵力</span>
-  <span class="p newf">24/25 将位</span>
+  <span class="p piece">0–13 pieces</span>
+  <span class="p newf">14/15 last move from·to</span>
+  <span class="p newf">16/17 two moves ago from·to</span>
+  <span class="p newf">18 in check</span>
+  <span class="p newf">19 window repetition</span>
+  <span class="p newf">20 repetition imminent</span>
+  <span class="p clock">21 capture clock</span>
+  <span class="p newf">22/23 material</span>
+  <span class="p newf">24/25 king position</span>
 </div>
 <table>
-<tr><th>#</th><th>面</th><th>内容</th><th>来源</th><th>为什么值得一面</th></tr>
-<tr><td>0~13</td><td>棋子</td><td>one-hot；0~6 己方、7~13 对方（视角归一后）</td><td>盘面</td><td>场景本身</td></tr>
-<tr><td>14/15</td><td>上一手 from/to</td><td>对手刚走的起点/落点各一格</td><td>相邻历史盘差分恢复</td><td>策略头最该先看到的信息：该回应什么。吃子纠缠不再糊成一格双信号（v1 差分面的主要漏洞）</td></tr>
-<tr><td>16/17</td><td>上上手 from/to</td><td>我方上一手的起点/落点</td><td>差分恢复</td><td>棋势连续性。更深历史对"从盘面重算威胁"价值低，2 手是性价比上限；要加更多请开版本 3</td></tr>
-<tr><td>18</td><td>被将军</td><td>广播：当前玩家老将被攻（0/1）</td><td><code>is_check</code>（O(1)）</td><td>P2：被将是规则级事实，让 conv 从 14 层里数炮架是浪费</td></tr>
-<tr><td>19/20</td><td>窗口重复</td><td>广播：本局面=2 步或 4 步前（19）；两处都是（20，再出现一次即触发判罚）</td><td>state 历史窗口</td><td>长将/重复的先兆信号；<b>冷启动标记</b>：6 层全同 = 无历史，不误亮</td></tr>
-<tr><td>21</td><td>吃子时钟</td><td>广播：计数/120</td><td>state[6]</td><td>和棋地平线可见（v1 有，保留；口径与判和阈值同源）</td></tr>
-<tr><td>22/23</td><td>兵力</td><td>广播：Σ子力/40（车9 马4 炮4.5 兵1）</td><td>盘面直数</td><td>残局价值的地基；P3</td></tr>
-<tr><td>24/25</td><td>将位</td><td>己/彼老将所在格</td><td>盘面直读</td><td>飞将、助攻、老帅出宫的显式位置标记，成本≈0</td></tr>
+<tr><th>#</th><th>Plane</th><th>Content</th><th>Source</th><th>Why it earns a plane</th></tr>
+<tr><td>0~13</td><td>Pieces</td><td>one-hot; 0–6 own, 7–13 opponent (after viewpoint normalisation)</td><td>board</td><td>the scene itself</td></tr>
+<tr><td>14/15</td><td>Last move from/to</td><td>one cell each for the origin and destination of the opponent's just-played move</td><td>recovered by differencing adjacent history boards</td><td>the first thing the policy head should see: what to respond to. Capture entanglement no longer smears into a single double-signal cell (the main hole in v1's difference planes)</td></tr>
+<tr><td>16/17</td><td>Two moves ago from/to</td><td>the origin and destination of our own previous move</td><td>differencing</td><td>continuity of play. Deeper history is of little value for "recomputing threats from the board"; 2 plies is the cost-efficiency ceiling; to add more, open epoch 3</td></tr>
+<tr><td>18</td><td>In check</td><td>broadcast: the current player's king is attacked (0/1)</td><td><code>is_check</code> (O(1))</td><td>P2: check is a rule-level fact; making conv count cannon mounts across the 14 piece planes is a waste</td></tr>
+<tr><td>19/20</td><td>Window repetition</td><td>broadcast: this position equals the one 2 or 4 plies ago (19); equals both (20 — one more occurrence triggers adjudication)</td><td>state history window</td><td>precursor signal for perpetual check / repetition; <b>cold-start safe</b>: all 6 layers identical = no history, never falsely lit</td></tr>
+<tr><td>21</td><td>Capture clock</td><td>broadcast: counter / 120</td><td>state[6]</td><td>keeps the draw horizon visible (present in v1, kept; one and the same source as the draw threshold)</td></tr>
+<tr><td>22/23</td><td>Material</td><td>broadcast: Σ piece values / 40 (chariot 9, horse 4, cannon 4.5, pawn 1)</td><td>straight count from the board</td><td>the foundation of endgame value; P3</td></tr>
+<tr><td>24/25</td><td>King position</td><td>the squares of the own and enemy generals</td><td>straight read from the board</td><td>explicit markers for the flying general, supporting fire and a sallying king, at ≈ 0 cost</td></tr>
 </table>
-<p class="legend">配色：<span class="tag keep">保留/同源</span><span class="tag new">新增</span>；v1 的 5 个差分面在本布局中<b>删除</b>（被 14~17 取代）。</p>
-<h3>数据增强与镜像</h3>
+<p class="legend">Colour key: <span class="tag keep">kept / same source</span><span class="tag new">new</span>; v1's 5 difference planes are <b>removed</b> from this layout (replaced by 14~17).</p>
+<h3>Data augmentation &amp; mirroring</h3>
 <ul>
-<li><b>训练增强</b>：<code>augment_data</code> 对 (面张量, policy, v) 做左右镜像（象棋唯一对称操作：上下翻转会交换双方），policy 用 2086 维置换表重排。buffer 写入即增强（×2）。</li>
-<li><b>搜索期随机镜像</b>：selfplay 中每次推理请求前 <code>random_mirror_state</code> 随机翻转盘面、回来后翻转 policy——让同一局面以两种镜像进入网络，等效免费增广（这是网络对 LR 镜像近似等变的正则化来源，未来可升级为一致的同变损失）。</li>
-<li>26 面全部兼容通用几何变换：广播面天然不变，单格面/空间面随盘翻转且语义保持。</li>
+<li><b>Training augmentation</b>: <code>augment_data</code> left–right mirrors (plane tensor, policy, v) (the only symmetry operation in Xiangqi: a vertical flip would swap the sides); the policy is re-ordered through the 2086-dim permutation table. Augmentation happens on write into the buffer (×2).</li>
+<li><b>Random mirroring during search</b>: in self-play, <code>random_mirror_state</code> flips the board before each inference request and flips the policy back afterwards — the same position enters the network in both mirrors, equivalent to free augmentation (this is the source of the network's approximate LR-mirror equivariance acting as regularisation; a coherent equivariant loss is a possible future upgrade).</li>
+<li>All 26 planes support general geometric transforms: broadcast planes are invariant by nature; single-cell and spatial planes flip with the board and keep their semantics.</li>
 </ul>
 
-<h2 id="epoch">6　feature_version：模型活在自己的表示版本里</h2>
-<div class="callout danger"><b>核心纪律：面和模型必须成对出现，永不混喂。</b>
-26 面不是 20 面的"超集追加"——14 号通道在 版本 1 是差分面、在 版本 2 是 last-move 起点。
-同一通道号承载不同语义，因此<b>通道切片兼容方案被废弃</b>（它会静默喂错，比崩溃毒得多），
-代之以<b>版本感知转换</b>。</div>
+<h2 id="epoch">6　feature_version: every model lives in its own feature epoch</h2>
+<div class="callout danger"><b>Core discipline: planes and models come in pairs; never mix feeds.</b>
+The 26 planes are not an "append-superset" of the 20 — channel 14 is a difference plane in epoch 1 and the last-move origin in epoch 2.
+The same channel number carries different semantics, so a <b>channel-slicing compatibility scheme was rejected</b> (it would feed wrong features silently, far more toxic than a crash),
+replaced by <b>version-aware conversion</b>.</div>
 <div class="flow">
-  <div class="step"><b>身份登记</b>：NetConfig 携带 <code>feature_version</code>（新建模型=当前版本；v1 ckpt 无字段=1）。checkpoint 顶层双写。<code>load_from_checkpoint</code> 恢复到 <code>model.feature_version</code> → <code>engine.feature_version</code></div>
+  <div class="step"><b>Identity registration</b>: NetConfig carries <code>feature_version</code> (new models = current epoch; v1 checkpoints without the field = 1). Double-written at the top level of the checkpoint. <code>load_from_checkpoint</code> restores it to <code>model.feature_version</code> → <code>engine.feature_version</code></div>
   <div class="arr">↓</div>
-  <div class="step"><b>按版本 生成特征面</b>：<code>convert_to_network(state, player, version)</code>——version=1 走原 20 面代码路径（逐通道与 v1 一致，回归测试钉住），version=2 走 26 面；未知版本 raise</div>
+  <div class="step"><b>Generate feature planes by epoch</b>: <code>convert_to_network(state, player, version)</code> — version=1 runs the original 20-plane code path (channel-for-channel identical to v1, pinned by regression tests), version=2 runs the 26 planes; unknown epochs raise</div>
   <div class="arr">↓</div>
-  <div class="step"><b>feature_version 跟着引擎走</b>：MCTS 树持 <code>planes_version</code>（建树时传入，节点传播）；AIServer/评估赛/selfplay 一律 <code>planes_version=engine.feature_version</code>。引擎入口校验通道数，不符<b>直接报错</b>（宁可崩、不静默）</div>
+  <div class="step"><b>feature_version travels with the engine</b>: the MCTS tree carries <code>planes_version</code> (passed at tree construction, propagated to nodes); AIServer / evaluation matches / self-play all set <code>planes_version=engine.feature_version</code>. The engine entry point validates the channel count and <b>errors out outright on mismatch</b> (crash rather than stay silent)</div>
 </div>
-<h3>由此获得的全局能力（跨版本 共存矩阵）</h3>
+<h3>The global capabilities this buys (cross-epoch coexistence matrix)</h3>
 <table class="center">
-<tr><th></th><th>版本 1 模型（498…）</th><th>版本 2 模型（499…）</th></tr>
-<tr><td>人机对战 / Web / Piskvork</td><td>✅ 各自布局</td><td>✅</td></tr>
-<tr><td>arena 跨版本 比赛（评估赛守擂！）</td><td colspan="2">✅ 双方各吃各的面，同一副棋盘对打</td></tr>
-<tr><td>replay buffer</td><td colspan="2">buffer 文件带 feature_version 标记，跨版本 <b>拒载</b>（旧 20 面对新模型是语义污染）</td></tr>
-<tr><td>训练启动</td><td colspan="2">闸门：best 与当前 config 的 feature_version 不符 → 自动从新网络开训，498 留任守擂者</td></tr>
+<tr><th></th><th>Epoch-1 models (498…)</th><th>Epoch-2 models (499…)</th></tr>
+<tr><td>Human vs AI / Web / Piskvork</td><td>✅ each in its own layout</td><td>✅</td></tr>
+<tr><td>cross-epoch arena matches (evaluation challenger matches!)</td><td colspan="2">✅ each side eats its own planes, one and the same board underneath</td></tr>
+<tr><td>replay buffer</td><td colspan="2">buffer files carry a feature_version tag; cross-epoch loads are <b>refused</b> (the old 20 planes are semantic pollution for a new model)</td></tr>
+<tr><td>training start</td><td colspan="2">gate: if the best model's feature_version mismatches the current config → training automatically starts from a fresh network while 498 stays on as defending champion</td></tr>
 </table>
-<p class="small">这套机制就是多模型 RFC 的第一块地基：以后 WDL 头、分解 policy、杂交主干、大中小网络，都是"注册表 + 身份字段"的存量扩展，不再需要改动任何一条旧链路。</p>
+<p class="small">This mechanism is the first foundation of the multi-model RFC: future WDL heads, factorised policies, hybrid backbones and large/medium/small networks all become existing-pattern extensions of the "registry + identity field" design — no old pathway needs to change.</p>
 
-<h2 id="flow">7　selfplay 一回合里 env 的全部出场</h2>
+<h2 id="flow">7　Every appearance of the env in one self-play game</h2>
 <div class="flow">
-  <div class="step"><b>开局</b>：reset()（初始局面记为第 1 次出现）；或开局库改写 state + <code>register_current_position()</code></div><div class="arr">↓</div>
-  <div class="step"><b>搜索</b>：NeuronMCTS(planes_version=引擎的 feature_version)；节点 init 取 valid_actions（R2）；叶子 game_over(ctx=None) → 终局直接用 z；否则 convert_to_network → 队列推理 → (policy, value)</div><div class="arr">↓</div>
-  <div class="step"><b>采样</b>：π=访问分布(T=1)、v=0.5·z+0.5·q（局末混合，版本 3 计划改 λ 折扣）→ convert_to_network（同一函数）→ buffer.add（LR 增强 ×2）</div><div class="arr">↓</div>
-  <div class="step"><b>落子</b>：env.step → virtual_step → game_over(ctx)（对局级：三次重复/长将在此生效）→ 记录本次出现 → 换方</div><div class="arr">↓</div>
-  <div class="step"><b>终局</b>：样本 v 用 (0.5z+0.5q) 重写 → 入 buffer；下一轮 fit 消费</div>
+  <div class="step"><b>Opening</b>: reset() (the initial position is registered as occurrence #1); or the opening book rewriting state + <code>register_current_position()</code></div><div class="arr">↓</div>
+  <div class="step"><b>Search</b>: NeuronMCTS(planes_version = the engine's feature_version); node init fetches valid_actions (R2); a leaf runs game_over(ctx=None) → if terminal, use z directly; otherwise convert_to_network → queued inference → (policy, value)</div><div class="arr">↓</div>
+  <div class="step"><b>Sampling</b>: π = visit distribution (T=1), v = 0.5·z + 0.5·q (the endgame blend; epoch 3 plans a λ-discount instead) → convert_to_network (the same function) → buffer.add (LR augmentation ×2)</div><div class="arr">↓</div>
+  <div class="step"><b>Committing the move</b>: env.step → virtual_step → game_over(ctx) (game level: threefold repetition / perpetual check take effect here) → register this occurrence → switch sides</div><div class="arr">↓</div>
+  <div class="step"><b>Termination</b>: the samples' v are rewritten with (0.5z + 0.5q) → into the buffer; consumed by the next round's fit</div>
 </div>
 
-<h2 id="api">8　API 速查</h2>
+<h2 id="api">8　API cheat sheet</h2>
 <table>
-<tr><th>方法</th><th>签名要点</th><th>说明</th></tr>
-<tr><td><code>reset()</code></td><td>→ (state, info)</td><td>初始局面 + ctx 清零并登记 #1</td></tr>
-<tr><td><code>register_current_position()</code></td><td>实例方法</td><td>改写 state 后必调（开局库唯一入口要求）</td></tr>
-<tr><td><code>get_valid_actions(state, player)</code></td><td>classmethod → (N,) int32</td><td>R2 合法着法；cython 优先</td></tr>
-<tr><td><code>virtual_step(state, action)</code></td><td>classmethod → 新 state</td><td>纯函数，历史平移+时钟更新；不判终局</td></tr>
-<tr><td><code>check_winner(state, just_moved, action, ctx=None, valid_actions_next=None)</code></td><td>→ GameResult</td><td>委托 game_over；树内传 valid_actions_next 省一次生成</td></tr>
-<tr><td><code>game_over(state, just_moved, action, ctx, …)</code></td><td>同上</td><td>裁决唯一入口（§4.2 优先级表）</td></tr>
-<tr><td><code>convert_to_network(state, player, version=None)</code></td><td>→ (C,10,9) f32</td><td>按版本 分发布局（§6）；None=当前 config 的 feature_version</td></tr>
-<tr><td><code>position_key(state, player)</code></td><td>→ bytes</td><td>盘面字节+轮走方；RuleContext 的键</td></tr>
-<tr><td><code>king_attacked / is_check</code></td><td>→ bool</td><td>直接攻击扫描；py/cy 双实现</td></tr>
-<tr><td><code>is_checkmate(state, player)</code></td><td>→ bool</td><td>=合法着法集为空（将死困毙合一）</td></tr>
-<tr><td><code>augment_data((x, pi, v))</code></td><td>→ list（×2）</td><td>LR 镜像增强</td></tr>
-<tr><td><code>step(action)</code></td><td>→ (state, r, done, trunc, info)</td><td>对局级推进（含 ctx 登记）</td></tr>
+<tr><th>Method</th><th>Signature essentials</th><th>Description</th></tr>
+<tr><td><code>reset()</code></td><td>→ (state, info)</td><td>Initial position + ctx cleared with occurrence #1 registered</td></tr>
+<tr><td><code>register_current_position()</code></td><td>instance method</td><td>Mandatory after any state rewrite (required by the single opening-book entry point)</td></tr>
+<tr><td><code>get_valid_actions(state, player)</code></td><td>classmethod → (N,) int32</td><td>R2 legal moves; Cython first</td></tr>
+<tr><td><code>virtual_step(state, action)</code></td><td>classmethod → new state</td><td>Pure function; history shift + clock update; no termination check</td></tr>
+<tr><td><code>check_winner(state, just_moved, action, ctx=None, valid_actions_next=None)</code></td><td>→ GameResult</td><td>Delegates to game_over; in-tree callers pass valid_actions_next to save one move generation</td></tr>
+<tr><td><code>game_over(state, just_moved, action, ctx, …)</code></td><td>same as above</td><td>The single adjudication entry point (§4.2 priority table)</td></tr>
+<tr><td><code>convert_to_network(state, player, version=None)</code></td><td>→ (C,10,9) f32</td><td>Dispatches the layout by epoch (§6); None = the current config's feature_version</td></tr>
+<tr><td><code>position_key(state, player)</code></td><td>→ bytes</td><td>Board bytes + side to move; the RuleContext key</td></tr>
+<tr><td><code>king_attacked / is_check</code></td><td>→ bool</td><td>Direct-attack scan; dual Python/Cython implementations</td></tr>
+<tr><td><code>is_checkmate(state, player)</code></td><td>→ bool</td><td>= the legal-move set is empty (checkmate and stalemate unified)</td></tr>
+<tr><td><code>augment_data((x, pi, v))</code></td><td>→ list (×2)</td><td>LR mirror augmentation</td></tr>
+<tr><td><code>step(action)</code></td><td>→ (state, r, done, trunc, info)</td><td>Game-level advance (incl. ctx registration)</td></tr>
 </table>
-<p class="small">常量单一出处（core/env/chess.py 顶部）：<code>DRAW_NO_CAPTURE_PLIES=120 · REPETITION_LIMIT=3 · MATERIAL_VALUES · HORSE_ATTACK_JUMPS</code></p>
+<p class="small">Single source of the constants (top of core/env/chess.py): <code>DRAW_NO_CAPTURE_PLIES=120 · REPETITION_LIMIT=3 · MATERIAL_VALUES · HORSE_ATTACK_JUMPS</code></p>
 
-<h3>性能基线（版本 2，本机 nogil 3.14t 实测，单核 CPU 路径）</h3>
+<h3>Performance baseline (epoch 2, measured locally on nogil 3.14t, single-core CPU path)</h3>
 <table class="center">
-<tr><th>调用点</th><th>频率</th><th>耗时</th><th>备注</th></tr>
-<tr><td>get_valid_actions（C）</td><td>每树节点</td><td>2.0 µs</td><td>含送将过滤（tmp 盘 make+test）</td></tr>
-<tr><td>game_over（叶子形态）</td><td>每叶</td><td>5.4 µs</td><td>兵力判定已换查表（np.isin 曾占 8µs/叶）</td></tr>
-<tr><td>convert_to_network（26 面）</td><td>每叶</td><td>20.6 µs</td><td>纯 numpy 拼装。保持 Python（项目原则：仅高影响处用 Cython，此项收益不足以破例）</td></tr>
-<tr><td>virtual_step</td><td>每边</td><td>1.2 µs</td><td></td></tr>
-<tr><td>env.step 全链（记账+判定）</td><td>每真实手</td><td>26 µs</td><td>规则账本整体不在热路径</td></tr>
-<tr><td>叶子 env 侧合计</td><td>—</td><td>26 µs</td><td>相对推理（ms 级）为次要成本；100 线程并行下通常不卡训练</td></tr>
+<tr><th>Call site</th><th>Frequency</th><th>Cost</th><th>Notes</th></tr>
+<tr><td>get_valid_actions (C)</td><td>per tree node</td><td>2.0 µs</td><td>Incl. en-prise filtering (make+test on a temporary board)</td></tr>
+<tr><td>game_over (leaf form)</td><td>per leaf</td><td>5.4 µs</td><td>The material test is now table-driven (np.isin once cost 8 µs/leaf)</td></tr>
+<tr><td>convert_to_network (26 planes)</td><td>per leaf</td><td>20.6 µs</td><td>Pure numpy assembly. Kept in Python (project principle: Cython only where the impact is large; this gain is not enough for an exception)</td></tr>
+<tr><td>virtual_step</td><td>per edge</td><td>1.2 µs</td><td></td></tr>
+<tr><td>env.step full chain (bookkeeping + adjudication)</td><td>per real ply</td><td>26 µs</td><td>The rules ledger is entirely off the hot path</td></tr>
+<tr><td>leaf-side env total</td><td>—</td><td>26 µs</td><td>Secondary to inference (ms scale); usually not what throttles training at 100 threads</td></tr>
 </table>
-<h2 id="test">9　验证体系（改这里之前先跑）</h2>
-<pre><code>.venv/bin/python tests/test_chess_rules.py        # 21 项，全 CPU
-.venv/bin/python tests/test_engine_device_consistency.py   # 引擎线程/设备回归</code></pre>
+<h2 id="test">9　Verification suite (run these before changing anything here)</h2>
+<pre><code>.venv/bin/python tests/test_chess_rules.py        # 21 checks, all on CPU
+.venv/bin/python tests/test_engine_device_consistency.py   # engine thread/device regression</code></pre>
 <table>
-<tr><th>组</th><th>钉死什么</th></tr>
-<tr><td>规则</td><td>初局 44 着 · 牵制 · 飞将 · 将死/困毙 · 三次重复第 8 步恰判和 · 长将第 9 步恰判负 · 吃子重置时钟</td></tr>
-<tr><td>表示</td><td>26 面语义逐面断言（双视角）· <b>版本 1 布局逐通道 bitwise 回归</b> · 未知版本 raise · 冷启动标记</td></tr>
-<tr><td>一致性</td><td>py⇄cy 2000 随机局面对拍（着法集合 + 判将）· 60 局随机 fuzz（老将永不被吃、必终局）</td></tr>
-<tr><td>链路</td><td>498 旧模型：引擎暴露 feature_version=1 → 版本 1 转换推理成功 · MCTS 树 planes_version 透传 · 训练闸门触发</td></tr>
+<tr><th>Group</th><th>What it pins down</th></tr>
+<tr><td>Rules</td><td>44 legal moves at the start · pins · flying general · checkmate / stalemate · threefold repetition drawn exactly on ply 8 · perpetual check lost exactly on ply 9 · captures reset the clock</td></tr>
+<tr><td>Representation</td><td>plane-by-plane assertions of all 26 planes' semantics (both viewpoints) · channel-wise bitwise regression of the epoch-1 layout · unknown epoch raises · cold-start marking</td></tr>
+<tr><td>Consistency</td><td>Python⇄Cython differential testing on 2000 random positions (move sets + check detection) · 60-game random fuzz (a king is never captured; every game terminates)</td></tr>
+<tr><td>Integration</td><td>the legacy 498 model: the engine exposes feature_version=1 → inference via the epoch-1 conversion succeeds · planes_version passed through the MCTS tree · the training gate fires</td></tr>
 </table>
 
-<h2 id="bound">10　已知边界与待办</h2>
+<h2 id="bound">10　Known limits and open items</h2>
 <ul>
-<li><b>JS 棋规引擎同步</b>（apps/web/js/env-chess.js）：双人同屏/前端判和仍是旧口径，需按 §4 同步并跑 <code>test/web_parity</code> 对拍。<b>后端对战主链路不受影响</b>。</li>
-<li><b>待判细则族</b>：中协规则的长杀/长捉/一将一杀/一将一捉等禁止着法未实现（亚规只禁长将长捉，我们只实现了长将）——不变作负 vs 我们的判和，差异只在对手是人类时才有体验影响；RuleContext 的 run/时点记录留了扩展位，将来只加 game_over 分支。</li>
-<li><b>树内全对局重复</b>：叶子只带窗口信号面；转置表（规划 E5）落地后可升级为路径级精确判定。</li>
-<li><b>人机对战的服务端判罚</b>：AIServer 链路不持有 RuleContext（浏览器是终局权威）——JS 规则同步完成后此项自动闭合。</li>
-<li><b>开局库 npz</b>：快照为 6 层历史 + 时钟，未做版本标记；L2 语义若再变需重导出（工具待补）。</li>
-<li><b>性能路线原则（项目决策）</b>：代码以 Python 为主，Cython 只保留在"影响很大"的既有热路径（走法生成/判将，实测 30 倍差距）；convert 等微优化收益不足两个数量级的不做 C 化，宁可在 Python 层做 numpy 技巧。</li>
-<li><b>动作方向参数化</b>（版本 3 候选）：90+90 源/目标双头替代 2086 维 FC，省 ~5.7M 参数；对外仍 gather 成 2086 维，ABI 不动。</li>
-<li><b>memory 提示</b>：象棋 buffer（300k 条）约 2.8GB 状态 + 2.5GB policy，常驻内存偏高；低配机器先降 <code>buffer_size</code>。</li>
+<li><b>JS rules engine synchronisation</b> (apps/web/js/env-chess.js): two-players-on-one-screen and front-end draw adjudication still use the old convention; they must be synced to §4 and checked by the differential test in <code>test/web_parity</code>. <b>The backend play pipeline is unaffected</b>.</li>
+<li><b>The family of pending adjudication details</b>: forbidden repeating move patterns from the CXA rules — perpetual mate, perpetual chase, check-then-mate, check-then-chase — are not implemented (the Asian rules forbid only perpetual check and perpetual chase, and only perpetual check is implemented here). Losing on persistent forbidden moves vs our draw affects the experience only when the opponent is human; RuleContext's run / time-slot records leave room to extend, and future work is just a new branch in game_over.</li>
+<li><b>Whole-game repetition inside the tree</b>: leaves carry only the window signal planes; once the transposition table (planned E5) lands, this can be upgraded to exact path-level adjudication.</li>
+<li><b>Server-side adjudication in human vs AI</b>: the AIServer path holds no RuleContext (the browser is authoritative for termination) — this item closes automatically once the JS rules synchronisation is done.</li>
+<li><b>Opening-book npz</b>: snapshots store 6 history layers + the clock, with no version tag; should L2 semantics change again they must be re-exported (the tooling is missing).</li>
+<li><b>Performance roadmap principle (project decision)</b>: the code stays primarily Python; Cython is kept only in existing hot paths where the impact is large (move generation / check detection — a measured 30× gap); C-ification of things like convert is not done when the gain falls short of two orders of magnitude — numpy tricks at the Python layer are preferred.</li>
+<li><b>Action direction parameterisation</b> (epoch-3 candidate): two 90+90 source/target heads replace the 2086-dim fully connected layer, saving ~5.7M parameters; the output is still gathered into 2086 dims for the outside world — the ABI does not move.</li>
+<li><b>Memory note</b>: the Xiangqi buffer (300k entries) holds roughly 2.8 GB of states + 2.5 GB of policies — a high resident footprint; on low-memory machines, lower <code>buffer_size</code> first.</li>
 </ul>
 
 <hr>
 <table>
-<tr><th>版本</th><th>棋盘表示</th><th>规则口径</th><th>模型</th></tr>
-<tr><td>版本 1（~2026-10）</td><td>20 面：棋子14 + 差分5 + 时钟/100</td><td>吃王制；ABAB 图案连将 hack</td><td>checkpoint_1…498</td></tr>
-<tr><td><b>版本 2（2026-10-27）</b></td><td><b>26 面清洁布局</b>（last-move/被将/窗口重复/时钟/兵力/将位）</td><td><b>合法着法制</b>：送将非法、将死困毙合一、三次重复/长将/时钟规则化</td><td>checkpoint_499…（从新网络）；498 守擂</td></tr>
+<tr><th>Epoch</th><th>Board representation</th><th>Rule convention</th><th>Models</th></tr>
+<tr><td>Epoch 1 (~2026-10)</td><td>20 planes: 14 pieces + 5 difference + clock/100</td><td>capture-the-king; ABAB-pattern perpetual-check hack</td><td>checkpoint_1…498</td></tr>
+<tr><td><b>Epoch 2 (2026-10-27)</b></td><td><b>clean 26-plane layout</b> (last-move / check / window repetition / clock / material / king position)</td><td><b>legal-move formulation</b>: en prise illegal, checkmate and stalemate unified, threefold repetition / perpetual check / clock formalised as rules</td><td>checkpoint_499… (from a fresh network); 498 defends the title</td></tr>
 </table>
 
 </main>
-<footer>ZenZero 项目文档 · 象棋环境篇 · feature 版本 2 · 2026-10-27 —— 本文档与 core/env/chess.py 注释互为镜像，改代码先改这里。</footer>
+<footer>ZenZero docs · the ChineseChess environment chapter · feature epoch 2 · 2026-10-27 — this document and the comments in core/env/chess.py mirror each other; change the code, change this page first.</footer>
 <script>
 (function () {
+  try { localStorage.setItem('zz_lang', 'en'); } catch (e) {}
   var hide = function () { document.querySelectorAll('.svc-link').forEach(function (a) { a.style.display = 'none'; }); };
   fetch('/info', { cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json().catch(function () { return null; }) : null; })

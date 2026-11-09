@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZenZero 文档 · §4 推理引擎</title>
+<title>ZenZero Docs · §4 The Inference Engine</title>
 <style>
 :root{
   --ink:#1c1c1c; --paper:#faf7f0; --panel:#f2ede2; --line:#d8d0be;
@@ -11,67 +11,79 @@
   --ok:#3d6b35; --warn:#b8860b;
 }
 *{box-sizing:border-box}
-body{margin:0;font-family:"Source Han Serif SC","Noto Serif CJK SC","Songti SC",Georgia,serif;
+body{margin:0;font-family:Georgia,"Noto Serif",serif;
   background:var(--paper);color:var(--ink);line-height:1.78;font-size:15.5px}
 header{background:linear-gradient(135deg,#1a2f2f 0%,#2f4f4f 60%,#3d5a5a 100%);color:#f0ead8;
   padding:42px 24px 34px;text-align:center}
-header h1{margin:0 0 6px;font-size:29px;letter-spacing:4px}
-header .sub{opacity:.85;font-size:14px;letter-spacing:1px}
+header h1{margin:0 0 6px;font-size:29px;letter-spacing:1px}
+header .sub{opacity:.85;font-size:14px;letter-spacing:.4px}
 header .crumbs{margin-top:14px;font-size:13px;opacity:.7}
 header .crumbs a{color:#e8dfc8}
+header .langrow{margin-top:10px;font-size:12.5px}
+header .langrow a{color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:2px 10px;border-radius:99px}
+header .langrow .on{opacity:.55;border-style:dashed}
 nav{position:sticky;top:0;z-index:9;background:#1a2f2f;padding:9px 18px;display:flex;flex-wrap:wrap;gap:4px 16px;
   font-size:13.5px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 nav a{color:#d8d0be;text-decoration:none;padding:2px 6px;border-radius:4px}
 nav a:hover{background:rgba(255,255,255,.12);color:#fff}
 main{max-width:1080px;margin:0 auto;padding:26px 22px 80px;counter-reset:fig eq tbl}
-h2{font-size:21px;margin:44px 0 12px;padding-left:12px;border-left:5px solid var(--accent);letter-spacing:.5px}
+h2{font-size:21px;margin:44px 0 12px;padding-left:12px;border-left:5px solid var(--accent);letter-spacing:.2px}
 h3{font-size:16.5px;margin:26px 0 8px;color:var(--accent2)}
 p{margin:9px 0;text-align:justify}
-code{font-family:"Sarasa Mono SC","JetBrains Mono",Consolas,monospace;background:var(--code-bg);
+code{font-family:"JetBrains Mono",Consolas,monospace;background:var(--code-bg);
   padding:1.5px 6px;border-radius:4px;font-size:.88em;color:#4d3a1a}
 pre{background:#22261f;color:#e6e0cc;padding:14px 16px;border-radius:8px;overflow-x:auto;
-  font-family:"Sarasa Mono SC","JetBrains Mono",Consolas,monospace;font-size:12.8px;line-height:1.6}
+  font-family:"JetBrains Mono",Consolas,monospace;font-size:13px;line-height:1.65}
 pre code{background:none;color:inherit;padding:0}
 table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.6px;background:#fffdf7}
 th{background:#2f4f4f;color:#f0ead8;padding:7px 10px;text-align:left;font-weight:600}
 td{border:1px solid var(--line);padding:6px 10px;vertical-align:top}
 tr:nth-child(even) td{background:#f7f2e6}
+td code{font-size:.85em}
 .callout{border-left:4px solid var(--warn);background:#fbf5e4;padding:10px 16px;border-radius:0 8px 8px 0;margin:14px 0}
 .callout.danger{border-color:var(--accent);background:#faeeee}
 .callout.good{border-color:var(--ok);background:#eef5ea}
 ul,ol{padding-left:22px}
 a{color:var(--accent2)}
-hr{border:none;border-top:1px dashed var(--line);margin:34px 0}
 footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 50px;border-top:1px solid var(--line)}
 .abstract{border:1px solid var(--line);background:#fffdf7;border-radius:10px;padding:16px 22px;margin:20px 0}
-.abstract b.t{color:var(--accent2);letter-spacing:4px;font-size:14px}
+.abstract b.t{color:var(--accent2);letter-spacing:3px;font-size:14px}
 .abstract p{font-size:14.3px;color:#333}
 .eq{display:flex;gap:16px;align-items:center;border:1px solid var(--line);background:#fffdf7;
   border-radius:8px;padding:12px 18px;margin:14px 0;counter-increment:eq}
-.eq .f{flex:1;font-size:16px;font-family:Georgia,"Times New Roman","STIX Two Text",serif}
+.eq .f{flex:1;font-size:16.5px;font-family:Georgia,"Times New Roman","STIX Two Text",serif;letter-spacing:.2px}
 .eq .no::before{content:"(" counter(eq) ")";font-family:monospace;font-size:13px;color:var(--muted)}
 .frac{display:inline-block;vertical-align:-0.75em;text-align:center;margin:0 2px}
 .frac>span{display:block;padding:0 5px;line-height:1.25}
 .frac>.up{border-bottom:1.1px solid currentColor}
-.v{font-style:italic;font-family:Georgia,serif}
+.rad{border-top:1.05px solid currentColor;padding:0 2px;margin-left:-1px}
+.v{font-style:italic;font-family:Georgia,"Times New Roman",serif}
 .where{font-size:13px;color:var(--muted)}
 figure{margin:20px 0;text-align:center;counter-increment:fig}
 figure svg{max-width:100%;height:auto;background:#fffdf7;border:1px solid var(--line);border-radius:10px}
 figcaption{font-size:12.8px;color:var(--muted);margin-top:7px;text-align:left;max-width:880px;display:inline-block}
-figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-weight:700}
-.tbl-cap{font-size:12.8px;color:var(--muted);margin:14px 0 2px;counter-increment:tbl}
-.tbl-cap b::before{content:"表 " counter(tbl) "　";color:var(--accent);font-weight:700}
+figcaption b::before{content:"Fig. " counter(fig) "　";color:var(--accent);font-weight:700}
 .sym td:first-child{font-family:Georgia,serif;font-style:italic;white-space:nowrap;font-size:14.5px;color:#4d3a1a}
 .sym td:first-child code{font-style:normal}
+hr{border:none;border-top:1px dashed var(--line);margin:34px 0}
+.step{display:flex;gap:14px;align-items:flex-start;margin:14px 0}
+.step .n{flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:#2f4f4f;color:#f0ead8;
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;margin-top:2px}
+.step .b{flex:1}
+.step .b b{color:var(--accent2)}
 .note{font-size:13.2px;color:var(--muted)}
+.kbd{font-family:monospace;background:#fffdf7;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 6px;font-size:.85em}
+   .zh{font-size:.85em;color:var(--muted)}
+.tbl-cap{font-size:12.8px;color:var(--muted);margin:14px 0 2px;counter-increment:tbl}
+.tbl-cap b::before{content:"Table " counter(tbl) "　";color:var(--accent);font-weight:700}
 
-  /* —— 体例统一：锚点偏置 / 窄屏表格 / 公式横滚 / 打印 —— */
+  /* —— shared conventions: anchor offset / narrow-screen tables / equation scroll / print —— */
   html{scroll-padding-top:58px}
   .eq{overflow-x:auto}
   @media(max-width:900px){
     main{padding-left:12px;padding-right:12px}
     table{display:block;overflow-x:auto}
-    header h1{letter-spacing:3px}
+    header h1{letter-spacing:1px}
   }
   @media print{
     nav{display:none}
@@ -85,243 +97,240 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 <body>
 
 <header>
-  <h1>推 理 引 擎</h1>
-  <div class="sub">把「问一次网络」做成一条不断流的流水线 —— 凑批、镜像增强、设备一致性与多模型共享</div>
-  <div class="crumbs">ZenZero 文档集 · 第 4 篇｜<a href="index.html">目录</a> ·
-    <a href="usage.html">§1 如何使用</a> · <a href="xiangqi-env.html">§2 环境</a> · <a href="mcts.html">§3 MCTS</a> · <a href="training.html">§5 训练管线</a> · <a href="architecture.html">§6 架构与 API</a></div>
-  <div style="margin-top:10px;font-size:12.5px">
-    <a style="color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:2px 10px;border-radius:99px" href="inference-engine.html">中文</a>
-    <a style="color:#e8dfc8;text-decoration:none;border:1px dashed rgba(232,223,200,.4);padding:2px 10px;border-radius:99px;margin-left:6px" href="en/inference-engine.html">English</a>
-  </div>
-<script>try{if(localStorage.getItem('zz_lang')==='en'&&!/[?&]nolang/.test(location.search))location.replace('en/inference-engine.html');}catch(e){}</script>
+  <h1>The Inference Engine</h1>
+  <div class="sub">Turning &ldquo;one question to the network&rdquo; into an unbroken pipeline — batching, symmetry augmentation, device consistency and multi-model sharing</div>
+  <div class="crumbs">ZenZero Docs · Chapter 4｜<a href="index.html">Contents</a> ·
+    <a href="usage.html">§1 How to Use</a> · <a href="xiangqi-env.html">§2 Environment</a> · <a href="mcts.html">§3 MCTS</a> · <a href="training.html">§5 Training</a> · <a href="architecture.html">§6 Architecture</a></div>
 </header>
 
 <nav>
-  <a href="#ab">摘要</a><a href="#s1">1 职责</a><a href="#s2">2 记号</a><a href="#s3">3 成本模型</a>
-  <a href="#s4">4 流水结构</a><a href="#s5">5 凑批策略</a><a href="#s6">6 镜像增强</a>
-  <a href="#s7">7 设备一致性</a><a href="#s8">8 多模型共享</a><a href="#s9">9 统计与纪律</a>
-  <a href="#sA">10 接口</a><a href="#sB">11 实验</a>
+  <a href="#ab">Abstract</a><a href="#s1">1 Responsibilities</a><a href="#s2">2 Notation</a><a href="#s3">3 Cost model</a>
+  <a href="#s4">4 Pipeline structure</a><a href="#s5">5 Batching policy</a><a href="#s6">6 Symmetry augmentation</a>
+  <a href="#s7">7 Device consistency</a><a href="#s8">8 Multi-model sharing</a><a href="#s9">9 Statistics &amp; discipline</a>
+  <a href="#sA">10 Interfaces</a><a href="#sB">11 Experiments</a>
 
-  <a href="usage.html">如何使用</a>
-  <a href="/" class="svc-link" style="margin-left:auto;color:#f0d9a8!important;opacity:.85" title="返回对弈首页">← 对弈</a>
-  <a href="/admin" class="svc-link" style="opacity:.85" title="训练控制台">⚙ 控制台</a>
+  <a href="usage.html">How to Use</a>
+  <a href="/" class="svc-link" style="margin-left:auto;color:#f0d9a8!important;opacity:.85" title="Back to the play page">← Play</a>
+  <a href="/admin" class="svc-link" style="opacity:.85" title="Training console">⚙ Console</a>
 </nav>
 
 <main>
 
 <div class="abstract" id="ab">
-  <b class="t">摘　要</b>
-  <p>推理引擎把一批棋盘张量映射为 (policy, value)。设计围绕三条硬约束：全部进程内（无 socket、无序列化）、
-  调用方逐局面提交（批量 API 只是语法糖，凑批始终是引擎的职责）、一个模型实例绑定一份权重与表示版本。
-  本文给出前向成本模型及其导出的自适应凑批策略（第 5 节）、请求侧镜像增强的等价性说明（第 6 节）、
-  多引擎并存下的设备一致性协议（第 7 节），并以实测验证 s 网络的成本模型（10 月末批上限 256 时代测点，现上限已提至 2048）
-  的理论上限、线上稳定于 6 万+（第 11 节）。</p>
+  <b class="t">ABSTRACT</b>
+  <p>The inference engine maps a batch of board tensors to (policy, value). The design revolves around three hard constraints:
+  everything runs in-process (no sockets, no serialisation); callers submit position by position (the batch API is only syntactic sugar —
+  batching is always the engine's responsibility); one model instance is bound to one weight set and one representation version.
+  This chapter gives the forward cost model and the adaptive batching policy derived from it (§5), the equivalence argument for
+  request-side symmetry augmentation (§6), and the device-consistency protocol under multiple coexisting engines (§7); it also verifies
+  the s-network cost model against measurements (data points from the late-October era of a 256 batch cap, the cap now raised to 2048) —
+  the theoretical ceiling and the production steady state above 60k requests/s (§11).</p>
 </div>
 
-<h2 id="s1">1　职责与三条设计约束</h2>
-<p>引擎做四件事：<b>收批</b>（把散到即到的单局面攒成 batch）、<b>打包</b>（张量化并校验）、
-<b>前向</b>（一次网络计算）、<b>投递</b>（把结果送回各请求句柄）。三条约束决定怎么做：</p>
+<h2 id="s1">1　Responsibilities and three design constraints</h2>
+<p>The engine does four things: <b>collect</b> (gather single positions, arriving one by one, into a batch), <b>pack</b> (tensorise and validate),
+<b>forward</b> (one network computation), <b>post</b> (hand each result back to its request handle). Three constraints decide how:</p>
 <ol>
-<li><b>零拷贝、零协议。</b>训练、对战、评估与引擎同进程，MCTS 与引擎之间只有一个
-<code>queue.Queue</code>；<code>ServerHub</code> 是进程内的引擎登记簿，不是网络组件；跨机器只有浏览器走 HTTP。</li>
-<li><b>一手一请求，攒批归引擎。</b>调用方可以只提交单个局面（批量提交也存在，§10），
-要不要等、等多久、凑多大由引擎按实时负载决定（第 5 节）。这样 §3 篇流水线的
-"发一条补一条"才写得直白。</li>
-<li><b>引擎三身份：架构、表示版本、神经网络。</b>权重文件里存着完整 config；引擎加载时读出
-<code>arch / feature_version / profile</code>，此后一切——特征转换的面数校验（§2 篇 §6）、
-命名、线程名、面板展示——以这三者为准。全局配置只是缺省值，<b>不是真相</b>（7.1 节）。</li>
+<li><b>Zero-copy, zero-protocol.</b> Training, play, evaluation and the engine share one process; between MCTS and the engine there is only
+a <code>queue.Queue</code>; <code>ServerHub</code> is an in-process engine registry, not a network component; across machines, only the browser speaks HTTP.</li>
+<li><b>One move, one request; batching is the engine's job.</b> A caller may submit a single position (batch submission also exists, §10);
+whether to wait, how long and up to what size are decided by the engine from the live load (§5). This is what lets §3 ch.'s pipeline
+be written as plainly as &ldquo;send one, refill one&rdquo;.</li>
+<li><b>Three engine identities: architecture, representation version, network.</b> The weight file stores the complete config; at load time the engine
+reads out <code>arch / feature_version / profile</code>, and from then on everything — the plane-count check on feature conversion (§2 ch. §6),
+naming, thread names, panel display — defers to these three. Global configuration is only a set of defaults, <b>not the truth</b> (§7.1).</li>
 </ol>
 
-<h2 id="s2">2　记号</h2>
-<div class="tbl-cap"><b>符号表</b>（沿用 §3 篇表 1 的 <span class="v">G</span>、<span class="v">K</span>）。</div>
+<h2 id="s2">2　Notation</h2>
+<div class="tbl-cap"><b>Symbol table</b> (reusing <span class="v">G</span> and <span class="v">K</span> from §3 ch. Table 1).</div>
 <table class="sym">
-<tr><th>符号</th><th>含义</th><th>代码对应</th></tr>
-<tr><td><span class="v">b</span></td><td>一次前向的批大小（本批局面数）</td><td><code>len(requests)</code></td></tr>
-<tr><td><span class="v">B</span><sub>max</sub></td><td>批上限：GPU 默认 2048 / CPU 50（显存 OOM 自动对半降批退避）（<code>ZZ_MAX_BATCH</code> 可覆写）</td><td><code>max_batch_size</code></td></tr>
-<tr><td><span class="v">t</span><sub>fwd</sub>(<span class="v">b</span>)</td><td>批 b 的前向耗时（含主机→设备拷贝）</td><td>统计行 fwd 列</td></tr>
-<tr><td><span class="v">ρ</span>(<span class="v">b</span>) ≡ <span class="v">b</span>/<span class="v">t</span><sub>fwd</sub>(<span class="v">b</span>)</td><td>该批下的吞吐（局面/秒）</td><td>统计行 req/s（瞬时）</td></tr>
-<tr><td><span class="v">t</span><sub>0</sub>, κ</td><td>前向固定开销、每局面边际成本（式 (1) 拟合系数）</td><td>实测 1.21 ms、4.5 µs</td></tr>
-<tr><td><span class="v">b̂</span><sub>ema</sub></td><td>批大小指数滑动平均（更新系数 0.2）</td><td><code>_ema_batch</code></td></tr>
-<tr><td><span class="v">w</span>(<span class="v">b̂</span>)</td><td>凑批窗口：队列暂空时还肯等多久</td><td><code>_collect_window</code>，表 2</td></tr>
-<tr><td><span class="v">q</span><sub>pend</sub></td><td>打包→前向→投递各级队列的积压数</td><td><code>infer_queue.qsize()</code> 等</td></tr>
+<tr><th>Symbol</th><th>Meaning</th><th>Code counterpart</th></tr>
+<tr><td><span class="v">b</span></td><td>batch size of one forward pass (positions in this batch)</td><td><code>len(requests)</code></td></tr>
+<tr><td><span class="v">B</span><sub>max</sub></td><td>batch cap: GPU default 2048 / CPU 50 (automatic halve-batch backoff on GPU memory OOM) (overridable via <code>ZZ_MAX_BATCH</code>)</td><td><code>max_batch_size</code></td></tr>
+<tr><td><span class="v">t</span><sub>fwd</sub>(<span class="v">b</span>)</td><td>forward latency at batch b (incl. the host→device copy)</td><td>fwd column of the stats line</td></tr>
+<tr><td><span class="v">ρ</span>(<span class="v">b</span>) ≡ <span class="v">b</span>/<span class="v">t</span><sub>fwd</sub>(<span class="v">b</span>)</td><td>throughput at this batch (positions/s)</td><td>req/s of the stats line (instantaneous)</td></tr>
+<tr><td><span class="v">t</span><sub>0</sub>, κ</td><td>fixed forward overhead, marginal cost per position (fitted coefficients of eq. (1))</td><td>measured 1.21 ms, 4.5 µs</td></tr>
+<tr><td><span class="v">b̂</span><sub>ema</sub></td><td>exponential moving average of the batch size (update coefficient 0.2)</td><td><code>_ema_batch</code></td></tr>
+<tr><td><span class="v">w</span>(<span class="v">b̂</span>)</td><td>batching window: how long the engine is still willing to wait while the queue momentarily looks empty</td><td><code>_collect_window</code>, Table 2</td></tr>
+<tr><td><span class="v">q</span><sub>pend</sub></td><td>total backlog across the pack→forward→post queues</td><td><code>infer_queue.qsize()</code> etc.</td></tr>
 </table>
 
-<h2 id="s3">3　成本模型：一切策略的地基</h2>
-<p>s 网络（§6 篇 4.2 神经网络表）在 RTX 5090 D 上扫批实测，线性拟合良好（fp16 autocast，含 H2D）：</p>
+<h2 id="s3">3　Cost model: the foundation of every policy</h2>
+<p>Sweeping the s network (§6 ch. 4.2, neural-network table) over batch sizes on an RTX 5090 D fits the linear model well (fp16 autocast, incl. H2D):</p>
 <div class="eq"><div class="f">
   <span class="v">t</span><sub>fwd</sub>(<span class="v">b</span>) ≈ <span class="v">t</span><sub>0</sub> + κ·<span class="v">b</span>
-  　　,　　<span class="v">t</span><sub>0</sub> ≈ 1.21 ms，κ ≈ 4.5 µs</div><span class="no"></span></div>
-<p>由式 (1)，吞吐随批单调升、渐近饱和于 1/κ；固定开销占比随批稀释。两个口径值：</p>
+  　　,　　<span class="v">t</span><sub>0</sub> ≈ 1.21 ms, κ ≈ 4.5 µs</div><span class="no"></span></div>
+<p>By eq. (1), throughput rises monotonically with batch and saturates asymptotically at 1/κ, while the share of fixed overhead dilutes as the batch grows. Two reference points:</p>
 <div class="eq"><div class="f">
-  <span class="v">ρ</span>(32) ≈ 2.4 万/秒　≪　<span class="v">ρ</span>(256) ≈ 10.8 万/秒　&lt;　<span class="v">ρ</span>(512) ≈ 14.4 万/秒</div><span class="no"></span></div>
+  <span class="v">ρ</span>(32) ≈ 24k/s　≪　<span class="v">ρ</span>(256) ≈ 108k/s　&lt;　<span class="v">ρ</span>(512) ≈ 144k/s</div><span class="no"></span></div>
 <figure>
 <svg viewBox="0 0 760 240" font-family="serif">
   <g stroke="#6b6557" stroke-width="1.2"><line x1="70" y1="190" x2="700" y2="190"/><line x1="70" y1="190" x2="70" y2="24"/></g>
-  <text x="700" y="208" font-size="12" fill="#6b6557" text-anchor="end">批大小 b →</text>
-  <text x="26" y="30" font-size="12" fill="#6b6557">耗时 / 吞吐</text>
+  <text x="700" y="208" font-size="12" fill="#6b6557" text-anchor="end">batch size b →</text>
+  <text x="26" y="30" font-size="10" fill="#6b6557">latency / throughput</text>
   <g font-size="11" fill="#6b6557" text-anchor="middle"><text x="110" y="206">32</text><text x="290" y="206">96</text><text x="470" y="206">192</text><text x="640" y="206">256</text></g>
   <line x1="70" y1="188" x2="660" y2="90" stroke="#8b0000" stroke-width="2.2"/>
-  <text x="330" y="100" font-size="12.5" fill="#8b0000">t(b) = 1.21ms + 4.5µs·b　（式 1）</text>
+  <text x="330" y="100" font-size="12.5" fill="#8b0000">t(b) = 1.21ms + 4.5µs·b　(eq. 1)</text>
   <path d="M 110 150 Q 240 96 470 70 T 660 58" fill="none" stroke="#2f6b35" stroke-width="2.2"/>
-  <text x="120" y="66" font-size="12.5" fill="#2f6b35">ρ(b) = b / t(b)　渐近 1/κ　（式 2）</text>
+  <text x="120" y="66" font-size="12.5" fill="#2f6b35">ρ(b) = b / t(b), asymptote 1/κ　(eq. 2)</text>
   <circle cx="110" cy="150" r="4" fill="#2f6b35"/><circle cx="640" cy="60" r="4" fill="#2f6b35"/>
   <circle cx="110" cy="177" r="4" fill="#8b0000"/><circle cx="640" cy="94" r="4" fill="#8b0000"/>
   <g font-size="11" fill="#333">
-    <text x="122" y="146">ρ(32)=2.4万</text><text x="540" y="52">ρ(256)=10.8万/秒</text>
-    <text x="122" y="173">t=1.35ms（42µs/局面）</text><text x="470" y="112">t=2.36ms（9.2µs/局面）</text>
+    <text x="122" y="146">ρ(32)=24k</text><text x="540" y="52">ρ(256)=108k/s</text>
+    <text x="122" y="173">t=1.35ms (42µs/pos)</text><text x="470" y="112">t=2.36ms (9.2µs/pos)</text>
   </g>
-  <text x="70" y="230" font-size="11.8" fill="#6b6557">批从 32→256：耗时只涨 1.75 倍，吞吐涨 4.5 倍。这就是"敢凑批"的全部理由。测点：b∈{1…512} 扫描，RTX 5090 D。</text>
+  <text x="70" y="230" font-size="9.5" fill="#6b6557">Batch 32→256: latency rises only 1.75×, throughput 4.5× — that is the whole case for daring to batch. Measured: b∈{1…512} sweep, RTX 5090 D.</text>
 </svg>
-<figcaption><b>前向成本与吞吐的批响应曲线。</b>红线：一次前向耗时近似线性，截距 t₀ 是启动/拷贝的固定成本；
-绿线：吞吐随批上凸饱和。"延迟交付以换取更大批量"这一策略的依据，正来自这对曲线。</figcaption>
+<figcaption><b>Forward cost and throughput as functions of batch size.</b> Red line: one forward pass is nearly linear, the intercept t₀ being the fixed launch/copy cost;
+green line: throughput rises concavely and saturates with batch. The rationale for the &ldquo;delay delivery in exchange for a larger batch&rdquo; policy comes precisely from this pair of curves.</figcaption>
 </figure>
 
-<h3>3.1　两个被实测否决的优化（负结果也要记）</h3>
+<h3>3.1　Two optimisations vetoed by measurement (negative results get recorded too)</h3>
 <ul>
-<li><b>pin_memory（锁页内存）</b>：预期加速主机→设备拷贝，实测批 256 时整体反而更慢
-（锁页的分配/同步开销 > 拷贝收益），移除；</li>
-<li><b>"TCP 慢启动"式批目标爬坡</b>：批目标从 1 起翻倍、超时就砍半。流水线负载下请求成批到达，
-爬坡永远追不上真实批，删除，改为第 5 节的贪心 + 自适应窗口。</li>
+<li><b>pin_memory (page-locked memory)</b>: expected to speed up the host→device copy; measured, it made overall throughput at batch 256
+slower (the allocation/synchronisation overhead of pinning &gt; the copy gain) — removed;</li>
+<li><b>a &ldquo;TCP slow-start&rdquo; ramp of the batch target</b>: double the target from 1, halve it on timeout. Under pipelined load requests arrive
+in batches, so the ramp never catches up with the real batch — deleted in favour of §5's greedy fill plus adaptive window.</li>
 </ul>
 
-<h2 id="s4">4　流水结构：四段，每段一条线程</h2>
+<h2 id="s4">4　Pipeline structure: four stages, one thread each</h2>
 <figure>
 <svg viewBox="0 0 760 210" font-family="serif" font-size="12">
   <defs><marker id="fa" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#2f4f4f"/></marker></defs>
-  <text x="16" y="30" font-size="12.4" fill="#2f4f4f">每段经 _spawn 拉起：任一段异常 → 堆栈进 logs/crash，且 stop_event 置位全引擎快速失败——半死引擎比死引擎更糟</text>
+  <text x="16" y="30" font-size="9" fill="#2f4f4f">Every stage runs under _spawn: any stage exception → stack into logs/crash, stop_event set, whole engine fails fast — a half-dead engine is worse than a dead one</text>
   <g fill="#fffdf7" stroke="#2f4f4f" stroke-width="1.6">
     <rect x="14" y="86" width="100" height="56" rx="9"/><rect x="196" y="86" width="100" height="56" rx="9"/>
     <rect x="378" y="86" width="100" height="56" rx="9"/><rect x="560" y="86" width="100" height="56" rx="9"/>
   </g>
   <g text-anchor="middle" fill="#1c1c1c">
-    <text x="64" y="110" font-weight="bold">collect 收批</text><text x="64" y="127" font-size="10.6">贪 B_max / 窗口</text>
-    <text x="246" y="110" font-weight="bold">preprocess</text><text x="246" y="127" font-size="10.6">stack + 面数闸</text>
+    <text x="64" y="110" font-weight="bold">collect</text><text x="64" y="127" font-size="9">greedy B_max · window</text>
+    <text x="246" y="110" font-weight="bold">preprocess</text><text x="246" y="127" font-size="9.5">stack + plane gate</text>
     <text x="428" y="110" font-weight="bold">infer × w</text><text x="428" y="127" font-size="10.6">inference_mode+autocast</text>
-    <text x="610" y="110" font-weight="bold">post 投递</text><text x="610" y="127" font-size="10.6">回填句柄·统计</text>
+    <text x="610" y="110" font-weight="bold">post</text><text x="610" y="127" font-size="10">fill handles · stats</text>
   </g>
   <g stroke="#2f4f4f" stroke-width="1.5" marker-end="url(#fa)">
     <line x1="114" y1="114" x2="194" y2="114"/><line x1="296" y1="114" x2="376" y2="114"/><line x1="478" y1="114" x2="558" y2="114"/>
   </g>
-  <text x="154" y="106" font-size="10.4" fill="#6b6557" text-anchor="middle">打包队列</text>
-  <text x="336" y="106" font-size="10.4" fill="#6b6557" text-anchor="middle">推理队列</text>
-  <text x="518" y="106" font-size="10.4" fill="#6b6557" text-anchor="middle">结果队列</text>
+  <text x="154" y="106" font-size="10.4" fill="#6b6557" text-anchor="middle">staging queue</text>
+  <text x="336" y="106" font-size="9.5" fill="#6b6557" text-anchor="middle">inference queue</text>
+  <text x="518" y="106" font-size="10.4" fill="#6b6557" text-anchor="middle">result queue</text>
   <line x1="40" y1="176" x2="60" y2="144" stroke="#8b0000" stroke-width="1.5" marker-end="url(#fa)"/>
-  <text x="14" y="192" font-size="11" fill="#8b0000">request_queue ← MCTS / AIServer 投递单局面</text>
-  <text x="560" y="176" font-size="11" fill="#3d6b35">唤醒等待者 → 树继续生长</text>
+  <text x="14" y="192" font-size="11" fill="#8b0000">request_queue ← single positions from MCTS / AIServer</text>
+  <text x="560" y="176" font-size="11" fill="#3d6b35">wake waiters → tree keeps growing</text>
 </svg>
-<figcaption><b>线程拓扑。</b>段间以队列衔接、互不阻塞：GPU 前向时 collect 在收下一批，post 在投递上一批。
-CPU 设备上 infer 段可开 w 个 worker（默认 核数/4 封顶 8，<code>ZZ_INFER_WORKERS</code>），preprocess
-把大 batch 均分成 w 片并行 forward；GPU 上 w=1 不切——切分只会摊薄单批规模，与式 (1) 的经济学相悖。</figcaption>
+<figcaption><b>Thread topology.</b> Stages are joined by queues and never block one another: while the GPU runs a forward, collect is gathering the next batch
+and post is delivering the previous one. On CPU devices the infer stage can run w workers (default cores/4 capped at 8, <code>ZZ_INFER_WORKERS</code>), and preprocess
+splits a large batch into w equal shards forwarded in parallel; on GPU w=1 and nothing is split — splitting would only amortise the per-batch size, against the economics of eq. (1).</figcaption>
 </figure>
 
-<h2 id="s5">5　凑批策略：等待有界、随负载自适应</h2>
-<p>collect 循环（伪码，与代码逐行对应）：</p>
+<h2 id="s5">5　Batching policy: bounded waiting, load-adaptive</h2>
+<p>The collect loop (pseudocode, line-for-line against the code):</p>
 <pre><code>loop:
-    q_pend ← 各级队列积压
-    delay   ← 1e−4 + 1e−3 · q_pend                # 空闲探测；有活时 get 立即返回
-    requests ← [request_queue.get(timeout=delay)]  # 第一条
+    q_pend ← backlog across all queue stages
+    delay   ← 1e−4 + 1e−3 · q_pend                # idle probe; get returns at once when there is work
+    requests ← [request_queue.get(timeout=delay)]  # first item
     while |requests| &lt; B_max:
-        try:   requests += request_queue.get(timeout = w(b̂_ema))   # 表 2 的窗口
+        try:   requests += request_queue.get(timeout = w(b̂_ema))   # the window from Table 2
         except Empty: break
-    b̂_ema ← 0.8·b̂_ema + 0.2·|requests| ; 交付 requests</code></pre>
-<div class="tbl-cap"><b>自适应凑批窗口 <span class="v">w</span>(<span class="v">b̂</span>)</b>
-（代码 <code>_collect_window</code>；"场景"列是工程直觉，不是运行时判据）。</div>
+    b̂_ema ← 0.8·b̂_ema + 0.2·|requests| ;  deliver requests</code></pre>
+<div class="tbl-cap"><b>Adaptive batching window <span class="v">w</span>(<span class="v">b̂</span>)</b>
+(code <code>_collect_window</code>; the &ldquo;scenario&rdquo; column is engineering intuition, not a runtime predicate).</div>
 <table>
-<tr><th>EMA 批 b̂</th><th>窗口 w</th><th>典型场景</th><th>道理</th></tr>
-<tr><td>≥ 32</td><td>2 ms</td><td>满负荷自博弈（G×K 数千常驻）</td><td>再等 2ms 多攒几十条，换 GPU 一次大发射</td></tr>
-<tr><td>≥ 8</td><td>1 ms</td><td>开局爬坡 / 轮次收尾</td><td>折中</td></tr>
-<tr><td>≥ 3</td><td>0.5 ms</td><td>残局段仅余数局</td><td>继续等待难以成批，宜尽快交付</td></tr>
-<tr><td>&lt; 3</td><td>0.1 ms</td><td>人机对战（一手一等）</td><td>延迟优先，几乎不等</td></tr>
+<tr><th>EMA batch b̂</th><th>Window w</th><th>Typical scenario</th><th>Rationale</th></tr>
+<tr><td>≥ 32</td><td>2 ms</td><td>fully loaded self-play (thousands of G×K in flight)</td><td>2 ms more collects dozens of extra requests in exchange for one big GPU launch</td></tr>
+<tr><td>≥ 8</td><td>1 ms</td><td>opening ramp-up / round wind-down</td><td>compromise</td></tr>
+<tr><td>≥ 3</td><td>0.5 ms</td><td>endgame stretch with only a few games left</td><td>further waiting rarely forms a batch; deliver promptly</td></tr>
+<tr><td>&lt; 3</td><td>0.1 ms</td><td>human vs AI (one move, one wait)</td><td>latency first, wait almost never</td></tr>
 </table>
-<div class="callout"><b>两个正交旋钮。</b>§3 篇的 G×K 决定"有多少料"（供给），本节的 w 决定"愿意花多久凑"（耐心）。
-把 K 调大是加供给，把 w 调大是加耐心。2026-11 实测 p90 已打满上限 2048（10 月末均批 215–245 / p90=256 系 B_max=256 时代口径）；
-若 <code>window</code> 列持续顶格而均批不涨，说明请求到达速率已足以在零等待下凑满批，此时应调整的是 B_max（历史上从 256→512→2048，式 (2)
-还许诺 +33%），而不是继续加 w。</div>
+<div class="callout"><b>Two orthogonal knobs.</b> §3 ch.'s G×K decides &ldquo;how much material there is&rdquo; (supply); this section's w decides &ldquo;how long one is willing to spend collecting it&rdquo; (patience).
+Raising K adds supply; raising w adds patience. Measured in 2026-11, p90 already saturates the 2048 cap (the end-of-October mean batch 215–245 / p90=256 are figures from the B_max=256 era);
+if the <code>window</code> column keeps pinning at the cap while the mean batch does not grow, the request arrival rate is already high enough to fill batches with zero waiting — what to adjust then is B_max (historically raised 256→512→2048; eq. (2)
+still promises +33%), not more w.</div>
 
-<h2 id="s6">6　镜像增强：请求侧的免费多样性</h2>
-<p>自博弈请求在提交瞬间（<code>issue()</code>，§3 篇 6.1）被随机施加棋盘的一个对称变换
-（象棋左右翻 ×2，五子棋二面体 ×8，记编号 g），返回时结果按 g 还原回原视角：</p>
+<h2 id="s6">6　Symmetry augmentation: free diversity on the request side</h2>
+<p>A self-play request, at the moment of submission (<code>issue()</code>, §3 ch. 6.1), is randomly put through one symmetry of the board
+(xiangqi left–right flip ×2, gomoku dihedral group ×8; call the index g); when the result returns, it is mapped back through g to the original view:</p>
 <div class="eq"><div class="f">
-  g ~ Uniform(对称群)　,　(π̃, v̂) ← Engine(g·<span class="v">s</span>)　,　回填使用 (g<sup>−1</sup>·π̃, v̂)</div><span class="no"></span></div>
-<p>等价性讨论：不要求网络对对称群等变——变换只作用于"这一次请求"的输入输出对，树里存的永远是原视角。
-效果是把同一叶面的评估从"固定一张照片去问"变成"随机抽一张照片去问"，把<b>表示偏差</b>
-（若网络略偏爱某侧）平均掉；与仓里的在线增强（§5 篇 5.1）是同一家族的两半
-（仓管"训练时多视角"，引擎管"推理时多视角"）。人机对战与评估默认关闭此开关（<code>is_self_play=False</code>）。</p>
+  g ~ Uniform(symmetry group)　,　(π̃, v̂) ← Engine(g·<span class="v">s</span>)　,　stored and used as (g<sup>−1</sup>·π̃, v̂)</div><span class="no"></span></div>
+<p>Equivalence discussion: the network is not required to be equivariant under the symmetry group — the transform acts only on the input–output pair of &ldquo;this one request&rdquo;,
+and what the tree stores is always the original view. The effect is that evaluating the same leaf changes from &ldquo;ask about one fixed photograph&rdquo; to &ldquo;ask about a photograph drawn at random&rdquo;,
+averaging out <b>representation bias</b> (if the network slightly favours one side); with the buffer's online augmentation (§5 ch. 5.1) it forms the two halves of one family
+(the buffer owns &ldquo;many views in training&rdquo;, the engine owns &ldquo;many views at inference&rdquo;). Human-vs-AI play and evaluation switch this off by default (<code>is_self_play=False</code>).</p>
 
-<h2 id="s7">7　设备一致性：多模型并存不出事</h2>
-<h3>7.1　输入跟随本模型，而非全局配置</h3>
-<p>前向张量永远搬到<b>本引擎参数所在设备</b>（<code>_model_device()</code>）。历史事故：另一模型加载失败
-触发全局配置降级 CPU，而本引擎权重仍驻留 GPU，"weight is on cuda / input on cpu" 直接崩。配套两道闸：</p>
+<h2 id="s7">7　Device consistency: many models coexisting without accidents</h2>
+<h3>7.1　Inputs follow this model, not the global configuration</h3>
+<p>Forward tensors are always moved onto <b>the device this engine's parameters live on</b> (<code>_model_device()</code>). Historical incident: another model failed to load,
+the global configuration degraded to CPU, yet this engine's weights still sat on the GPU — &ldquo;weight is on cuda / input on cpu&rdquo; crashed on contact. Two gates come as a set:</p>
 <ul>
-<li><b>读写门</b>（<code>_ModelAccess</code>）：forward 持共享锁（w 个 worker 并发读权重安全）；
-在线换设备（<code>relocate()</code>，Web 侧栏入口）持独占锁——等在途 forward 排空后搬迁，锁内原子完成。</li>
-<li><b>面数闸</b>：preprocess 校验输入通道数 == 模型出生时的 in_channels，不符抛错。
-feature_version 错位的特征是"能跑但全错"，静默比崩溃毒（§2 篇 §6 的教训写进了代码注释）。</li>
+<li><b>Read/write gate</b> (<code>_ModelAccess</code>): forward holds a shared lock (concurrent weight reads by w workers are safe);
+an online device move (<code>relocate()</code>, exposed in the Web sidebar) holds an exclusive lock — it waits for in-flight forwards to drain, then migrates, atomically inside the lock.</li>
+<li><b>Plane-count gate</b>: preprocess checks that the input channel count equals the model's birth-time in_channels and raises otherwise.
+Features built under a mismatched feature_version are &ldquo;runnable but entirely wrong&rdquo;; silence poisons worse than a crash (the lesson of §2 ch. §6 is written into the code comments).</li>
 </ul>
-<p>此外：混合精度按设备自适应（CUDA fp16 autocast，CPU 关闭）；forward 统一包在
-<code>torch.inference_mode()</code>；checkpoint 跨设备通用（加载先落 CPU 再按需迁移，
-NVIDIA 上训好的权重可直接在 Mac/CPU 上对战）。</p>
+<p>Beyond that: mixed precision adapts per device (fp16 autocast on CUDA, off on CPU); every forward is wrapped uniformly in
+<code>torch.inference_mode()</code>; checkpoints are device-portable (loaded to CPU first, migrated as needed — weights trained on NVIDIA play directly on Mac/CPU).</p>
 
-<h2 id="s8">8　多模型共享：ServerHub</h2>
-<pre><code>engine, loaded_id = hub.get_engine(env_name, model_id, profile)    # model_id=0 → 该网络最新
-# 命中：引用 +1 直接复用；未命中：InferenceEngine(index, env, profile) 新建并 start()
-# AIServer.shutdown()/会话超时 → 引用 −1 → 归零才关线程、释放显存</code></pre>
-<p>引擎按三元组 <code>(棋种, 网络, 序号)</code> 命名登记：<code>ChineseChess_498</code>（m 网络保持历史格式）/
-<code>ChineseChess_s_34</code>（其余带网络前缀）。线程名、日志、面板、统计四处同一个键——
-"两个网络的同代模型"不会被当成同一个引擎。晋升评估赛（§5 篇第 8 节）的两位选手就是两个这样的实例。</p>
+<h2 id="s8">8　Multi-model sharing: ServerHub</h2>
+<pre><code>engine, loaded_id = hub.get_engine(env_name, model_id, profile)    # model_id=0 → latest of that network
+# hit: reference +1, reuse directly; miss: InferenceEngine(index, env, profile) built and start()-ed
+# AIServer.shutdown() / session timeout → reference −1 → only at zero: stop threads, release GPU memory</code></pre>
+<p>Engines are named and registered by the triple <code>(game, network, index)</code>: <code>ChineseChess_498</code> (the m network keeps the historical format) /
+<code>ChineseChess_s_34</code> (the rest carry a network prefix). Thread name, log, panel and statistics all key on the same string —
+&ldquo;same-generation models of two networks&rdquo; are never mistaken for one engine. The two contestants of a promotion match (§5 ch. 8) are exactly two such instances.</p>
 
-<h2 id="s9">9　统计与失败纪律</h2>
+<h2 id="s9">9　Statistics and failure discipline</h2>
 <ul>
-<li><b>统计双口径</b>：整轮直方图 Counter（均值 / p50 / p90 按全部批算）与最近 2000 批滑动窗口
-（尾部指示、窗口/耗时均值）。曾误以滑动窗口作整轮均值，轮尾的 8–45 小批使头条显示为"均批 16"
-（实际整轮 237）——两口径分开存、分开报。</li>
-<li><b>线程异常纪律</b>：<code>_spawn()</code> 包住每条线程：异常带堆栈写 <code>logs/crash/</code>，
-然后 <code>stop_event.set()</code>。free-threading 下的共享容器纪律：跨线程读写的
-deque/Counter 一律持锁、快照后再遍历——曾因打印统计时未加锁遍历，导致投递线程异常终止
-（回归测试 <code>test_engine_device_consistency</code> 第 7 项钉住）。</li>
-<li><b>退役顺序</b>：shutdown = 置停 → join 全部线程（每条超时 5s，卡驱动时告警放弃）→
-<b>最后</b>释放权重。顺序反了会炸正在前向的线程（'NoneType' has no attribute 'parameters'（故障与修复均已回归覆盖）。</li>
+<li><b>Dual scope</b>: a whole-round histogram Counter (mean / p50 / p90 computed over all batches) versus a sliding window of the last 2000 batches
+(tail indicators, window/latency means). Mistaking the sliding window for the whole-round mean once made the headline read &ldquo;mean batch 16&rdquo;
+because of 8–45 tail batches at the round's end (whole-round actual: 237) — the two scopes are stored and reported separately.</li>
+<li><b>Thread-exception discipline</b>: <code>_spawn()</code> wraps every thread: exceptions are written with their stack traces to <code>logs/crash/</code>,
+then <code>stop_event.set()</code>. Shared-container discipline under free-threading: deques/Counters read and written across threads are always mutated under a lock
+and iterated only on a snapshot — once, an unlocked iteration while printing statistics terminated the post thread abnormally
+(pinned by item 7 of the regression suite <code>test_engine_device_consistency</code>).</li>
+<li><b>Retirement order</b>: shutdown = set the stop flag → join all threads (5 s timeout each; warn and give up if the driver hangs) →
+<b>finally</b> release the weights. The reverse order explodes threads caught mid-forward ('NoneType' has no attribute 'parameters'; the fault and its fix are both covered by regression tests).</li>
 </ul>
 
-<h2 id="sA">10　接口速查</h2>
-<h3>10.1　调用方（<code>services/inference/client.py</code>）</h3>
+<h2 id="sA">10　Interface quick reference</h2>
+<h3>10.1　Caller side (<code>services/inference/client.py</code>)</h3>
 <table>
-<tr><th>函数</th><th>语义</th></tr>
-<tr><td><code>issue(state, env, q, is_self_play, lane)</code> → <code>(request, sym_idx)</code></td><td>投递单局面、立即返回句柄（§3 篇流水线"发"侧；含第 6 节镜像）</td></tr>
-<tr><td><code>harvest(request, sym_idx, env)</code> → <code>(policy, value)</code></td><td>已完成句柄取结果（还原镜像）</td></tr>
-<tr><td><code>send_many(states, env, q, is_self_play)</code></td><td>一批全投再统一等（先投后等是关键，投一条等一条就退化回串行）</td></tr>
-<tr><td><code>send_via_queue(state, env, q)</code></td><td>单条同步 ≡ <code>send_many([state])[0]</code>；人机/评估路径</td></tr>
-<tr><td><code>RequestLane</code></td><td>信号量：完成一条放行一次；<code>acquire(timeout=300)</code> 超时抛 <code>TimeoutError</code>，杜绝无声吊死</td></tr>
+<tr><th>Function</th><th>Semantics</th></tr>
+<tr><td><code>issue(state, env, q, is_self_play, lane)</code> → <code>(request, sym_idx)</code></td><td>submit a single position, return a handle immediately (the &ldquo;send&rdquo; side of §3 ch.'s pipeline; includes §6's symmetry augmentation)</td></tr>
+<tr><td><code>harvest(request, sym_idx, env)</code> → <code>(policy, value)</code></td><td>take the result from a completed handle (undo the symmetry transform)</td></tr>
+<tr><td><code>send_many(states, env, q, is_self_play)</code></td><td>submit a whole batch first, then wait for all of it — send-then-wait is the key; waiting after each single submission degrades back to serial</td></tr>
+<tr><td><code>send_via_queue(state, env, q)</code></td><td>single synchronous submission ≡ <code>send_many([state])[0]</code>; the human-vs-AI / evaluation path</td></tr>
+<tr><td><code>RequestLane</code></td><td>semaphore: one completion releases once; <code>acquire(timeout=300)</code> raises <code>TimeoutError</code> on timeout, eliminating silent hangs</td></tr>
 </table>
-<h3>10.2　引擎方（<code>services/inference/engine.py</code>）</h3>
+<h3>10.2　Engine side (<code>services/inference/engine.py</code>)</h3>
 <table>
-<tr><th>成员</th><th>语义</th></tr>
-<tr><td><code>InferenceEngine(model_index, env_name, profile=None)</code> / <code>.start()</code> / <code>.shutdown()</code></td><td>构造即加载（失败自动降 CPU 并告警）；退役顺序见 §9</td></tr>
-<tr><td><code>feature_version / profile / model_index / name / arch_name</code></td><td>引擎身份；特征转换必须传 <code>planes_version = engine.feature_version</code></td></tr>
-<tr><td><code>request_queue</code></td><td>唯一提交入口</td></tr>
-<tr><td><code>infer_stats() / reset_statistic() / relocate(device)</code></td><td>整轮统计快照（§3 篇表 3 数据来源）/ 重置（每轮开头）/ 在线换设备</td></tr>
+<tr><th>Member</th><th>Semantics</th></tr>
+<tr><td><code>InferenceEngine(model_index, env_name, profile=None)</code> / <code>.start()</code> / <code>.shutdown()</code></td><td>construction loads the model (on failure it degrades to CPU automatically, with a warning); for the retirement order see §9</td></tr>
+<tr><td><code>feature_version / profile / model_index / name / arch_name</code></td><td>engine identity; feature conversion must pass <code>planes_version = engine.feature_version</code></td></tr>
+<tr><td><code>request_queue</code></td><td>the single submission entry point</td></tr>
+<tr><td><code>infer_stats() / reset_statistic() / relocate(device)</code></td><td>whole-run statistics snapshot (data source of §3 ch. Table 3) / reset (at each round's start) / online device move</td></tr>
 </table>
-<p class="callout good"><code>TrainServer</code> <b>继承</b> <code>InferenceEngine</code>：训练进程本身就是
-一个常驻引擎（自博弈向它要推理），外加 fit 与存档。一个进程、一份权重、一次加载——训练侧没有"另一个服务"。</p>
+<p class="callout good"><code>TrainServer</code> <b>inherits</b> <code>InferenceEngine</code>: the training process is itself a resident engine (self-play draws inference from it),
+plus fit and checkpointing. One process, one set of weights, one load — on the training side there is no &ldquo;other service&rdquo;.</p>
 
-<h2 id="sB">11　实验（RTX 5090 D · s 网络 128×6 · 32 线程 × K=12（2026-10-27 端态；11 月已提档，见 §3 篇表 3））</h2>
-<div class="tbl-cap"><b>端态指标</b>（与 §3 篇表 3 阶段 3 同源；统计行每千条一回）。</div>
+<h2 id="sB">11　Experiments (RTX 5090 D · s network 128×6 · 32 threads × K=12 (2026-10-27 steady state; upgraded in November, see §3 ch. Table 3))</h2>
+<div class="tbl-cap"><b>Steady-state metrics</b> (same source as §3 ch. Table 3, stage 3; one stats line per 1000 requests).</div>
 <table>
-<tr><th>指标</th><th>基线</th><th>现在</th><th>口径</th></tr>
-<tr><td>请求吞吐</td><td>5.8k 局面/秒</td><td><b>60k+（峰值 62.9k）</b></td><td>整轮均值；瞬时值由相邻统计行差分</td></tr>
-<tr><td>批大小 均值 / p90</td><td>~1</td><td>215–245 / 256</td><td>整轮直方图</td></tr>
-<tr><td>前向耗时（b≈240）</td><td>—</td><td>~2.3 ms</td><td>滑动窗口均值</td></tr>
-<tr><td>GPU 利用率 / 功耗</td><td>—</td><td>37% / 203 W</td><td>自博弈是间歇满载（正常）；fit 阶段另计</td></tr>
-<tr><td>CPU 多 worker 收益</td><td>单 worker</td><td>+54% 吞吐（8 worker）</td><td>i9-14900K 实测，故保留 <code>ZZ_INFER_WORKERS</code></td></tr>
+<tr><th>Metric</th><th>Baseline</th><th>Now</th><th>Scope</th></tr>
+<tr><td>request throughput</td><td>5.8k positions/s</td><td><b>60k+ (peak 62.9k)</b></td><td>whole-run mean; instantaneous values by differencing adjacent stats lines</td></tr>
+<tr><td>batch size mean / p90</td><td>~1</td><td>215–245 / 256</td><td>whole-run histogram</td></tr>
+<tr><td>forward latency (b≈240)</td><td>—</td><td>~2.3 ms</td><td>sliding-window mean</td></tr>
+<tr><td>GPU utilisation / power</td><td>—</td><td>37% / 203 W</td><td>self-play saturates the GPU in bursts (normal); the fit phase is counted separately</td></tr>
+<tr><td>CPU multi-worker gain</td><td>single worker</td><td>+54% throughput (8 workers)</td><td>measured on i9-14900K; hence <code>ZZ_INFER_WORKERS</code> was kept</td></tr>
 </table>
-<p class="where">理论核对：62.9k ≈ 0.58 × ρ(256)=10.8 万。缺口由"非纯前向时间"解释——树的选择与记账（Python 循环）、线程间队列搬运、凑批窗口等待，
-加上残余的特征转换与 H2D 拷贝。剩余最大单一杠杆是 B_max→512（式 (2) 外推 +33%），
-尚未启用；再往上就要看 §3 篇的每模拟 CPU 账本了。</p>
+<p class="where">Theoretical check: 62.9k ≈ 0.58 × ρ(256) = 108k. The gap is explained by non-pure-forward time — tree selection and bookkeeping (Python loops), queue hand-offs
+between threads and batching-window waits, plus the residual feature conversion and H2D copies. The largest single remaining lever is B_max→512 (eq. (2) extrapolates +33%),
+not yet enabled; beyond that one consults §3 ch.'s per-simulation CPU ledger.</p>
 
-<footer>ZenZero 文档集 · §4 推理引擎 · 2026-11 · 代码为准：services/inference/{engine,client,request,hub}.py</footer>
+<footer>ZenZero Docs · §4 The Inference Engine · 2026-11 · code is the single source of truth: services/inference/{engine,client,request,hub}.py</footer>
 </main>
 <script>
 (function () {
+  try { localStorage.setItem('zz_lang', 'en'); } catch (e) {}
   var hide = function () { document.querySelectorAll('.svc-link').forEach(function (a) { a.style.display = 'none'; }); };
   fetch('/info', { cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json().catch(function () { return null; }) : null; })

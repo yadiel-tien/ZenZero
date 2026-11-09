@@ -4,7 +4,7 @@
 
 A general AlphaZero framework for board games, currently supporting **Chinese Chess (Xiangqi)** and **Gomoku (Five-in-a-Row)**. Python 3.14 free-threading (nogil) + a Cython core + dynamic batched inference take the whole loop — *self-play data generation → training → challenger promotion* — down to a single machine, fully playable from the web.
 
-> 📖 **Docs**: <https://yadiel-tien.github.io/ZenZero/> (six chapters · Chapter 1 “How to Use” gets you running · an [English edition](docs/en/index.html) of the overview and Chapter 1 is available)
+> 📖 **Docs**: <https://yadiel-tien.github.io/ZenZero/> (six chapters · Chapter 1 “How to Use” gets you running · an [English edition](docs/index.html) of the overview and Chapter 1 is available)
 
 ![Playing](docs/assets/playing.png)
 
@@ -105,7 +105,7 @@ ZenZero/
 ├── core/        # environments, MCTS, networks, players (env/mcts/network/player/utils)
 ├── services/    # inference engine, training, console, monitoring
 ├── apps/        # web frontends (game/console) and assets, zero build step
-├── docs/        # documentation site (static HTML design articles) + English edition (docs/en/)
+├── docs/        # documentation site (static HTML; English at root, Chinese under docs/zh/)
 ├── scripts/     # entry points and build tools
 ├── tests/       # regression suites (13, no external framework)
 └── data/        # models, experience pools, game records, ELO data
@@ -113,16 +113,16 @@ ZenZero/
 
 ## Documentation (docs/)
 
-Six chapters — a getting-started manual plus five design articles. Read them in a browser or at `http://<host>:5000/docs/` (English edition: `docs/en/`):
+Six chapters — a getting-started manual plus five design articles. Read them in a browser or at `http://<host>:5000/docs/` (site root is English; Chinese original under `docs/zh/`):
 
 | Chapter | Contents |
 | :--- | :--- |
-| [§1 How to Use](docs/en/usage.html) | three-step quick start, install & build, console, troubleshooting, tests ([中文](docs/usage.html)) |
-| [§2 ChineseChess Environment](docs/en/xiangqi-env.html) | state encoding, 2086-action ABI, legal-move rule engine, 26-plane representation, feature epochs ([中文](docs/xiangqi-env.html)) |
-| [§3 MCTS & Virtual Loss](docs/en/mcts.html) | PUCT, batched virtual loss, barrier-free pipeline, π & temperature, measured 5.8k→60k req/s ([中文](docs/mcts.html)) |
-| [§4 Inference Engine](docs/en/inference-engine.html) | four-stage thread pipeline, adaptive batching, symmetry augmentation, device consistency, multi-model hub ([中文](docs/inference-engine.html)) |
-| [§5 Training Pipeline](docs/en/training.html) | the big loop, sims ramp, holdout set, CE = KL + entropy, stop semantics ([中文](docs/training.html)) |
-| [§6 Architecture & APIs](docs/en/architecture.html) | process topology, repo tour, full env-var table, play/console API contracts ([中文](docs/architecture.html)) |
+| [§1 How to Use](docs/usage.html) | three-step quick start, install & build, console, troubleshooting, tests ([中文](docs/zh/usage.html)) |
+| [§2 ChineseChess Environment](docs/xiangqi-env.html) | state encoding, 2086-action ABI, legal-move rule engine, 26-plane representation, feature epochs ([中文](docs/zh/xiangqi-env.html)) |
+| [§3 MCTS & Virtual Loss](docs/mcts.html) | PUCT, batched virtual loss, barrier-free pipeline, π & temperature, measured 5.8k→60k req/s ([中文](docs/zh/mcts.html)) |
+| [§4 Inference Engine](docs/inference-engine.html) | four-stage thread pipeline, adaptive batching, symmetry augmentation, device consistency, multi-model hub ([中文](docs/zh/inference-engine.html)) |
+| [§5 Training Pipeline](docs/training.html) | the big loop, sims ramp, holdout set, CE = KL + entropy, stop semantics ([中文](docs/zh/training.html)) |
+| [§6 Architecture & APIs](docs/architecture.html) | process topology, repo tour, full env-var table, play/console API contracts ([中文](docs/zh/architecture.html)) |
 
 > **Feature epoch 2 (2026-10)**: Xiangqi rules upgraded to the official code (moving into check is illegal; checkmate and stalemate are losses; draw by threefold repetition; perpetual check loses; 120-move clock) and the board representation re-laid out to 26 planes. Old models keep playing under their birth epoch; after the switch training resumes from a fresh network automatically. Regression: `tests/test_chess_rules.py` (21 checks).
 

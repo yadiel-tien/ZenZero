@@ -157,6 +157,16 @@ class PlayApiServer:
 
         @self.app.route('/docs/<path:rel>')
         def web_docs(rel):
+            # 目录寻址对齐 GitHub Pages：/docs/zh 与 /docs/zh/ 都落到该目录 index.html。
+            # 无斜杠时先 301 补斜杠——否则页内相对链接（zh/usage.html 这类同目录互链）
+            # 会按 /docs/ 基准解析成死链。
+            import posixpath
+            cand = posixpath.normpath(posixpath.join(str(DOCS_DIR), rel))
+            if os.path.isdir(cand):
+                if not rel.endswith('/'):
+                    from flask import redirect
+                    return redirect('/docs/' + rel + '/')
+                return send_from_directory(cand, 'index.html')
             return send_from_directory(DOCS_DIR, rel)
 
         @self.app.route('/css/<path:rel>')

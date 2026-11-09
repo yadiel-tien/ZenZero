@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZenZero 文档 · §3 MCTS 搜索与虚拟损失</title>
+<style>
+:root{
+  --ink:#1c1c1c; --paper:#faf7f0; --panel:#f2ede2; --line:#d8d0be;
+  --accent:#8b0000; --accent2:#2f4f4f; --muted:#6b6557; --code-bg:#efe9db;
+  --ok:#3d6b35; --warn:#b8860b;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Source Han Serif SC","Noto Serif CJK SC","Songti SC",Georgia,serif;
+  background:var(--paper);color:var(--ink);line-height:1.78;font-size:15.5px}
+header{background:linear-gradient(135deg,#1a2f2f 0%,#2f4f4f 60%,#3d5a5a 100%);color:#f0ead8;
+  padding:42px 24px 34px;text-align:center}
+header h1{margin:0 0 6px;font-size:29px;letter-spacing:4px}
+header .sub{opacity:.85;font-size:14px;letter-spacing:1px}
+header .crumbs{margin-top:14px;font-size:13px;opacity:.7}
+header .crumbs a{color:#e8dfc8}
+nav{position:sticky;top:0;z-index:9;background:#1a2f2f;padding:9px 18px;display:flex;flex-wrap:wrap;gap:4px 16px;
+  font-size:13.5px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+nav a{color:#d8d0be;text-decoration:none;padding:2px 6px;border-radius:4px}
+nav a:hover{background:rgba(255,255,255,.12);color:#fff}
+main{max-width:1080px;margin:0 auto;padding:26px 22px 80px;counter-reset:fig eq tbl}
+h2{font-size:21px;margin:44px 0 12px;padding-left:12px;border-left:5px solid var(--accent);letter-spacing:.5px}
+h3{font-size:16.5px;margin:26px 0 8px;color:var(--accent2)}
+p{margin:9px 0;text-align:justify}
+code{font-family:"Sarasa Mono SC","JetBrains Mono",Consolas,monospace;background:var(--code-bg);
+  padding:1.5px 6px;border-radius:4px;font-size:.88em;color:#4d3a1a}
+pre{background:#22261f;color:#e6e0cc;padding:14px 16px;border-radius:8px;overflow-x:auto;
+  font-family:"Sarasa Mono SC","JetBrains Mono",Consolas,monospace;font-size:12.8px;line-height:1.6}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.6px;background:#fffdf7}
+th{background:#2f4f4f;color:#f0ead8;padding:7px 10px;text-align:left;font-weight:600}
+td{border:1px solid var(--line);padding:6px 10px;vertical-align:top}
+tr:nth-child(even) td{background:#f7f2e6}
+.callout{border-left:4px solid var(--warn);background:#fbf5e4;padding:10px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+.callout.danger{border-color:var(--accent);background:#faeeee}
+.callout.good{border-color:var(--ok);background:#eef5ea}
+ul,ol{padding-left:22px}
+a{color:var(--accent2)}
+hr{border:none;border-top:1px dashed var(--line);margin:34px 0}
+footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 50px;border-top:1px solid var(--line)}
+.abstract{border:1px solid var(--line);background:#fffdf7;border-radius:10px;padding:16px 22px;margin:20px 0}
+.abstract b.t{color:var(--accent2);letter-spacing:4px;font-size:14px}
+.abstract p{font-size:14.3px;color:#333}
+.eq{display:flex;gap:16px;align-items:center;border:1px solid var(--line);background:#fffdf7;
+  border-radius:8px;padding:12px 18px;margin:14px 0;counter-increment:eq}
+.eq .f{flex:1;font-size:16.5px;font-family:Georgia,"Times New Roman","STIX Two Text",serif;letter-spacing:.2px}
+.eq .no::before{content:"(" counter(eq) ")";font-family:monospace;font-size:13px;color:var(--muted)}
+.frac{display:inline-block;vertical-align:-0.75em;text-align:center;margin:0 2px}
+.frac>span{display:block;padding:0 5px;line-height:1.25}
+.frac>.up{border-bottom:1.1px solid currentColor}
+.rad{border-top:1.05px solid currentColor;padding:0 2px;margin-left:-1px}
+.v{font-style:italic;font-family:Georgia,"Times New Roman",serif}
+.where{font-size:13px;color:var(--muted)}
+figure{margin:20px 0;text-align:center;counter-increment:fig}
+figure svg{max-width:100%;height:auto;background:#fffdf7;border:1px solid var(--line);border-radius:10px}
+figcaption{font-size:12.8px;color:var(--muted);margin-top:7px;text-align:left;max-width:880px;display:inline-block}
+figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-weight:700}
+.tbl-cap{font-size:12.8px;color:var(--muted);margin:14px 0 2px;counter-increment:tbl}
+.tbl-cap b::before{content:"表 " counter(tbl) "　";color:var(--accent);font-weight:700}
+.sym td:first-child{font-family:Georgia,serif;font-style:italic;white-space:nowrap;font-size:14.5px;color:#4d3a1a}
+.sym td:first-child code{font-style:normal}
+.note{font-size:13.2px;color:var(--muted)}
+
+  /* —— 体例统一：锚点偏置 / 窄屏表格 / 公式横滚 / 打印 —— */
+  html{scroll-padding-top:58px}
+  .eq{overflow-x:auto}
+  @media(max-width:900px){
+    main{padding-left:12px;padding-right:12px}
+    table{display:block;overflow-x:auto}
+    header h1{letter-spacing:3px}
+  }
+  @media print{
+    nav{display:none}
+    header{padding:24px}
+    body{background:#fff;font-size:12.5px}
+    figure,.eq,table,.callout{break-inside:avoid}
+    a{color:inherit;text-decoration:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MCTS 搜索与虚拟损失</h1>
+  <div class="sub">从「每步一次问答」到「永远 K 条在飞」—— 决策层的并行化与它的正确性</div>
+  <div class="crumbs">ZenZero 文档集 · 第 3 篇｜<a href="index.html">目录</a> ·
+    <a href="usage.html">§1 如何使用</a> · <a href="xiangqi-env.html">§2 环境</a> · <a href="inference-engine.html">§4 推理引擎</a> · <a href="training.html">§5 训练管线</a> · <a href="architecture.html">§6 架构与 API</a></div>
+  <div style="margin-top:10px;font-size:12.5px">
+    <a style="color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:2px 10px;border-radius:99px" href="mcts.html">中文</a>
+    <a style="color:#e8dfc8;text-decoration:none;border:1px dashed rgba(232,223,200,.4);padding:2px 10px;border-radius:99px;margin-left:6px" href="../mcts.html">English</a>
+  </div>
+<script>try{if(localStorage.getItem('zz_lang')==='en'&&!/[?&]nolang/.test(location.search))location.replace('../mcts.html');}catch(e){}</script>
+</header>
+
+<nav>
+  <a href="#ab">摘要</a><a href="#s1">1 引言</a><a href="#s2">2 记号</a><a href="#s3">3 PUCT</a>
+  <a href="#s4">4 瓶颈分析</a><a href="#s5">5 虚拟损失</a><a href="#s6">6 流水线</a>
+  <a href="#s7">7 策略与目标</a><a href="#s8">8 接口</a><a href="#s9">9 实验</a><a href="#sA">附录</a>
+
+  <a href="usage.html">如何使用</a>
+  <a href="/" class="svc-link" style="margin-left:auto;color:#f0d9a8!important;opacity:.85" title="返回对弈首页">← 对弈</a>
+  <a href="/admin" class="svc-link" style="opacity:.85" title="训练控制台">⚙ 控制台</a>
+</nav>
+
+<main>
+
+<div class="abstract" id="ab">
+  <b class="t">摘　要</b>
+  <p>本篇描述 ZenZero 的树搜索层。它面对的工程矛盾只有一个：AlphaZero 式搜索每步要做数百次网络评估，
+  而 GPU 只有在一次收到几十上百个局面时才高效。我们沿两条正交路线解决它——用<b>虚拟损失</b>（第 5 节）使
+  <i>同一手棋内</i>的 K 条搜索线互不踩踏、并发提交；用<b>无屏障流水线</b>（第 6 节）使请求流在时间上连续、
+  引擎任何时刻都有可凑的批。两者都保持与串行搜索的<b>语义一致性</b>（5.3 节的论证与附录测试）。
+  实测搜索请求吞吐 5.8k → 62.9k 局面/秒（10.8×）；同等搜索预算下，自博弈从 6.7 局/分提升到 95.4 局/分（第 9 节）。</p>
+</div>
+
+<h2 id="s1">1　引言：搜索为什么是瓶颈</h2>
+<p>AlphaZero 闭环 <span class="note">[1]</span> 的三层结构里（对局规则 → §2 篇，决策 → 本篇，算力 → §4 篇），
+MCTS（Monte Carlo Tree Search，蒙特卡洛树搜索）负责把"网络的直觉"放大成"经过计算的决策"：
+对当前局面做数百至数千次推演；每次推演沿树下降到一个<b>未评估的叶子</b>，请神经网络给出该叶子的
+先验策略与局面评估，再把结果回填到路径上。最终决策取访问数分布 π（7.1 节）。</p>
+<p>这个循环有两个天然属性，共同决定了它在工程上是瓶颈：</p>
+<ul>
+<li><b>串行依赖</b>：一次推演的下降路径依赖此前所有推演的统计量——天真实现里"问网络 → 回填 → 再下降"
+必须顺序执行，GPU 每时刻只收到 1 个局面；</li>
+<li><b>高固定成本</b>：GPU 一次前向的开销大头是固定的（§4 篇式 (1)），单局面入批与 256 局面入批的
+耗时差不到一倍，摊到每个局面的成本却差一百多倍。</li>
+</ul>
+<p>因此本篇的全部内容可以概括为一句话：<b>在不改变搜索语义的前提下，把"一次一问"重排成
+"多问并行、随到随批"。</b>手段是虚拟损失（空间维并行）与流水线（时间维连续）。</p>
+
+<h2 id="s2">2　记号约定</h2>
+<p>全篇统一使用表 1 的符号；集合用花体（如 <span class="v">A</span>(<span class="v">s</span>)），
+实现变量以 <code>等宽</code> 出现，便于对照代码 <code>core/mcts/deepMcts.py</code>。</p>
+<div class="tbl-cap"><b>符号表</b>（首现节号便于回查；粗体向量/分布如 <b>P</b>, π）。</div>
+<table class="sym">
+<tr><th>符号</th><th>含义</th><th>代码对应</th></tr>
+<tr><td><span class="v">s</span>, <span class="v">a</span></td><td>局面（树节点）、动作（§2 篇定义的 2086 编号之一）</td><td><code>NeuronNode</code>、动作整数</td></tr>
+<tr><td><span class="v">A</span>(<span class="v">s</span>)</td><td>局面 <span class="v">s</span> 的合法动作集合（象棋中局约 30–60 个）</td><td><code>valid_actions</code></td></tr>
+<tr><td><span class="v">N</span>(<span class="v">s</span>), <span class="v">N</span>(<span class="v">s</span>,<span class="v">a</span>)</td><td>节点访问数、边访问数；<span class="v">N</span>(<span class="v">s</span>) = Σ<sub><span class="v">b</span>∈<span class="v">A</span>(<span class="v">s</span>)</sub> <span class="v">N</span>(<span class="v">s</span>,<span class="v">b</span>)</td><td><code>n</code>、<code>child_n[a]</code></td></tr>
+<tr><td><span class="v">W</span>(<span class="v">s</span>,<span class="v">a</span>)</td><td>边回报<b>累加和</b>（注意不是均值）</td><td><code>child_w[a]</code></td></tr>
+<tr><td><span class="v">P</span>(<span class="v">s</span>,<span class="v">a</span>)</td><td>网络给出的先验策略（policy 头输出，限定在合法面）</td><td><code>child_p</code></td></tr>
+<tr><td><span class="v">c</span><sub>puct</sub></td><td>探索系数（本框架取 5，配置键 <code>c_puct</code>）</td><td><code>self.c</code></td></tr>
+<tr><td><span class="v">v</span><sub>θ</sub>(<span class="v">s</span>), <b>p</b><sub>θ</sub>(<span class="v">s</span>)</td><td>神经网络对局面的评估值（轮走方视角，∈[−1,1]）与策略分布；θ 为权重</td><td>§4 篇引擎返回的 (policy, value)</td></tr>
+<tr><td><span class="v">K</span></td><td>一手棋内同时在飞的搜索线数（虚拟损失预算，默认 64，并按凑批反馈在 8–128 间自适应微调，<code>_auto_tune_k</code>）</td><td><code>mcts_batch_leaves</code></td></tr>
+<tr><td><span class="v">ν</span></td><td>单笔虚拟损失的大小（常数 1.0）</td><td><code>VIRTUAL_LOSS</code></td></tr>
+<tr><td><span class="v">R</span><sub>t</sub></td><td>第 t 次模拟的回填回报（终局奖励或 −<span class="v">v</span><sub>θ</sub>；视角见 7.3 节）</td><td><code>back_propagate</code> 入参</td></tr>
+<tr><td><span class="v">τ</span></td><td>策略温度（7.1 节式 (3)）</td><td><code>get_pi(temperature)</code></td></tr>
+<tr><td><span class="v">G</span></td><td>并发自弈局数（= 线程数，默认 min(192, 核×4) ≈ 128）</td><td><code>selfplay_workers</code></td></tr>
+</table>
+
+<h2 id="s3">3　PUCT：带先验的上置信树</h2>
+<p>下降每一步在节点 <span class="v">s</span> 上选使下式最大的合法动作（UCT 加上网络先验项的变体，
+形式取自 AlphaZero [1]）：</p>
+<div class="eq"><div class="f">
+  <span class="v">U</span>(<span class="v">s</span>,<span class="v">a</span>) =
+  <span class="frac"><span class="up"><span class="v">W</span>(<span class="v">s</span>,<span class="v">a</span>)
+  + <span class="v">c</span><sub>puct</sub> · <span class="v">P</span>(<span class="v">s</span>,<span class="v">a</span>) ·
+  <span class="rad"><span class="v">N</span>(<span class="v">s</span>)</span></span>
+  <span class="den">1 + <span class="v">N</span>(<span class="v">s</span>,<span class="v">a</span>)</span></span>
+  　,　<span class="v">a</span> ∈ <span class="v">A</span>(<span class="v">s</span>)</div><span class="no"></span></div>
+<p>分子第一项是累计回报（越大越该走），第二项是"先验 × 尚未充分探索"的鼓励；分母使重复选择同一边的
+边际收益递减。没走过的边（<span class="v">N</span>=0）只要 <span class="v">P</span> 不为零就有机会被试。</p>
+<div class="callout"><b>两处实现细节（与伪码等价，但值得写明）：</b><br>
+① 常见伪码把 argmax 对象写成"均值 <span class="v">Q̂</span> + 探索项"；本实现把两项并入同一分式后一次
+<code>argmax(child_scores)</code>——把 <span class="v">Q̂</span>≡<span class="v">W</span>/(1+<span class="v">N</span>) 通分回同一分母后，两式<b>恒等</b>；
+好处是每节点只存 <span class="v">W</span>/<span class="v">N</span>/<span class="v">P</span> 三张定长数组，均值从不单独维护，也就不存在除零与舍入分叉。<br>
+② 数组按 <span class="v">A</span>(<span class="v">s</span>) 紧凑对齐（长度 30–60，而非全动作空间 2086），
+每次选择是一趟短数组扫描；动作编号经 <code>valid_actions</code> 索引还原。选叶子是最热路径，
+这一步把打分工作量压到全动作口径的 1/35–1/70（2086 ÷ 30–60）。</div>
+
+<h3>3.1　叶子评估与终局短路</h3>
+<p>下降到未展开叶子后分两支。若该局面已被规则判终（将死/困毙/和/长将/时钟，§2 篇），直接取终局奖励回填，
+<b>不占用网络请求</b>——这一支称为终局短路，越接近残局占比越高；否则把局面转成张量（§2 篇 §5），
+提交推理引擎（§4 篇），以 −<span class="v">v</span><sub>θ</sub> 作为叶子回报回填（视角换算见 7.3 节）。</p>
+
+<h2 id="s4">4　瓶颈定量：串行时批从哪来</h2>
+<p>设并发自弈局数为 <span class="v">G</span>。串行实现里每局每时刻至多 1 个未决请求，
+GPU 批的期望上限就是 <span class="v">G</span>；而"下降—等待"交替造成请求呈突发状到达，
+引擎实际凑到的批远小于 <span class="v">G</span>（第 9 节表 3 首行即此形态）。两点实测给出定量依据：</p>
+<ul>
+<li><b>凑批成本模型</b>（§4 篇式 (1)：前向耗时 <span class="v">t</span><sub>fwd</sub>(<span class="v">b</span>) ≈
+1.21&nbsp;ms + 4.5&nbsp;µs·<span class="v">b</span>）：批 32 时每局面 42&nbsp;µs，批 256 时每局面 9.2&nbsp;µs，
+同一张卡吞吐差 4.5 倍；</li>
+<li>中间形态<b>带屏障批量</b>（发 K 条 → 全数返回 → 再发下一批）吞吐翻倍，但"等齐"期间本线程不再产出
+请求，引擎队列被吃空——实测 GPU 占空比仅 34%。这直接催生第 6 节的无屏障流水线。</li>
+</ul>
+
+<h2 id="s5">5　虚拟损失：让 K 条线"同时存在"</h2>
+<h3>5.1　机制</h3>
+<p>并发的第一个障碍：两条线在同一次决策中会沿着相同的统计量下降、撞进同一个叶子。
+办法是对刚被选定的边临时记一笔<b>假账</b>：</p>
+<div class="eq"><div class="f">
+  <span class="v">N</span>(<span class="v">s</span>,<span class="v">a</span>) ← <span class="v">N</span>(<span class="v">s</span>,<span class="v">a</span>) + <span class="v">ν</span>
+  　　,　　<span class="v">W</span>(<span class="v">s</span>,<span class="v">a</span>) ← <span class="v">W</span>(<span class="v">s</span>,<span class="v">a</span>) − <span class="v">ν</span>
+  　　（在该边结果返回前有效）</div><span class="no"></span></div>
+<p>式 (1) 的分子分母同时被恶化，该边得分骤降，后续选择自然分流；真实结果返回时沿路径把两笔账
+<b>成对撤销</b>（<code>_undo_virtual_loss</code>），统计恢复真实值。</p>
+<figure>
+<svg viewBox="0 0 760 250" font-family="serif">
+  <defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#8b0000"/></marker></defs>
+  <text x="20" y="26" font-size="14" fill="#8b0000">① 无虚拟损失：第二条线撞车</text>
+  <g stroke="#2f4f4f" fill="none" stroke-width="2">
+    <line x1="120" y1="66" x2="60" y2="132"/><line x1="120" y1="66" x2="184" y2="132"/>
+  </g>
+  <circle cx="120" cy="58" r="14" fill="#2f4f4f"/><text x="120" y="62" fill="#f0ead8" font-size="10.5" text-anchor="middle">根</text>
+  <circle cx="60" cy="140" r="12" fill="#fffdf7" stroke="#8b0000" stroke-width="2"/><text x="60" y="144" font-size="10.5" text-anchor="middle" fill="#8b0000">A</text>
+  <circle cx="184" cy="140" r="12" fill="#fffdf7" stroke="#c9c0aa"/><text x="184" y="144" font-size="10.5" text-anchor="middle">B</text>
+  <line x1="60" y1="153" x2="60" y2="184" stroke="#8b0000" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+  <text x="30" y="200" font-size="11">线1 占 A 后</text>
+  <text x="30" y="215" font-size="11">线2 再算 (1) 仍选 A</text>
+  <text x="240" y="105" font-size="11.5" fill="#8b0000">两次模拟评估了同一局面：一次请求的算力被浪费，</text>
+  <text x="240" y="122" font-size="11.5" fill="#8b0000">树却没有生长</text>
+  <line x1="0" y1="40" x2="0" y2="40"/>
+  <line x1="380" y1="40" x2="380" y2="230" stroke="#d8d0be"/>
+  <text x="404" y="26" font-size="14" fill="#3d6b35">② 虚拟损失 (2)：假账分流</text>
+  <g stroke="#2f4f4f" fill="none" stroke-width="2">
+    <line x1="504" y1="66" x2="444" y2="132"/><line x1="504" y1="66" x2="568" y2="132"/>
+  </g>
+  <circle cx="504" cy="58" r="14" fill="#2f4f4f"/><text x="504" y="62" fill="#f0ead8" font-size="10.5" text-anchor="middle">根</text>
+  <circle cx="444" cy="140" r="12" fill="#eef5ea" stroke="#3d6b35" stroke-width="2"/><text x="444" y="144" font-size="10.5" text-anchor="middle" fill="#3d6b35">A</text>
+  <circle cx="568" cy="140" r="12" fill="#eef5ea" stroke="#3d6b35" stroke-width="2"/><text x="568" y="144" font-size="10.5" text-anchor="middle" fill="#3d6b35">B</text>
+  <text x="430" y="100" font-size="11" fill="#3d6b35">N+ν, W−ν</text>
+  <line x1="568" y1="153" x2="568" y2="184" stroke="#3d6b35" stroke-width="1.6" stroke-dasharray="4 3"/>
+  <text x="536" y="200" font-size="11">U(B) 暂优</text>
+  <text x="600" y="105" font-size="11.5" fill="#3d6b35">线1 评估 A 之叶、线2 评估 B 之叶：</text>
+  <text x="600" y="122" font-size="11.5" fill="#3d6b35">两个请求同时在飞，凑批成为可能</text>
+  <text x="404" y="238" font-size="11.5" fill="#6b6557">各自结果返回：撤销假账 → 记真实值 → 该树位置继续可供后续线使用</text>
+</svg>
+<figcaption><b>虚拟损失的分流原理。</b>①无假账时重复选择同一叶子；②对已选边同时恶化式 (1) 的分子分母后，
+第二条线被迫另选战场。撤销时机：对应请求完成、真实回报写入<b>之前</b>，沿该次下降路径逐一执行（6.2 节）。</figcaption>
+</figure>
+
+<h3>5.2　为什么 W 也要减（而不是只加 N）</h3>
+<p>若只加 <span class="v">N</span>，当该边经验回报显著优于同侪时，衰减后的得分仍可能全场最高，
+第二条线依旧撞车。同时把 <span class="v">W</span> 减 <span class="v">ν</span>，等价于"在它名下记一局假输"，
+再优势的边也会被压下去——分流从概率性巧合变成结构性保证。代价是假账期间该边统计暂时失真，
+所以<b>必须成对撤销</b>：任何"结果丢失而假账不还"的代码路径都会永久污染统计量。
+本框架里撤销与归还写在同一处收割逻辑里（6.1 节伪码），并由测试 5.3-① 对守恒性作回归固定。</p>
+
+<h3>5.3　语义等价性与两条不变量</h3>
+<p>与串行 PUCT 相比，虚拟损失改变的是<b>选择序列</b>（更分散），不改变<b>每条请求的账目</b>：
+每条线仍完整经历下降—评估—回填；若干线在途时互相"看不见"对方刚下的子，故同一随机种子下最终访问分布
+与串行并非逐位相同——这是并行树搜索的固有性质，AlphaZero 类实现普遍接受。必须恒成立的是两条不变量：</p>
+<ol>
+<li><b>假账守恒</b>：任意时刻 Σ(未撤销的虚拟损失) = 在飞请求数 ≤ <span class="v">K</span>；</li>
+<li><b>预算不被跳过烧空</b>：因撞车而撤回的选择不得消耗模拟预算（对应 6.2-① 所述缺陷）。</li>
+</ol>
+
+<h2 id="s6">6　无屏障流水线：收一条、补一条</h2>
+<h3>6.1　结构</h3>
+<p>带屏障批量（发 K 等 K）在等待期没有新请求进入队列，凑批的请求供给出现空窗。
+<code>run_pipelined()</code> 去掉屏障，保持"恒有 ≤K 条在飞"的不变量：</p>
+<pre><code>在途表 inflight ← ∅ ;  预算 rem ← n_simulation
+while rem &gt; 0 或 inflight ≠ ∅:
+    while rem &gt; 0 且 |inflight| &lt; K:
+        (leaf, path) ← select() 并落虚拟损失 (2)
+        if leaf ∈ inflight:          # 树浅时 K 次选择可能全落同一叶
+            撤销 (2) ; break          # 不耗预算，跳出去收割（6.2-①）
+        if leaf 已终局:                # 3.1 节短路
+            撤销 (2) ; 就地回填 ; rem − 1 ; continue
+        提交 leaf 网络输入 → 引擎请求队列
+        inflight += 请求 ; rem − 1
+    等待"任意一条"完成（信号量许可；超时 300s 则显式报错）
+    找一条已完成者：撤销 (2) → 真实结果回填 → inflight − 1</code></pre>
+<figure>
+<svg viewBox="0 0 760 258" font-family="serif">
+  <text x="14" y="24" font-size="13.5" fill="#8b0000">① 串行：问一次，等一次（G=1 视角）</text>
+  <g font-size="10.5">
+    <rect x="120" y="34" width="46" height="17" fill="#e8dfc8"/><text x="128" y="46">下降</text>
+    <rect x="170" y="34" width="150" height="17" fill="#f4d9d9"/><text x="184" y="46">等网络（线程闲置）</text>
+    <rect x="324" y="34" width="46" height="17" fill="#e8dfc8"/><text x="332" y="46">下降</text>
+    <rect x="374" y="34" width="150" height="17" fill="#f4d9d9"/><text x="388" y="46">等网络</text>
+    <rect x="528" y="34" width="46" height="17" fill="#e8dfc8"/><text x="536" y="46">…</text>
+    <rect x="120" y="57" width="200" height="17" fill="#dfe9f5" stroke="#2f4f4f" stroke-width=".6"/><text x="146" y="69">GPU：■ 批≈1，多数时间闲置</text>
+    <text x="16" y="46" fill="#6b6557">线程</text><text x="16" y="69" fill="#6b6557">设备</text>
+  </g>
+  <text x="14" y="112" font-size="13.5" fill="#3d6b35">② 流水线（6.1）：随到随发、随完随补 —— 队列常驻 ≈ G×K = 4k–8k</text>
+  <g font-size="10.5">
+    <rect x="120" y="122" width="40" height="17" fill="#dff0e2"/><text x="126" y="134">发₁</text>
+    <rect x="163" y="122" width="40" height="17" fill="#dff0e2"/><text x="169" y="134">发₂</text>
+    <rect x="206" y="122" width="40" height="17" fill="#dff0e2"/><text x="212" y="134">发₃</text>
+    <rect x="249" y="122" width="40" height="17" fill="#dff0e2"/><text x="255" y="134">发₄</text>
+    <rect x="292" y="122" width="52" height="17" fill="#c8e0cb"/><text x="296" y="134">收₁发₉</text>
+    <rect x="347" y="122" width="52" height="17" fill="#c8e0cb"/><text x="351" y="134">收₂发₁₀</text>
+    <rect x="402" y="122" width="52" height="17" fill="#c8e0cb"/><text x="406" y="134">收₃发₁₁…</text>
+    <rect x="120" y="145" width="334" height="17" fill="#cfe3c8" stroke="#3d6b35"/><text x="146" y="157">GPU 批：■ ■ ■ ■ ■ ■（凑满上限 2048 或窗口到期即发）</text>
+    <text x="16" y="134" fill="#6b6557">线程</text><text x="16" y="157" fill="#6b6557">设备</text>
+  </g>
+  <text x="14" y="196" font-size="11.8" fill="#6b6557">线程永不"停等"：一条回复的间隙就是一次新的下降与提交；G=128 局 × K=32~64 ⇒ 引擎前常驻数千未决请求，</text>
+  <text x="14" y="214" font-size="11.8" fill="#6b6557">大于批上限 2048 —— 这是"批可持续凑满"的算术依据（2026-11-06 实测 p90 打满 2048，req/s ≈ 5.4 万均值）。</text>
+  <text x="14" y="238" font-size="11.8" fill="#6b6557">凑批与"谁先回"无关：乱序完成由信号量天然吸收，引擎把到达顺序完全打散重组都行。</text>
+</svg>
+<figcaption><b>屏障与流水线的时序对照（示意，非等比例）。</b>上：单线程"下降—停等"交替，GPU 只见涓流；
+下：线程持续"收一条、补一条"，请求以恒定速率进入队列；凑批的节奏控制放在引擎侧
+（自适应窗口，§4 篇 §2），搜索层不感知。</figcaption>
+</figure>
+
+<h3>6.2　两个正确性细节（各对应一起真实故障）</h3>
+<ul>
+<li><b>① 撞车不得烧预算。</b>树浅时 K 次 select 可能全部落回同一未展开叶。早期实现把跳过也计入模拟预算，
+48 次模拟被"跳过"耗尽、根节点尚未展开即返回，下游 <code>get_pi</code> 拿到空分布直接崩溃。
+正解：撤销假账、<b>不扣预算</b>、让出补位循环去收割；树撑开后再继续。</li>
+<li><b>② 收割经信号量而非逐条等待。</b>每条完成释放一个许可（§4 篇 <code>RequestLane</code>），主循环
+<code>acquire()</code> 后在在途表里找<b>任意一条</b>已完成者处理——避免"挑着等某一条"造成死等，
+乱序完成天然成立。</li>
+</ul>
+<div class="callout danger"><b>超时是安全网，不是装饰。</b>若引擎半死（请求有去无回），300s 内无任何完成会抛
+<code>TimeoutError</code>，让整条训练链<b>显式失败并进日志</b>；没有它，进程会无声吊死——这种故障在
+监控面板上只表现为"stalled"，排查成本极高；该场景由超时路径回归覆盖。</div>
+
+<h2 id="s7">7　策略目标、噪声与视角</h2>
+<h3>7.1　访问数 → 策略分布</h3>
+<p>搜索产出训练目标与落子分布都用同一映射（实现取 log 域计算，等价于幂归一但避免溢出）：</p>
+<div class="eq"><div class="f">
+  π<sub>τ</sub>(<span class="v">a</span>) ∝ <span class="v">N</span>(<span class="v">a</span>)<sup>1/τ</sup>
+  　（τ &gt; 0）　;　τ → 0 时退化为 π 集中于 argmax<sub><span class="v">a</span></sub> <span class="v">N</span>(<span class="v">a</span>)</div><span class="no"></span></div>
+<p>训练样本的策略目标取 τ = 1（访问数比例即"搜索意见"）；实战落子：开局前 <span class="v">exploration_steps</span> 手恒定 τ=1 促探索，
+之后 τ=0.1 近贪心。窗口按棋种局长定制：象棋 30 手、五子棋 12 手（对局常见 20–40 手终局，长窗口等于整局皆随机）；配置键 <code>tau_decay_rate / exploration_steps</code>（现为 1.0=恒定段）。</p>
+<h3>7.2　根节点狄利克雷噪声</h3>
+<div class="eq"><div class="f">
+  <b>P̃</b> = <span class="v">ε</span> · <b>ξ</b> + (1 − <span class="v">ε</span>) · <b>P</b>
+  　,　<b>ξ</b> ~ Dir(<span class="v">α</span>)
+  　,　<span class="v">α</span> = 0.03 × 361 / |<span class="v">A</span>(<span class="v">s</span>)|
+  　,　<span class="v">ε</span> = 0.25</div><span class="no"></span></div>
+<p>只加在<b>根节点</b>且只在自博弈时加（式中的 P 即根节点评估落地时写入的先验字段，噪声直接覆写它）：为"网络暂时不看好、
+但值得验证"的着法留一扇旋转门。人机对战与晋升评估不加——需要的是当前最强着法。
+α 随合法着法数反比缩放是 [1] 的口径；ε 为配置键 <code>dirichlet</code>。</p>
+<h3>7.3　视角约定（全框架最容易错的一行账）</h3>
+<ul>
+<li>值头 <span class="v">v</span><sub>θ</sub>(<span class="v">s</span>)：<b>轮走方</b>视角（谁走谁的分）；</li>
+<li>边累加 <span class="v">W</span>(<span class="v">s</span>,<span class="v">a</span>)：<b>走进孩子的一方</b>（= 走这步的父节点侧玩家）
+视角——因此评估落地时 R<sub>t</sub> = −<span class="v">v</span><sub>θ</sub>，回填循环里
+"本层取反、逐层再取反"使双方视角自然交替；</li>
+<li>训练样本的 q：对根局面取 −<span class="v">W</span><sub>root</sub>/<span class="v">N</span><sub>root</sub>，
+即换回"轮走方"视角的搜索估计。</li>
+</ul>
+<p>方向弄反的模型会稳定地学会"帮对手下棋"，而训练 loss 曲线<b>完全正常</b>——这是它可怕的地方。
+<code>tests/test_mcts_reward_sign.py</code> 七项沿路径逐层核对这条符号链（附录）。</p>
+
+<h2 id="s8">8　实现与接口</h2>
+<h3>8.1　类与职责</h3>
+<div class="tbl-cap"><b>决策层 API</b>（<code>core/mcts/deepMcts.py</code>）。构造只有一条合法路径。</div>
+<table>
+<tr><th>对象</th><th>关键成员 / 方法</th><th>说明</th></tr>
+<tr><td><code>NeuronNode</code></td><td><code>select()</code>、<code>get_child(a)</code>、<code>check_terminal()</code>、
+<code>network_input()</code>、<code>apply_policy_value(policy, value, is_self_play)</code>、<code>back_propagate(r)</code></td>
+<td>节点 = 局面 + 合法着法 + 三张定长数组。"评估"拆成 出输入 / 落结果 两步，专为流水线的发、收分离（6.1）设计</td></tr>
+<tr><td><code>NeuronMCTS</code></td><td><code>make_queue_mcts(infer_q, env_class, state, last_action, player_to_move, planes_version, is_self_play)</code>；
+<code>run(n, K=1)</code>；<code>run_pipelined(n, K=8, timeout=300)</code>（签名默认值；线上调用方按 <code>mcts_batch_leaves</code>≈64 传入）；<code>get_pi(τ)</code>；
+<code>choose_action()</code>；<code>apply_action(a)</code>；<code>set_root(…)</code>；<code>shutdown()</code></td>
+<td><code>infer_q</code> 是目标引擎的请求队列（§4 篇）；<code>planes_version</code> 必须等于该引擎的
+feature_version（§2 篇 §6，错位会被引擎的面数闸拒绝）；<code>apply_action</code> 做真人对局的树复用
+（根下移 + 剪枝），前一手几千次模拟的账不作废</td></tr>
+</table>
+<h3>8.2　两种跑法怎么选</h3>
+<table>
+<tr><th>场景</th><th>跑法</th><th>理由</th></tr>
+<tr><td>自博弈（本文核心场景）</td><td><code>run_pipelined(sims, K)</code></td><td>吞吐关键路径，第 6 节结论全部适用</td></tr>
+<tr><td>晋升评估 / 人机对战</td><td><code>run(sims, K)</code>，K 随 CONFIG（同批量流水线）</td><td>历史上人机曾用 K=1 纯串行；实测 K 不改变棋力排名后统一走批量（11-05 消融），仅 <code>ZZ_BATCH_LEAVES=1</code> 可回退</td></tr>
+</table>
+
+<h2 id="s9">9　实验：吞吐演进与测量方法</h2>
+<div class="tbl-cap"><b>决策层逐阶段演进</b>（固定 200 sims/手、32 线程、同机同网；测量日志：logs/_state/perf.jsonl 与运行记录，2026-10-27）。</div>
+<table>
+<tr><th>#</th><th>阶段</th><th>请求吞吐 (局面/秒)</th><th>局/分 @200 sims</th><th>均批大小</th><th>关键变化</th></tr>
+<tr><td>0</td><td>改造前基线</td><td>5.8k</td><td>6.7</td><td>~1</td><td>串行；进程间 socket 推理</td></tr>
+<tr><td>1</td><td>+ 虚拟损失·屏障批量</td><td>20.8k</td><td>—</td><td>~40</td><td>第 5 节；K=8</td></tr>
+<tr><td>2</td><td>+ 无屏障流水线</td><td>41.6k</td><td>—</td><td>~130</td><td>第 6 节；GPU 占空比 34% → 连续</td></tr>
+<tr><td>3</td><td>+ Cython 特征 / 32 线程 / 紧凑打分</td><td><b>62.9k</b></td><td>95.4</td><td>~244</td><td>§2 篇 §5、第 3 节注②；CPU 43% · GPU 37%·203W</td></tr>
+<tr><td>4</td><td>目标质量优先（sims 爬坡 400→800）</td><td>45–60k</td><td>30–40 <span class="note">@700–800 sims（10 月末口径）</span></td><td>215–245</td><td>§5 篇第 4 节</td></tr>
+<tr><td>5</td><td>并发提档（G=128 · K=64 自适应 · 批上限 2048）</td><td>50–78k</td><td>28–57（均 ~45）<span class="note">@~780 sims，11-06 m8 实测</span></td><td>p90=2048</td><td>perf.jsonl；选叶 0.5ms / 等引擎 1.4ms</td></tr>
+</table>
+<p>第 3→4 行的名义降速是<b>有意交换</b>：吞吐买目标质量。交换比的依据（"200-sim 的教材噪声占可学空间 64%"）
+在 §5 篇第 4 节（式 (2)）与第 7 节（式 (6)）量化给出。</p>
+<h3>9.1　测量学</h3>
+<ul>
+<li>吞吐分母为局面数（一次前向入批 B 个记 B），由引擎每千条打印的统计行聚合（§4 篇 9 节），
+非端侧估算；批统计另存整轮直方图，面板头条取整轮均值、滑动窗口只作尾部指示——
+用滑动窗口当整轮均值曾把 245 误报成 16（已由回归测试覆盖；§4 篇"整轮 237"即同批数据的整轮口径）。</li>
+<li>线程数存在实测拐点：24–32 线程 ≈ 47–50k 模拟/秒，64 线程回落到 35.9k——free-threading 下
+锁竞争与内存带宽接棒成为瓶颈，故该阶段默认 G=32（现行默认见第 9 节表 3 阶段 5：G=128）。</li>
+<li>每次模拟的 CPU 账本随统计输出：选叶子 0.13–0.14ms、等推理 0.28–0.33ms（阶段 3 配置）——
+两者之比用于判断瓶颈迁移（CPU 搜索 vs GPU 推理）。</li>
+</ul>
+
+<h2 id="sA">附录　正确性测试</h2>
+<table>
+<tr><th>套件</th><th>覆盖范围</th></tr>
+<tr><td><code>tests/test_mcts_virtual_loss.py</code>（6 项）</td><td>5.3 两条不变量（假账守恒、撞车不烧预算）；
+终局短路不发请求；<code>run</code> 与 <code>run_pipelined</code> 语义一致性抽查；超时行为</td></tr>
+<tr><td><code>tests/test_mcts_reward_sign.py</code>（7 项）</td><td>7.3 视角链逐层核对；象棋换边
+<code>switch_side_policy</code> 与噪声（式 (4)）复合的正确性</td></tr>
+<tr><td><code>tests/test_evaluation_loop.py</code>（2 项）</td><td>搜索 → 对局 → 晋升的整环（§5 篇第 8 节）；
+曾拦住一次静默卡死的 import 回归</td></tr>
+</table>
+<p class="where">[1] Silver, D. et al. <i>A general reinforcement learning algorithm that masters chess, shogi,
+and Go through self-play.</i> Science 362, 1140–1144 (2018).　本篇的 PUCT 形式、狄利克雷噪声与训练目标
+均取自该文；"虚拟损失"（virtual loss）一词沿用并行博弈树搜索社区的惯用叫法。</p>
+
+<footer>ZenZero 文档集 · §3 MCTS 搜索与虚拟损失 · 2026-11（v2.3.0 断面） · 代码为准：core/mcts/deepMcts.py</footer>
+</main>
+<script>
+(function () {
+  var hide = function () { document.querySelectorAll('.svc-link').forEach(function (a) { a.style.display = 'none'; }); };
+  fetch('/info', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json().catch(function () { return null; }) : null; })
+    .then(function (d) { if (!d || d.device === undefined) hide(); })
+    .catch(hide);
+})();
+</script>
+</body>
+
+</html>

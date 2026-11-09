@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZenZero 文档 · §1 如何使用</title>
+<title>ZenZero Docs · §1 How to Use</title>
 <style>
 :root{
   --ink:#1c1c1c; --paper:#faf7f0; --panel:#f2ede2; --line:#d8d0be;
@@ -11,26 +11,29 @@
   --ok:#3d6b35; --warn:#b8860b;
 }
 *{box-sizing:border-box}
-body{margin:0;font-family:"Source Han Serif SC","Noto Serif CJK SC","Songti SC",Georgia,serif;
+body{margin:0;font-family:Georgia,"Noto Serif",serif;
   background:var(--paper);color:var(--ink);line-height:1.78;font-size:15.5px}
 header{background:linear-gradient(135deg,#1a2f2f 0%,#2f4f4f 60%,#3d5a5a 100%);color:#f0ead8;
   padding:42px 24px 34px;text-align:center}
-header h1{margin:0 0 6px;font-size:29px;letter-spacing:4px}
-header .sub{opacity:.85;font-size:14px;letter-spacing:1px}
+header h1{margin:0 0 6px;font-size:29px;letter-spacing:1px}
+header .sub{opacity:.85;font-size:14px;letter-spacing:.4px}
 header .crumbs{margin-top:14px;font-size:13px;opacity:.7}
 header .crumbs a{color:#e8dfc8}
+header .langrow{margin-top:10px;font-size:12.5px}
+header .langrow a{color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:2px 10px;border-radius:99px}
+header .langrow .on{opacity:.55;border-style:dashed}
 nav{position:sticky;top:0;z-index:9;background:#1a2f2f;padding:9px 18px;display:flex;flex-wrap:wrap;gap:4px 16px;
   font-size:13.5px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 nav a{color:#d8d0be;text-decoration:none;padding:2px 6px;border-radius:4px}
 nav a:hover{background:rgba(255,255,255,.12);color:#fff}
 main{max-width:1080px;margin:0 auto;padding:26px 22px 80px;counter-reset:tbl}
-h2{font-size:21px;margin:44px 0 12px;padding-left:12px;border-left:5px solid var(--accent);letter-spacing:.5px}
+h2{font-size:21px;margin:44px 0 12px;padding-left:12px;border-left:5px solid var(--accent);letter-spacing:.2px}
 h3{font-size:16.5px;margin:26px 0 8px;color:var(--accent2)}
 p{margin:9px 0;text-align:justify}
-code{font-family:"Sarasa Mono SC","JetBrains Mono",Consolas,monospace;background:var(--code-bg);
+code{font-family:"JetBrains Mono",Consolas,monospace;background:var(--code-bg);
   padding:1.5px 6px;border-radius:4px;font-size:.88em;color:#4d3a1a}
 pre{background:#22261f;color:#e6e0cc;padding:14px 16px;border-radius:8px;overflow-x:auto;
-  font-family:"Sarasa Mono SC","JetBrains Mono",Consolas,monospace;font-size:13px;line-height:1.65}
+  font-family:"JetBrains Mono",Consolas,monospace;font-size:13px;line-height:1.65}
 pre code{background:none;color:inherit;padding:0}
 table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.6px;background:#fffdf7}
 th{background:#2f4f4f;color:#f0ead8;padding:7px 10px;text-align:left;font-weight:600}
@@ -44,10 +47,10 @@ ul,ol{padding-left:22px}
 a{color:var(--accent2)}
 footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 50px;border-top:1px solid var(--line)}
 .abstract{border:1px solid var(--line);background:#fffdf7;border-radius:10px;padding:16px 22px;margin:20px 0}
-.abstract b.t{color:var(--accent2);letter-spacing:4px;font-size:14px}
+.abstract b.t{color:var(--accent2);letter-spacing:3px;font-size:14px}
 .abstract p{font-size:14.3px;color:#333}
 .tbl-cap{font-size:12.8px;color:var(--muted);margin:14px 0 2px;counter-increment:tbl}
-.tbl-cap b::before{content:"表 " counter(tbl) "　";color:var(--accent);font-weight:700}
+.tbl-cap b::before{content:"Table " counter(tbl) "　";color:var(--accent);font-weight:700}
 .step{display:flex;gap:14px;align-items:flex-start;margin:14px 0}
 .step .n{flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:#2f4f4f;color:#f0ead8;
   display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;margin-top:2px}
@@ -55,12 +58,12 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
 .step .b b{color:var(--accent2)}
 .note{font-size:13.2px;color:var(--muted)}
 .kbd{font-family:monospace;background:#fffdf7;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 6px;font-size:.85em}
-  /* —— 体例统一：锚点偏置 / 窄屏表格 / 打印 —— */
+  .zh{font-size:.85em;color:var(--muted)}
   html{scroll-padding-top:58px}
   @media(max-width:900px){
     main{padding-left:12px;padding-right:12px}
     table{display:block;overflow-x:auto}
-    header h1{letter-spacing:3px}
+    header h1{letter-spacing:1px}
   }
   @media print{
     nav{display:none}
@@ -74,157 +77,172 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
 <body>
 
 <header>
-  <h1>如 何 使 用</h1>
-  <div class="sub">ZenZero 上手手册 —— 安装、对战、训练、监控与排障，全部命令可复制</div>
-  <div class="crumbs">ZenZero 文档集 · 第 1 篇｜<a href="index.html">目录</a> ·
-    <a href="xiangqi-env.html">§2 环境</a> · <a href="mcts.html">§3 MCTS</a> · <a href="inference-engine.html">§4 推理引擎</a> · <a href="training.html">§5 训练管线</a> · <a href="architecture.html">§6 架构与 API</a></div>
-  <div style="margin-top:10px;font-size:12.5px">
-    <a style="color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:2px 10px;border-radius:99px" href="usage.html">中文</a>
-    <a style="color:#e8dfc8;text-decoration:none;border:1px dashed rgba(232,223,200,.4);padding:2px 10px;border-radius:99px;margin-left:6px" href="en/usage.html">English</a>
-  </div>
+  <h1>How to Use</h1>
+  <div class="sub">ZenZero getting-started manual — install, play, train, monitor and troubleshoot; every command copy-pastable</div>
+  <div class="crumbs">ZenZero Docs · Chapter 1｜<a href="index.html">Contents</a> ·
+    <a href="xiangqi-env.html">§2 Environment</a> · <a href="mcts.html">§3 MCTS</a> ·
+    <a href="inference-engine.html">§4 Engine</a> · <a href="training.html">§5 Training</a> ·
+    <a href="architecture.html">§6 Architecture</a></div>
+  <div class="langrow"><a href="zh/usage.html" onclick="try{localStorage.setItem('zz_lang','zh')}catch(e){}">中文</a> <a class="on" href="usage.html">English</a></div>
 </header>
 
 <nav>
-  <a href="#s0">三步上手</a><a href="#s1">1 安装</a><a href="#s2">2 对战</a><a href="#s3">3 训练</a>
-  <a href="#s4">4 监控台</a><a href="#s5">5 其它玩法</a><a href="#s6">6 选档与配置</a><a href="#s7">7 排障</a>
-  <a href="#s8">8 测试与验收</a>
+  <a href="#s0">Quick start</a><a href="#s1">1 Install</a><a href="#s2">2 Playing</a><a href="#s3">3 Training</a>
+  <a href="#s4">4 Console</a><a href="#s5">5 Other modes</a><a href="#s6">6 Nets &amp; config</a><a href="#s7">7 Troubleshooting</a>
+  <a href="#s8">8 Tests</a>
 
-  <a href="/" class="svc-link" style="margin-left:auto;color:#f0d9a8!important;opacity:.85" title="返回对弈首页">← 对弈</a>
-  <a href="/admin" class="svc-link" style="opacity:.85" title="训练控制台">⚙ 控制台</a>
+  <a href="/" class="svc-link" style="margin-left:auto;color:#f0d9a8!important;opacity:.85" title="Back to the play page">← Play</a>
+  <a href="/admin" class="svc-link" style="opacity:.85" title="Training console">⚙ Console</a>
 </nav>
 
 <main>
 
 <div class="abstract">
-  <b class="t">一句话版</b>
-  <p>ZenZero 只有一个进程要养：<code>python main.py</code>（对弈 + 控制台 + 文档，默认 127.0.0.1:5000）。启动后，浏览器即可访问对弈页、管理台与本文档；
-  打开 <code>/admin</code> 控制台即可启停训练、查看曲线与管理模型。训练是同机另一条命令（或由控制台代为拉起）。
-  下面的"三步上手"覆盖 90% 的使用场景。</p>
+  <b class="t">ONE-LINER</b>
+  <p>ZenZero has exactly one process to keep: <code>python main.py</code> (play + console + docs, 127.0.0.1:5000 by default).
+  Once it is up, the browser gives you the game page, the admin console and these docs; open <code>/admin</code> to start/stop
+  training, watch curves and manage models. Training is one more command on the same box (or launched for you by the console).
+  The three-step quick start below covers 90% of use cases.</p>
 </div>
 
-<h2 id="s0">0　三步上手</h2>
-<div class="step"><div class="n">1</div><div class="b"><b>装环境</b>（一次性）——Python 3.14t + 依赖，见第 1 节。</div></div>
-<div class="step"><div class="n">2</div><div class="b"><b>启动服务</b>：<code>python main.py</code>（默认绑定本机回环 127.0.0.1:5000；局域网开放加 <code>--host 0.0.0.0</code>，
-换端口加 <code>--port 8080</code>）。浏览器访问 <code>http://&lt;主机&gt;:5000/</code> 即可开始对局。</div></div>
-<div class="step"><div class="n">3</div><div class="b"><b>训练模型</b>：开 <code>http://&lt;主机IP&gt;:5000/admin</code> → 训练页 → 核对棋种/网络/参数 →
-点击「启动训练」；训练结束时点「收尾后停」。全程无需终端操作。</div></div>
+<h2 id="s0">0　Three-step quick start</h2>
+<div class="step"><div class="n">1</div><div class="b"><b>Set up the environment</b> (one-off) — Python 3.14t + dependencies, see section 1.</div></div>
+<div class="step"><div class="n">2</div><div class="b"><b>Start the service</b>: <code>python main.py</code> (binds to 127.0.0.1:5000 by default;
+ add <code>--host 0.0.0.0</code> to expose it on the LAN, <code>--port 8080</code> to change port). Open <code>http://&lt;host&gt;:5000/</code> in a browser and play.</div></div>
+<div class="step"><div class="n">3</div><div class="b"><b>Train a model</b>: open <code>http://&lt;host-IP&gt;:5000/admin</code> → Training tab →
+ review game / network / parameters → click “Start training”; when done, click “Stop after round”. No terminal needed.</div></div>
 
-<h2 id="s1">1　安装</h2>
-<p>单一环境，用 <a href="https://docs.astral.sh/uv/">uv</a> 管理（依赖清单只有 <code>requirements-backend.txt</code> 一份，前端零依赖）：</p>
-<pre><code>uv venv -p cpython-3.14t .venv                          # free-threading 解释器（无它则用 -p 3.14，仅吞吐受损）
+<h2 id="s1">1　Installation</h2>
+<p>One environment, managed with <a href="https://docs.astral.sh/uv/">uv</a> (a single dependency list,
+<code>requirements-backend.txt</code>; the frontend has zero dependencies):</p>
+<pre><code>uv venv -p cpython-3.14t .venv                          # free-threading interpreter (fall back to -p 3.14 if unavailable — throughput only)
 source .venv/bin/activate
 uv pip install -r requirements-backend.txt --extra-index-url https://download.pytorch.org/whl/cu132   # NVIDIA Linux
-# 其它设备把 extra-index 换成 rocm6.4 / xpu，或直接 pip 默认（MPS/CPU）——torch 不锁版本，按卡自选</code></pre>
+# other backends: swap the extra-index for rocm6.4 / xpu, or use plain pip (MPS/CPU) — torch is unpinned, pick the wheel for your GPU</code></pre>
 <ul>
-<li><b>Cython 加速（可选，强烈建议）</b>：<code>python scripts/build_cython.py</code>；只验证现状用 <code>--check</code>。
-缺 <code>.so</code> 时自动回退纯 Python（正确性不变，速度下降）。<b>不要</b>直接跑 <code>setup.py build_ext --inplace</code>——
-训练在跑时原位覆盖会被内核挡下（ETXTBSY）甚至半新半旧，构建脚本已封成"暂存编译 + 原子替换"。</li>
-<li><b>模型权重</b>：不训练也想下强棋，去 Releases 下载 <code>.pt</code> 放进 <code>data/ChineseChess/</code>（m 网络）即可；
-系统自动取编号最大者为最强。想换网络（s/l/m8/mini…）建 <code>data/ChineseChess/s/</code> 放权重。</li>
+<li><b>Cython acceleration (optional, strongly recommended)</b>: <code>python scripts/build_cython.py</code>; use <code>--check</code> to only verify.
+Without the <code>.so</code> files it silently falls back to pure Python (identical correctness, lower speed). Do <b>not</b> run
+<code>setup.py build_ext --inplace</code> directly — overwriting in place while training runs is blocked by the kernel (ETXTBSY)
+and can leave a half-new binary; the build script already stages and swaps atomically.</li>
+<li><b>Model weights</b>: want strong play without training? Grab <code>.pt</code> files from Releases and drop them into
+<code>data/ChineseChess/</code> (the m network); the highest iteration is taken as best. For another network (s/l/m8/mini…)
+create <code>data/ChineseChess/s/</code> and put the weights there.</li>
 </ul>
 
-<h2 id="s2">2　对战</h2>
-<p>服务起后（第 0 步②），对弈页三步开局：<b>选棋种 → 选模式 → 选模型</b>。模式含<b>人机</b>（可执红执黑）· <b>双人同屏</b> · <b>AI 观战</b>；
-模型为两级级联——先网络（s/m/l/m8/mini/自定义），再该网络下的模型代数。开局前还有一行可调配<b>每步超时</b>（30–300s，默认 100s，人类超时判负、AI 不计时）；
-含 AI 的模式另有「AI 设置」浮层，为<b>每个 AI 玩家独立</b>配置模拟次数（MCTS 搜索深度）与采样温度（着法随机性，0 = 总走最强）。</p>
-<figure style="margin:14px 0"><img src="assets/launcher-model.png" alt="启动器：级联选模型与开局设置" style="max-width:100%;border:1px solid var(--line);border-radius:10px">
-<figcaption class="note">图：模型选择步——AI 双方各自级联选网络与代数，下方为每步超时与 AI 设置入口。</figcaption></figure>
-<figure style="margin:14px 0"><img src="assets/playing.png" alt="AI 观战对局中" style="max-width:100%;border:1px solid var(--line);border-radius:10px">
-<figcaption class="note">图：对局中——水墨风棋盘、中文记谱（炮八平五式）、双方胜率条与思考计时；⋯ 菜单提供悔棋（人机成对回退）与认输。</figcaption></figure>
-<p>手机/平板同网段直接访问，窄屏自动底部抽屉。双人同屏纯本地运行，不开 AI 服务也能玩。</p>
+<h2 id="s2">2　Playing</h2>
+<p>With the service up (step 0.2), the game page opens a match in three picks: <b>game → mode → model</b>. Modes:
+<b>human vs AI</b> (either colour) · <b>two players, one screen</b> · <b>AI vs AI spectate</b>. Model selection is a two-level cascade:
+network first (s/m/l/m8/mini/custom), then the checkpoint iteration within that network. Before the game you can set a
+<b>per-move time limit</b> (30–300 s, default 100 s; a human who exceeds it loses on time, the AI is not clocked).
+AI modes also offer an “AI settings” popover configuring <b>each AI player separately</b>:
+simulation count (MCTS depth) and sampling temperature (move randomness, 0 = always strongest).</p>
+<figure style="margin:14px 0"><img src="assets/launcher-model.png" alt="Launcher: cascaded model pick and game setup" style="max-width:100%;border:1px solid var(--line);border-radius:10px">
+<figcaption class="note">Fig: model step — each AI side cascades network then iteration; per-move clock and AI settings below.</figcaption></figure>
+<figure style="margin:14px 0"><img src="assets/playing.png" alt="AI vs AI spectating" style="max-width:100%;border:1px solid var(--line);border-radius:10px">
+<figcaption class="note">Fig: mid-game — ink-wash board, Chinese notation (cannon-8 across-5 style), win-rate bars and thinking clocks; the ⋯ menu offers undo (paired in human games) and resign.</figcaption></figure>
+<p>Phones/tablets on the same network just visit the URL; narrow screens move controls into a bottom drawer.
+Two-player mode is purely local and works without the AI service.</p>
 <table>
-<tr><th>要点</th><th>行为</th></tr>
-<tr><td>未放置任何模型</td><td>可双人玩；人机/观战会提示模型列表为空（错误框给出放置路径）</td></tr>
-<tr><td>GPU 被别的程序占满</td><td>开局自动降 CPU（侧栏设备信息条显示 cpu，人机自动限每手 60 sims 保可玩）；释放 GPU 后可在设置中一键切回（在线搬迁引擎，不打断对局）</td></tr>
-<tr><td>服务被重启</td><td>正在下的人机局会话过期，重开一局即可；前端对失效会话自动重建并重放局面（多数情况无感续战）</td></tr>
-<tr><td>命令行对战 / Gomocup 协议</td><td>第 5 节</td></tr>
+<tr><th>Case</th><th>Behaviour</th></tr>
+<tr><td>No models installed</td><td>Two-player works; vs-AI/spectate report an empty model list (the error names the drop path)</td></tr>
+<tr><td>GPU fully busy</td><td>New games fall back to CPU automatically (device chip shows cpu; vs-AI caps at 60 sims/move to stay playable). Once the GPU frees up, switch back in one click from settings — engines migrate online, mid-game</td></tr>
+<tr><td>Service restarted</td><td>The running vs-AI session expires; start a new game. The frontend transparently re-creates a dead session and replays the position (often seamless)</td></tr>
+<tr><td>CLI / Gomocup protocol</td><td>Section 5</td></tr>
 </table>
 
-<h2 id="s3">3　训练</h2>
-<h3>3.1　推荐路径：管理台</h3>
-<pre><code>http://&lt;主机IP&gt;:5000/admin　→　「训练」页　→　启动训练</code></pre>
-<p>表单字段就是训练旋钮：棋种、网络（s/m/l/m8/mini/自定义）、并发线程、每轮局数、虚拟损失 K（自适用，留空即可）、（可选）批上限与设备。
-启动参数里的<b>训练目标</b>三项可留空（留空=config 缺省）：练到第几代自动收尾、每手模拟次数从几爬到了、守擂胜率门槛。启动后"监控"页看实时；停止三档：<b>收尾后停</b>（推荐，自博弈+fit+守擂全做完）· <b>优雅停止</b>（在跑的局收完入仓即退）·
-<b>立即结束</b>（kill -9，丢当轮未落盘数据）。</p>
-<h3>3.2　裸命令（服务外的独立终端）</h3>
-<pre><code>python -X gil=0 -m scripts.train_server          # 用仓库 config 缺省
-# 全参数环境变量版：
+<h2 id="s3">3　Training</h2>
+<h3>3.1　Recommended path: the console</h3>
+<pre><code>http://&lt;host-IP&gt;:5000/admin　→　“Training” tab　→　Start training</code></pre>
+<p>Every form field is a training knob: game, network (s/m/l/m8/mini/custom), worker threads, games per round,
+virtual-loss K (adaptive — leave it blank), and optionally batch cap and device. The three <b>goal</b> fields may stay
+empty (= config defaults): stop-at iteration with graceful wrap-up, sims ramp band, and the promotion win-rate threshold.
+Watch live curves on the Monitor tab after starting. Three stop levels: <b>Stop after round</b> (recommended — self-play +
+fit + challenger all finish) · <b>Graceful stop</b> (running games are collected into the buffer, then exit) ·
+<b>Kill now</b> (kill -9, loses the current round's unsaved data).</p>
+<h3>3.2　Bare command (any terminal outside the service)</h3>
+<pre><code>python -X gil=0 -m scripts.train_server          # repo config defaults
+# full-parameter env form:
 ZZ_GAME=ChineseChess ZZ_PROFILE=s ZZ_WORKERS=32 ZZ_GAMES_PER_ROUND=400 \
 ZZ_BATCH_LEAVES=64 ZZ_DEVICE=auto python -X gil=0 -m scripts.train_server</code></pre>
 <ul>
-<li><code>-X gil=0</code> 必须保留（首次 forward 会惰性 import triton 试图重开 GIL，不加则多线程 MCTS 假并行）。</li>
-<li>续训自动从"最新 checkpoint + 仓"接上：同一神经网络目录里有 ckpt 即热启动；冷启动首个模型自动晋升（无守擂者）。</li>
-<li>表示版本换代的处理是自动的：feature_version 与 best 模型不匹配时从新网络开训、旧 best 留任守擂（§2 篇 §6）。</li>
-<li>何时该停：§5 篇第 7 节四条判据（KL 连续 10 代不降 / value 平台 / 晋升胜率均值 &lt;54% / 跨代对局 &lt;60%）。</li>
+<li><code>-X gil=0</code> is mandatory (the first forward lazily imports triton and would re-enable the GIL; without it the multi-threaded MCTS only pretends to parallelize).</li>
+<li>Resume is automatic from “latest checkpoint + buffer”: any ckpt in the network's directory means warm start; the very first model is promoted unconditionally (no reigning champion).</li>
+<li>Representation-epoch changes are handled too: if feature_version mismatches the best model, training starts from a fresh network while the old best keeps the throne (§2 ch. §6).</li>
+<li>When to stop: the four criteria in §5 ch. section 7 (KL flat 10 generations / value plateau / promotion win-rate mean &lt;54% / cross-generation score rate &lt;60%).</li>
 </ul>
 
-<h2 id="s4">4　监控台速览（<code>/admin</code>）</h2>
-<p class="note"><b>平台定位</b>：控制台以<b>桌面浏览器</b>为主要形态（滚轮缩放 / 拖动平移 / 双击复位）；<b>手机全面适配（11-06）</b>——顶栏收成 mini 状态条（三列两行表+一键展开）、页签横向滚动、表格横滚、图表卡两列自适应；图上单指平移、双指捏合缩放、双击复位。对弈页手机平板一贯支持。</p>
-<figure style="margin:14px 0"><img src="assets/admin-monitor.png" alt="训练控制台监控页" style="max-width:100%;border:1px solid var(--line);border-radius:10px">
-<figcaption class="note">图：监控页——顶部状态徽章（版本/主题/运行态/训练配置），卡片为实时指标（副标题标数据口径），下方吞吐/损耗/胜率/硬件曲线。</figcaption></figure>
+<h2 id="s4">4　Console tour (<code>/admin</code>)</h2>
+<p class="note"><b>Platform note</b>: the console targets desktop browsers (wheel zoom / drag pan / double-click reset);
+it is fully phone-adapted too — the top strip collapses to a mini 3×2 table, tabs scroll horizontally, tables scroll,
+chart cards fall to two columns; one finger pans, two pinch, double-tap resets.</p>
+<figure style="margin:14px 0"><img src="assets/admin-monitor.png" alt="Training console, monitor tab" style="max-width:100%;border:1px solid var(--line);border-radius:10px">
+<figcaption class="note">Fig: Monitor tab — status badges up top (version/theme/running/training config), live metric cards (subtitle states the data source), throughput/loss/win-rate/hardware curves below.</figcaption></figure>
 <table>
-<tr><th>页</th><th>能做什么</th></tr>
-<tr><td>工具</td><td>scripts/ 其余功能的 Web 启停：piskvork（Gomocup 协议服，网络/模型级联下拉选择）/ bench（引擎批扫描）/ build_cython（安全构建）——参数白名单校验、日志在线看、服务重启自动收养</td></tr>
-<tr><td>监控</td><td>六张概览卡（局/分与引擎吞吐、搜索效率·选叶/等推理拆分、训练步数、经验池、验证集、评估守擂）+ 八幅曲线（Loss·policy/value、策略 KL+熵、胜率、吞吐、硬件）；滚轮缩放、双击复位、每卡悬停释义；≥1024 宽一行六卡，手机两列</td></tr>
-<tr><td>竞技场</td><td>对局平台：多场次各自独立榜（新建/删除）、名册悬浮穿梭窗管理参赛选手、智能约架/车轮战/自定义对决三模式、自适应并行桌；实时对阵直播+排名/实力阶梯/对阵胜率矩阵</td></tr>
-<tr><td>训练</td><td>启停 + 三档停止；表单即环境变量（见 §6 篇 5 节对照表）</td></tr>
-<tr><td>资产</td><td>checkpoint / 经验池（含克隆）/ 运行目录；三表皆可勾选批量删除（逐项护栏，best 拒删）；日志不在资产管理之列——查看去日志页，轮转由系统自管；<b>设为最强</b>（回滚守擂者）；按护栏删除（拒删 best、删仓需二次确认）</td></tr>
-<tr><td>日志</td><td><b>训练进程实时尾部</b>（含停止按钮联动）置顶；任选日志文件尾读：模块日志、轮转历史、console 原始输出</td></tr>
+<tr><th>Tab</th><th>What it does</th></tr>
+<tr><td>Services</td><td>Engine registry (ServerHub), play-server sessions (kick one), GPU memory per process (incl. CUDA-context baseline)</td></tr>
+<tr><td>Tools</td><td>Web control for the rest of scripts/: piskvork (Gomocup protocol server, network/model cascaders) / bench (engine batch sweep) / build_cython (safe build) — whitelisted args, live logs, tasks re-adopted after service restart</td></tr>
+<tr><td>Monitor</td><td>Six overview cards (games/min &amp; engine throughput, search efficiency split select/wait, training steps, buffer, validation set, challenger) + eight curves (loss·policy/value, policy KL+entropy, win rate, throughput, hardware); wheel zoom, double-click reset, per-card hover help</td></tr>
+<tr><td>Arena</td><td>Matchmaking platform: multiple arenas each with its own rating list, roster transfer dialog, smart-pairing / gauntlet / custom duel modes, adaptive table parallelism; live games + rankings/strength ladder/head-to-head matrix</td></tr>
+<tr><td>Training</td><td>Start/stop with three stop levels; the form maps one-to-one to environment variables (§6 ch. section 5 table)</td></tr>
+<tr><td>Assets</td><td>Checkpoints / buffers (incl. clone) / run dirs; all three tables support checked batch delete (per-item guardrails; best refuses); <b>Set as best</b> (rollback the champion)</td></tr>
+<tr><td>Logs</td><td>Live tail of the training process pinned first (linked with the stop buttons); tail any log file: module logs, rotated history, raw console output</td></tr>
 </table>
-<p class="note">接口契约（供脚本/集成调用）在 §6 篇第 7 节；写操作若设了 <code>ZZ_ADMIN_TOKEN</code> 需带请求头 <code>X-ZZ-Token</code>。</p>
+<p class="note">API contracts (for scripts/integrations) live in §6 ch. section 7; write calls need header <code>X-ZZ-Token</code> when <code>ZZ_ADMIN_TOKEN</code> is set.</p>
 
-<h2 id="s5">5　其它玩法</h2>
+<h2 id="s5">5　Other ways to play</h2>
 <table>
-<tr><th>命令</th><th>场景</th></tr>
-<tr><td><code>python -m scripts.cli_play</code></td><td>终端下棋：进程内自带引擎，不依赖服务</td></tr>
-<tr><td><code>python -m scripts.piskvork_server --host 0.0.0.0 --port 12345</code></td><td>Gomocup 协议对外（Piskvork GUI 可连）</td></tr>
-<tr><td colspan="2"><b>以上 piskvork / bench / build_cython 已接入控制台「工具」页</b>（竞技场对局入口在「竞技场」页）：在线启停、参数白名单校验、日志查看（接口契约见 §6 篇 7 节）。</td></tr>
-<tr><td><code>python -m scripts.arena</code></td><td>ELO 天梯：向 <code>data/&lt;Game&gt;/rates/candidates.txt</code> 写候选（如 <code>10,20,34</code>）批量互刷等级分</td></tr>
-<tr><td><code>python -m tests.drills.model_match --a s:48 --b m:498 --games 40 --sims 800</code></td><td>任意两个"网络:代数"真金对打，得分率 ±2σ 判强弱（<b>务必 GPU</b>：CPU 测量无效，§5 篇 10.2）</td></tr>
-<tr><td><code>python scripts/bench_batch_sweep.py</code></td><td>引擎批扫描，看成本模型还准不准</td></tr>
+<tr><th>Command</th><th>Scenario</th></tr>
+<tr><td><code>python -m scripts.cli_play</code></td><td>Terminal chess: in-process engine, no service needed</td></tr>
+<tr><td><code>python -m scripts.piskvork_server --host 0.0.0.0 --port 12345</code></td><td>Gomocup protocol for the outside world (Piskvork GUI compatible)</td></tr>
+<tr><td colspan="2"><b>piskvork / bench / build_cython are all wired into the console's Tools tab</b> (arena matches live on the Arena tab): online start/stop, whitelisted args, log viewing (contract in §6 ch. 7).</td></tr>
+<tr><td><code>python -m scripts.arena</code></td><td>ELO ladder: write candidates (e.g. <code>10,20,34</code>) into <code>data/&lt;Game&gt;/rates/candidates.txt</code> for round-robin rating</td></tr>
+<tr><td><code>python -m tests.drills.model_match --a s:48 --b m:498 --games 40 --sims 800</code></td><td>Real matches between any two “network:iteration” checkpoints, strength judged at ±2σ (<b>run on GPU</b>: CPU measurement is invalid, §5 ch. 10.2)</td></tr>
+<tr><td><code>python scripts/bench_batch_sweep.py</code></td><td>Engine batch sweep — is the cost model still honest?</td></tr>
 </table>
 
-<h2 id="s6">6　选网络与配置速查</h2>
+<h2 id="s6">6　Choosing a network &amp; config quick sheet</h2>
 <ul>
-<li><b>起点与经验池</b>：训练表单可选<b>起点</b>（续训 / 从头训练：随机新网络但代数接续永不覆盖 / 从指定代数分叉）与<b>经验池</b>。<b>经验池是棋种级资源</b>（<code>data/&lt;Game&gt;/buffers/&lt;name&gt;/</code>，主池+留出集成对），不按网络分家——下拉列出已有池、悬停看详情（表示版本、容量/已用、<b>最新数据来自哪个网络的第几代</b>）、末项新建。任何网络都可以接着已有池训练（跨表示版本被启动闸门拒绝，§6 篇 4.3）。想拿老池做实验又怕覆写坏它：资产页「经验池」面板点「⧉ 克隆」——整体复制成新编号池，回训练表单选副本即可，原池不动（训练进行中不可克隆）。**经验池必选**——控制台不提供"不选"；新建无需起名，默认按棋种递增编号（pool1、pool2…），建好后可改名使用。模型目录里的原位池仅作历史兼容（裸命令训练未指定时使用）。</li>
-<li><b>自定义网络</b>：控制台「训练 → 网络配置」给规模组合起名字（如 <code>mini64</code>），保存后训练表单、对弈页、资产页的网络下拉即刻可选；删除只移除名字、磁盘上的模型（权重）原样保留（重加同名网络即接上）。</li>
-<li><b>网络怎么选</b>：s（8M）练得快、一夜可追平老 m 网络（§5 篇 10.3）；m（25M）默认、老资产在这；
-l（30M）天花板实验；m8/mini/mini2 为自定义命名配置（profiles.json）。<b>仓跨网络通用</b>（同表示版本），大网络热身可拷小网络的仓。</li>
-<li><b>全部运行期旋钮</b> = 环境变量（全表见 §6 篇）（<code>ZZ_GAME / ZZ_PROFILE / ZZ_DEVICE / ZZ_WORKERS /
-ZZ_GAMES_PER_ROUND / ZZ_BATCH_LEAVES / ZZ_MAX_BATCH / ZZ_INFER_WORKERS / ZZ_ADMIN_TOKEN</code>），
-语义与默认值见 §6 篇表 4；不改仓库 config 文件。</li>
-<li><b>版本从哪看</b>：对弈页「设置」底部与控制台标题徽章（形如 <code>v2.3.0 · 9f2c1ab</code>），
-或 <code>python main.py --version</code>；四轴版本（应用/表示/网络/模型代数）的分工见 §6 篇 4.4。</li>
-<li><b>静态默认值</b>在 <code>core/utils/config.py</code>（c_puct、温度调度、dirichlet、阈值、sims 爬坡、presets 规模）。</li>
+<li><b>Start point &amp; buffer</b>: the training form offers <b>start point</b> (resume / fresh training with monotonic iterations / fork from a given iteration) and <b>buffer</b>. The buffer is a
+<b>game-level resource</b> (<code>data/&lt;Game&gt;/buffers/&lt;name&gt;/</code>, main + holdout as a pair), not per-network — the dropdown lists existing pools, hover shows details (representation version, capacity/used,
+<b>which network and iteration produced the latest data</b>), last item creates one. Any network may continue on any pool (cross-representation-version is rejected by the startup gate, §6 ch. 4.3).
+Want to experiment on an old pool without corrupting it: Assets → buffers → “⧉ Clone” (full copy to an auto-numbered pool; pick the clone in the form; disabled mid-training). <b>A buffer must be chosen</b> — the console offers no “none”;
+new pools are auto-numbered per game (pool1, pool2…) and can be renamed later. In-place pools inside model dirs remain only for bare-command compatibility.</li>
+<li><b>Custom networks</b>: console → Training → Network configs names any size combination (e.g. <code>mini64</code>); after saving it is instantly selectable in the training form, game page and assets. Deleting removes only the name — weights on disk stay (a same-named config picks them back up).</li>
+<li><b>Which network?</b>: s (8M) trains fast — one night catches the legacy m (§5 ch. 10.3); m (25M) is the default and holds the old assets; l (30M) is the ceiling experiment; m8/mini/mini2 are custom named configs (profiles.json, per game since today). <b>Pools are shared across networks</b> (same representation version) — warm up a big net by pointing it at a small net's pool.</li>
+<li><b>All runtime knobs</b> are environment variables (full table in §6 ch.): <code>ZZ_GAME / ZZ_PROFILE / ZZ_DEVICE / ZZ_WORKERS /
+ZZ_GAMES_PER_ROUND / ZZ_BATCH_LEAVES / ZZ_MAX_BATCH / ZZ_INFER_WORKERS / ZZ_ADMIN_TOKEN</code>; semantics and defaults in §6 ch. Table 4 — the repo config file is never edited at runtime.</li>
+<li><b>Where to read versions</b>: game page “Settings” footer and the console title badge (e.g. <code>v2.3.0 · 9f2c1ab</code>), or <code>python main.py --version</code>; the four version axes (app / representation / network / iteration) are explained in §6 ch. 4.4.</li>
+<li><b>Static defaults</b> live in <code>core/utils/config.py</code> (c_puct, temperature schedule, dirichlet noise, thresholds, sims ramp, preset sizes).</li>
 </ul>
 
-<h2 id="s7">7　排障速查</h2>
+<h2 id="s7">7　Troubleshooting</h2>
 <table>
-<tr><th>症状</th><th>先看这</th></tr>
-<tr><td>起服务报端口占用</td><td><code>--port</code> 换一个；或找到旧进程（训练进程由控制台管理，不会撞 web 端口）</td></tr>
-<tr><td>界面提示"无法获取模型列表"</td><td>服务没起 / 该神经网络目录没有 <code>.pt</code>；下拉换网络或代数再试</td></tr>
-<tr><td>训练启动即停</td><td>日志页「● 实时」跟随（文件即 <code>logs/train/console.log</code>，历次会话追加）。最常见：仓不足以喂一个 batch（将自动先行填充缓冲区，等待其完成即可）；或显式设备不可用（设计如此，改 <code>ZZ_DEVICE=auto</code>）</td></tr>
-<tr><td>面板数字是"缓存"</td><td>看卡片副标题：标"实时"走心跳，标"上轮/已停"是 perf 记录或日志启发式；训练进程不在时全部转灰属正常</td></tr>
-<tr><td>怀疑哪里炸了</td><td><code>logs/crash/latest.log</code>（线程级异常全进这里，带堆栈）；面板顶部红色横幅同址提示</td></tr>
-<tr><td>GPU 训练吞吐骤降</td><td>监控页看 GPU 利用率与"凑批等待"：若与占用 GPU 的进程并发，应错峰运行；若 window 顶格而均批不涨，调大 <code>ZZ_MAX_BATCH</code>（§4 篇 5 节）</td></tr>
+<tr><th>Symptom</th><th>Look here first</th></tr>
+<tr><td>Port already in use at startup</td><td>Use another <code>--port</code>; or find the old process (training runs as a child managed by the console and never collides with the web port)</td></tr>
+<tr><td>UI says “cannot fetch model list”</td><td>Service not up / no <code>.pt</code> in that network's directory; switch network or iteration in the dropdown</td></tr>
+<tr><td>Training starts then stops immediately</td><td>Follow the “● live” tail on the Logs tab (file: <code>logs/train/console.log</code>, appended across runs). Most common: buffer can't fill one batch (auto pre-fill kicks in — just wait); or an explicitly requested device is unavailable (by design; use <code>ZZ_DEVICE=auto</code>)</td></tr>
+<tr><td>A console number looks stale</td><td>Read the card subtitle: “live” follows the heartbeat; “last round/stopped” is a perf record or log heuristic; greyed-out values while no training process runs are normal</td></tr>
+<tr><td>Suspect a crash</td><td><code>logs/crash/latest.log</code> (thread-level exceptions with stacks); the red banner at the top of the console points to the same place</td></tr>
+<tr><td>GPU training throughput tanks</td><td>On Monitor, check GPU utilization and “batch wait”: if another process is on the GPU, stagger runs; if the collection window is pinned but batch stays small, raise <code>ZZ_MAX_BATCH</code> (§4 ch. 5)</td></tr>
 </table>
 
-<h2 id="s8">8　测试与验收</h2>
-<pre><code># 全量回归（tests/ 目录，13 套件、无外部框架，CPU 即可，约 20 分钟）：
+<h2 id="s8">8　Tests &amp; acceptance</h2>
+<pre><code># full regression (tests/, 13 suites, no external framework, CPU only, ~20 min):
 for t in tests/test_*.py; do echo "== $t"; ZZ_DEVICE=cpu .venv/bin/python "$t" || break; done
-# 单项：如规则 21 项 —— .venv/bin/python tests/test_chess_rules.py</code></pre>
-<p class="note">tests/ 随仓库分发：drills/ 为度量工具（model_match 跨代对打等），test_*.py 为无框架自跑回归。</p>
-<p>文档各篇的附录各自列出"哪条测试覆盖哪个结论"；改 <code>core/env</code>、<code>deepMcts</code>、
-凑批窗口/退役顺序之前，至少跑对应篇附录点名的套件。改完记得 <code>python scripts/build_cython.py --check</code>。</p>
+# single suite: e.g. the 21 chess-rule checks — .venv/bin/python tests/test_chess_rules.py</code></pre>
+<p class="note">tests/ ships with the repo: drills/ are measurement tools (model_match cross-generation duels etc.), test_*.py are framework-free self-running regressions.</p>
+<p>Each chapter's appendix lists which test covers which conclusion; before touching <code>core/env</code>,
+<code>deepMcts</code>, the batching window or eviction order, run at least the suites named in that appendix.
+Afterwards remember <code>python scripts/build_cython.py --check</code>.</p>
 
-<div class="callout good"><b>读文档的路线：</b>掌握用法后深入原理 → §2 环境 → §3 MCTS → §4 推理引擎 → §5 训练管线；
-要接系统/写脚本 → §6 架构与接口。</div>
+<div class="callout good"><b>Reading route:</b> after mastering usage, go deep → §2 Environment → §3 MCTS → §4 Inference Engine → §5 Training;
+to integrate systems / write scripts → §6 Architecture &amp; APIs.</div>
 
-<footer>ZenZero 文档集 · §1 如何使用 · 2026-11 · 命令与 README、代码注释冲突时，以后两者为准</footer>
+<footer>ZenZero Docs · §1 How to Use · 2026-11 · where commands disagree with the README or code comments, those two win</footer>
 </main>
-<script>try{if(localStorage.getItem('zz_lang')==='en'&&!/[?&]nolang/.test(location.search))location.replace('en/usage.html');}catch(e){}</script>
 <script>
 (function () {
+  try { localStorage.setItem('zz_lang', 'en'); } catch (e) {}
   var hide = function () { document.querySelectorAll('.svc-link').forEach(function (a) { a.style.display = 'none'; }); };
   fetch('/info', { cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json().catch(function () { return null; }) : null; })

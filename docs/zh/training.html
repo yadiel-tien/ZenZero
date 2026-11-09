@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZenZero 文档 · §5 训练管线</title>
+<style>
+:root{
+  --ink:#1c1c1c; --paper:#faf7f0; --panel:#f2ede2; --line:#d8d0be;
+  --accent:#8b0000; --accent2:#2f4f4f; --muted:#6b6557; --code-bg:#efe9db;
+  --ok:#3d6b35; --warn:#b8860b;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Source Han Serif SC","Noto Serif CJK SC","Songti SC",Georgia,serif;
+  background:var(--paper);color:var(--ink);line-height:1.78;font-size:15.5px}
+header{background:linear-gradient(135deg,#1a2f2f 0%,#2f4f4f 60%,#3d5a5a 100%);color:#f0ead8;
+  padding:42px 24px 34px;text-align:center}
+header h1{margin:0 0 6px;font-size:29px;letter-spacing:4px}
+header .sub{opacity:.85;font-size:14px;letter-spacing:1px}
+header .crumbs{margin-top:14px;font-size:13px;opacity:.7}
+header .crumbs a{color:#e8dfc8}
+nav{position:sticky;top:0;z-index:9;background:#1a2f2f;padding:9px 18px;display:flex;flex-wrap:wrap;gap:4px 16px;
+  font-size:13.5px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+nav a{color:#d8d0be;text-decoration:none;padding:2px 6px;border-radius:4px}
+nav a:hover{background:rgba(255,255,255,.12);color:#fff}
+main{max-width:1080px;margin:0 auto;padding:26px 22px 80px;counter-reset:fig eq tbl}
+h2{font-size:21px;margin:44px 0 12px;padding-left:12px;border-left:5px solid var(--accent);letter-spacing:.5px}
+h3{font-size:16.5px;margin:26px 0 8px;color:var(--accent2)}
+p{margin:9px 0;text-align:justify}
+code{font-family:"Sarasa Mono SC","JetBrains Mono",Consolas,monospace;background:var(--code-bg);
+  padding:1.5px 6px;border-radius:4px;font-size:.88em;color:#4d3a1a}
+pre{background:#22261f;color:#e6e0cc;padding:14px 16px;border-radius:8px;overflow-x:auto;
+  font-family:"Sarasa Mono SC","JetBrains Mono",Consolas,monospace;font-size:12.8px;line-height:1.6}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.6px;background:#fffdf7}
+th{background:#2f4f4f;color:#f0ead8;padding:7px 10px;text-align:left;font-weight:600}
+td{border:1px solid var(--line);padding:6px 10px;vertical-align:top}
+tr:nth-child(even) td{background:#f7f2e6}
+.callout{border-left:4px solid var(--warn);background:#fbf5e4;padding:10px 16px;border-radius:0 8px 8px 0;margin:14px 0}
+.callout.danger{border-color:var(--accent);background:#faeeee}
+.callout.good{border-color:var(--ok);background:#eef5ea}
+ul,ol{padding-left:22px}
+a{color:var(--accent2)}
+hr{border:none;border-top:1px dashed var(--line);margin:34px 0}
+footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 50px;border-top:1px solid var(--line)}
+.abstract{border:1px solid var(--line);background:#fffdf7;border-radius:10px;padding:16px 22px;margin:20px 0}
+.abstract b.t{color:var(--accent2);letter-spacing:4px;font-size:14px}
+.abstract p{font-size:14.3px;color:#333}
+.eq{display:flex;gap:16px;align-items:center;border:1px solid var(--line);background:#fffdf7;
+  border-radius:8px;padding:12px 18px;margin:14px 0;counter-increment:eq}
+.eq .f{flex:1;font-size:16px;font-family:Georgia,"Times New Roman","STIX Two Text",serif}
+.eq .no::before{content:"(" counter(eq) ")";font-family:monospace;font-size:13px;color:var(--muted)}
+.frac{display:inline-block;vertical-align:-0.75em;text-align:center;margin:0 2px}
+.frac>span{display:block;padding:0 5px;line-height:1.25}
+.frac>.up{border-bottom:1.1px solid currentColor}
+.v{font-style:italic;font-family:Georgia,serif}
+.where{font-size:13px;color:var(--muted)}
+figure{margin:20px 0;text-align:center;counter-increment:fig}
+figure svg{max-width:100%;height:auto;background:#fffdf7;border:1px solid var(--line);border-radius:10px}
+figcaption{font-size:12.8px;color:var(--muted);margin-top:7px;text-align:left;max-width:880px;display:inline-block}
+figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-weight:700}
+.tbl-cap{font-size:12.8px;color:var(--muted);margin:14px 0 2px;counter-increment:tbl}
+.tbl-cap b::before{content:"表 " counter(tbl) "　";color:var(--accent);font-weight:700}
+.sym td:first-child{font-family:Georgia,serif;font-style:italic;white-space:nowrap;font-size:14.5px;color:#4d3a1a}
+.sym td:first-child code{font-style:normal}
+.note{font-size:13.2px;color:var(--muted)}
+
+  /* —— 体例统一：锚点偏置 / 窄屏表格 / 公式横滚 / 打印 —— */
+  html{scroll-padding-top:58px}
+  .eq{overflow-x:auto}
+  @media(max-width:900px){
+    main{padding-left:12px;padding-right:12px}
+    table{display:block;overflow-x:auto}
+    header h1{letter-spacing:3px}
+  }
+  @media print{
+    nav{display:none}
+    header{padding:24px}
+    body{background:#fff;font-size:12.5px}
+    figure,.eq,table,.callout{break-inside:avoid}
+    a{color:inherit;text-decoration:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>训 练 管 线</h1>
+  <div class="sub">一轮一夜如何炼成 —— 自博弈数据生成、目标质量、仓与验证、晋升机制、停止语义</div>
+  <div class="crumbs">ZenZero 文档集 · 第 5 篇｜<a href="index.html">目录</a> ·
+    <a href="usage.html">§1 如何使用</a> · <a href="xiangqi-env.html">§2 环境</a> · <a href="mcts.html">§3 MCTS</a> · <a href="inference-engine.html">§4 推理引擎</a> · <a href="architecture.html">§6 架构与 API</a></div>
+  <div style="margin-top:10px;font-size:12.5px">
+    <a style="color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:2px 10px;border-radius:99px" href="training.html">中文</a>
+    <a style="color:#e8dfc8;text-decoration:none;border:1px dashed rgba(232,223,200,.4);padding:2px 10px;border-radius:99px;margin-left:6px" href="../training.html">English</a>
+  </div>
+<script>try{if(localStorage.getItem('zz_lang')==='en'&&!/[?&]nolang/.test(location.search))location.replace('../training.html');}catch(e){}</script>
+</header>
+
+<nav>
+  <a href="#ab">摘要</a><a href="#s1">1 闭环</a><a href="#s2">2 记号</a><a href="#s3">3 轮与代</a>
+  <a href="#s4">4 搜索预算</a><a href="#s5">5 数据侧</a><a href="#s6">6 fit</a>
+  <a href="#s7">7 指标方法论</a><a href="#s8">8 守擂晋升</a><a href="#s9">9 停止语义</a>
+  <a href="#sA">10 实验</a><a href="#sB">附录</a>
+
+  <a href="usage.html">如何使用</a>
+  <a href="/" class="svc-link" style="margin-left:auto;color:#f0d9a8!important;opacity:.85" title="返回对弈首页">← 对弈</a>
+  <a href="/admin" class="svc-link" style="opacity:.85" title="训练控制台">⚙ 控制台</a>
+</nav>
+
+<main>
+
+<div class="abstract" id="ab">
+  <b class="t">摘　要</b>
+  <p>训练管线是 AlphaZero 的编排层：自博弈生成数据 → 拟合新权重 → 守擂赛裁决晋升。本文报告其三个
+  工程决策及其依据。其一，<b>轮与代解耦</b>：每轮固定局数（400）远大于线程数（32），滚动补位
+  消除"一波将尽、批断流"的尾段饥饿（第 3 节）。其二，<b>教材质量优先于教材数量</b>：模拟预算按
+  绝对代数从 400 爬到 800，因为实测 200-sim 的目标分布与 800-sim 的差异高达可学空间的 64%
+  （第 4 节，[1] 的原文用 800 模拟也是同一逻辑）。其三，<b>把进度指标建在理论上</b>：策略交叉熵
+  存在由目标分布自身熵决定的硬下界，"CE 平坦"必须先分解成 KL 与熵才能解读（第 7 节）。
+  附带完整记录停止语义的三种模式与一夜实测成绩（第 9、10 节）。</p>
+</div>
+
+<h2 id="s1">1　大闭环</h2>
+<figure>
+<svg viewBox="0 0 760 300" font-family="serif" font-size="12">
+  <defs><marker id="la" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#2f4f4f"/></marker></defs>
+  <g fill="#fffdf7" stroke="#2f4f4f" stroke-width="1.6">
+    <rect x="292" y="18" width="176" height="44" rx="9"/>
+    <rect x="540" y="118" width="176" height="44" rx="9"/>
+    <rect x="436" y="232" width="176" height="44" rx="9"/>
+    <rect x="148" y="232" width="176" height="44" rx="9"/>
+    <rect x="44" y="118" width="176" height="44" rx="9"/>
+  </g>
+  <g text-anchor="middle">
+    <text x="380" y="36" font-weight="bold">② 自博弈</text><text x="380" y="52" font-size="10.8">G=128 线程 · K=32~64 自适应 · sims 爬坡</text>
+    <text x="628" y="136" font-weight="bold">③ fit</text><text x="628" y="152" font-size="10.8">8 遍 · batch 2048 · 1171 步</text>
+    <text x="524" y="250" font-weight="bold">④ 守擂赛</text><text x="524" y="266" font-size="10.8">≤100 局 · 阈值 52%</text>
+    <text x="236" y="250" font-weight="bold">⑤ 裁决</text><text x="236" y="266" font-size="10.8">晋升 / 删模</text>
+    <text x="132" y="136" font-weight="bold">ReplayBuffer</text><text x="132" y="152" font-size="10.8">30 万仓 · 在线增强 · 2% 留出</text>
+  </g>
+  <g stroke="#2f4f4f" stroke-width="1.5" fill="none" marker-end="url(#la)">
+    <path d="M470 44 Q 600 50 626 116" /><path d="M628 164 Q 628 220 616 230" />
+    <path d="M432 254 L 328 254" /><path d="M188 230 Q 132 220 132 166" />
+    <path d="M132 116 Q 132 50 290 42" />
+  </g>
+  <text x="380" y="14" text-anchor="middle" font-size="12.5" fill="#6b6557">① 填仓（仅首启）：仓不足下限时纯自博弈攒数据</text>
+  <text x="700" y="98" font-size="11" fill="#8b0000" text-anchor="end">样本 (x, π, z)</text>
+  <text x="128" y="100" font-size="11" fill="#3d6b35">新 checkpoint 入仓评估基准不变</text>
+  <text x="380" y="206" text-anchor="middle" font-size="11.5" fill="#6b6557">TrainServer 本身就是推理引擎（§4 篇 10.2）：左右互搏与上课做题共享同一份权重、同一个进程</text>
+  <text x="380" y="292" text-anchor="middle" font-size="11.5" fill="#6b6557">800-sims 配置每轮 ≈ 10–12 分钟＝自博弈 ~9 min（400 局 @ ~45 局/分，11-06 m8 实测）+ fit ~90 s + 守擂 ~30–60 s + 存盘间隙</text>
+</svg>
+<figcaption><b>训练大闭环。</b>五步顺序执行、循环推进；②→⑤ 构成"一轮"，每轮产出一个候选代。
+buffer 与 TrainServer 共享同一内存实例（旧版各持一份，象棋配置下重复占用约 9GB 内存）。</figcaption>
+</figure>
+
+<h2 id="s2">2　记号</h2>
+<div class="tbl-cap"><b>符号表</b>（沿用 §3 篇表 1、§4 篇表 1；本节新增如下）。</div>
+<table class="sym">
+<tr><th>符号</th><th>含义</th><th>当前值 / 代码对应</th></tr>
+<tr><td><span class="v">g</span></td><td><b>代</b>（iteration）：模型版本号，每完成一轮 +1；跨重启单调</td><td><code>read_latest_index()+1</code></td></tr>
+<tr><td><span class="v">N</span><sub>sim</sub>(<span class="v">g</span>)</td><td>第 g 代自博弈的每手模拟预算</td><td><code>ramp_simulations(g)</code>，式 (1)</td></tr>
+<tr><td><span class="v">n</span><sub>round</sub></td><td>每轮对局数（配置键 <code>selfplay_games_per_round</code>）</td><td>400</td></tr>
+<tr><td><span class="v">C</span></td><td>训练仓容量（样本条数，一存一采口径）</td><td>30 万（s 网络）</td></tr>
+<tr><td><span class="v">P</span></td><td>每轮训练把全仓过的遍数（passes）</td><td><code>training_passes_per_buffer</code>=8</td></tr>
+<tr><td><span class="v">B</span></td><td>fit 批大小</td><td>2048</td></tr>
+<tr><td>(<span class="v">x</span>, π<sub>tgt</sub>, z)</td><td>一条样本：状态张量、搜索访问分布（策略目标）、带符号回报（价值目标，轮走方视角）</td><td>§3 篇 7.3</td></tr>
+<tr><td><span class="v">D</span>(π) = −Σ π log π</td><td>目标分布的熵（交叉熵的不可降下界）</td><td><code>Val/policy_entropy</code></td></tr>
+<tr><td>θ</td><td>网络权重；<span class="v">v</span><sub>θ</sub>, <b>p</b><sub>θ</sub> 见 §3 篇表 1</td><td><code>fit_model</code></td></tr>
+<tr><td><span class="v">θ</span><sub>win</sub></td><td>晋升得分率阈值</td><td><code>win_threshold</code>=0.52</td></tr>
+</table>
+
+<h2 id="s3">3　轮与代：400 局滚动补位</h2>
+<p>一轮下 <span class="v">n<sub>round</sub></span> = 400 局，但线程池只有 <span class="v">G</span> = 32 个 worker——
+局是<b>滚动补位</b>的：谁先下完谁立刻领下一局，任何时刻接近满线程运转。这个参数来自一条真实反馈：
+"每轮 50 局，剩几局没结束时攒不成大 batch，干等"。定量分析后是两层问题：</p>
+<ul>
+<li><b>批断流</b>：一波 50 局的尾部只剩 1–2 局在打，全局在飞请求掉到 1–2，引擎凑不出批。
+解法正是本节：轮内局数 ≫ 线程数，尾部永远是"几十局各打各的"而非"全波只剩两局"。
+实测轮尾均值批从个位数升到 12–45（K=12 时代，2026-10-27）；批上限提至 2048 后，p90 批已打满上限（11-06）；</li>
+<li><b>换代方差</b>：50 局定晋升，统计噪声过大（±7%），400 局样本足、换代也更勤。</li>
+</ul>
+<div class="callout good"><b>开局多样性不是噪声，是数据策略。</b>象棋每局 30% 从开局库（约 10 手盘面）、
+40% 从中残局库（约 50 手盘面）、30% 标准开局起步——把搜索算力投向"棋真正分歧的地方"，
+同时天然缓解和棋（开局定式循环是长和的主因之一）。库内若混入已终局局面会触发根节点异常（曾发生一次，损失整轮数据），
+现在取库后先行校验（<code>terminated</code> 且无合法着法即退回新局，test_graceful_stop / test_admin_tasks 回归）。</div>
+
+<h2 id="s4">4　搜索预算：教材质量的标尺</h2>
+<p>每手模拟次数按<b>绝对代数</b>爬坡（不是本次启动内轮次——旧实现如此，等于每次重启退回起点、爬坡从未生效）：</p>
+<div class="eq"><div class="f">
+  <span class="v">N</span><sub>sim</sub>(<span class="v">g</span>) = <span class="v">N</span><sub>0</sub> +
+  (<span class="v">N</span><sub>max</sub> − <span class="v">N</span><sub>0</sub>) · min(1, <span class="v">g</span>/<span class="v">g</span><sub>ramp</sub>)
+  　,　<span class="v">N</span><sub>0</sub>=400，<span class="v">N</span><sub>max</sub>=800，<span class="v">g</span><sub>ramp</sub>=50</div><span class="no"></span></div>
+<p>为什么起点是 400 而不是"能跑就行"？MCTS 的训练目标 π<sub>tgt</sub> 就是这棵树自己数出来的访问分布
+（§3 篇式 (3)——下文把这份目标分布称作"教材"），教材自身的误差直接构成学习上限。同批中局实测（checkpoint_3，每局面 200 与 800 模拟各跑一遍）：</p>
+<div class="eq"><div class="f">
+  KL( π<sub>200</sub> ‖ π<sub>800</sub> ) ≈ 0.36　（4 个中局样本，范围 0.27–0.46）　,　H(π<sub>200</sub>) = 3.04 &lt; H(π<sub>800</sub>) = 3.50</div><span class="no"></span></div>
+<p>第 7 节将定义 KL 是"可学空间"的度量。0.36 这个数放在那里看：200-sim 时代整个可学空间约 0.57，
+<b>六成是换一次种子就会变的噪声</b>。把预算翻倍有余、代价是吞吐减半——在第 10 节的吞吐基础上这是净赚。
+[1] 对弈每步 800 模拟，与本框架封顶值一致，殊途。</p>
+
+<h2 id="s5">5　数据侧：仓、在线增强、留出集</h2>
+<h3>5.1　环形仓与"一存多采"</h3>
+<p>仓是定容环形数组（<span class="v">C</span>=30 万），写满淘汰最旧。两代设计的取舍：</p>
+<ul>
+<li><b>旧法（已废弃）</b>：一条样本入库时把对称群 |𝒢| 个面全存（象棋 ×2、五子 ×8）。
+仓的 1−1/|𝒢| 是近重复局面，均匀采样互相放大曝光——实质是制造过拟合；</li>
+<li><b>现法：一存多采。</b>仓里只存原始样本；<code>get_batch()</code> 采样时每条独立随机施加一个
+g ∈ 𝒢（式 (3)）。同样格仓装的是 |𝒢| 倍<b>不同局面</b>，且同一格第 n 次被采到仍是新视角。</li>
+</ul>
+<div class="eq"><div class="f">
+  batch 第 i 条 = ( g<sub>i</sub>·<span class="v">x</span><sub>k(i)</sub> ,　g<sub>i</sub>·π<sub>k(i)</sub> ,　z<sub>k(i)</sub> )
+  　,　k(i) ~ Uniform(仓) ，g<sub>i</sub> ~ Uniform(𝒢)</div><span class="no"></span></div>
+<p>变换正确性由<b>逐位对拍</b>固定：在线变换 ≡ 旧版入库时全量增强（<code>test_replay_online_augment</code>）。</p>
+<h3>5.2　留出验证集：2%，按样本互斥划出</h3>
+<p>每条样本入库时掷 <span class="v">val_holdout_ratio</span> = 2% 的骰子：中了进
+<code>val_buffer.pkl</code>（容量 max(8000, <span class="v">C</span>/16) = 18,750），<b>永不参与训练</b>；
+没中进训练仓。按样本划（不是按对局划），所以同一个对局的相邻局面可能一个在训练仓一个在验证集——
+这是<b>有意</b>的：局面级留出测的是"对相似局面的泛化"，与本框架的评估目的（防过拟合、看 KL）匹配；
+若要测"完全没见过的战略风格"，那是跨代对局（第 8、10 节）的职责。</p>
+<h3>5.3　落盘三件套</h3>
+<p>每轮自博弈与填仓后 <code>save()</code> 原子写 pickle；顺带写 <code>.stats.json</code> 边车
+（size/capacity/pointer/时间戳）——面板读小 JSON，不用反序列化 5GB 仓。留出集指标写
+<code>logs/fit/val_latest.json</code>（理由相同：别拿日志尾部当数据库）。存盘失败只告警不打断——
+内存里的仓仍是真源。</p>
+
+<h2 id="s6">6　fit：一轮一课</h2>
+<p>本轮采样 <span class="v">P</span> 遍全仓，共</p>
+<div class="eq"><div class="f">
+  <span class="v">S</span> = ⌊ <span class="v">P</span> · size(仓) / <span class="v">B</span> ⌋ ≈ 8 × 300,000 / 2048 = 1171 步/轮</div><span class="no"></span></div>
+<p>现行默认网络（resnet_wdl_v1）取 <b>WDL 三头</b>形式：value 目标为终局结果的 one-hot
+z ∈ {胜,和,负}，用交叉熵学三分类（比 MSE 回归 ±1 多出"和"的显式通道，也不再需要混合
+0.5z+0.5q 方差胶水——该混合式已于 11 月初废弃）：</p>
+<div class="eq"><div class="f">
+  ℒ(θ) = mean<sub>B</sub>[ CE( z , <span class="v">w</span><sub>θ</sub>(<span class="v">x</span>) ) · λ<sub>v</sub> − π<sub>tgt</sub><sup>⊤</sup> log <b>p</b><sub>θ</sub>(<span class="v">x</span>) ] + c‖θ‖²
+  　（λ<sub>v</sub>=<code>value_loss_weight</code>=0.1，梯度占比校准；老双头 arch 仍按 (z−v)² MSE 兼容训练）</div><span class="no"></span></div>
+<div class="tbl-cap"><b>fit 超参表</b>（<code>TrainServer.__init__</code> / <code>fit()</code>；optimizer 与 scheduler 状态随 checkpoint 存盘，续训不断档）。</div>
+<table>
+<tr><th>项</th><th>取值</th><th>说明</th></tr>
+<tr><td>优化器</td><td>Adam，lr=1e-3，weight_decay=1e-4（即式 (5) 的 c）</td><td>梯度范数裁剪 ≤1.0</td></tr>
+<tr><td>学习率调度</td><td>CosineAnnealingLR，T_max=<span class="v">max_iters</span>，η_min=1e-5</td><td>平台期（第 7 节判据）可手动降至 3–5e-4 微调</td></tr>
+<tr><td>每轮步数</td><td>≈1171（s 网络）</td><td>86–93 秒；面板"训练步数"卡显示进度 <span class="v">S</span><sub>done</sub>/<span class="v">S</span></td></tr>
+<tr><td>验证</td><td>fit 末尾在留出集<b>全量、固定视角</b>（不增强）跑一遍</td><td>曾用随机 4 批抽样，±0.01 的抽样噪声淹没信号，故改为全量确定性</td></tr>
+</table>
+<p>TensorBoard 每步写 <code>Loss/{total,policy,value}</code>；每轮写 <code>Val/{policy,value,policy_kl,policy_entropy}</code>
+与 <code>Perf/*</code>（吞吐类）。面板曲线从这里来（§6 篇）。</p>
+
+<h2 id="s7">7　指标方法论：别把地板当瓶颈</h2>
+<p>策略目标是分布拟合，交叉熵有一个不可约下界（Gibbs 不等式；π 为搜索目标、p<sub>θ</sub> 为网络输出）：</p>
+<div class="eq"><div class="f">
+  CE(θ) = Σ<sub><span class="v">a</span></sub> π(<span class="v">a</span>) log <span class="frac"><span class="up">π(<span class="v">a</span>)</span><span class="den"><b>p</b><sub>θ</sub>(<span class="v">a</span>)</span></span>
+  　=　<span class="v">KL</span>(π ‖ <b>p</b><sub>θ</sub>) 　+　 <span class="v">D</span>(π)</div><span class="no"></span></div>
+<p><span class="v">D</span>(π)（目标熵）与 θ 无关——模型学到<b>天衣无缝</b>时 CE 仍等于它。
+留出集实测三个断面（式 (1) 的爬坡期恰好移动了地板）：</p>
+<div class="tbl-cap"><b>CE 的分解</b>（留出集全量，样本 15k→18.75k；H 下降是因为 sims 上升、目标变"尖锐"——
+CE 的表面进步里有多少是地板下移，一目了然）。</div>
+<table>
+<tr><th>断面</th><th><span class="v">N</span><sub>sim</sub></th><th>CE（Val/policy）</th><th>= KL（可学部分）</th><th>+ D(π)（地板）</th></tr>
+<tr><td>200-sim 时代（改造前基线）</td><td>200</td><td>3.349</td><td><b>0.569</b></td><td>2.781</td></tr>
+<tr><td>爬坡初见（ckpt 6）</td><td>440</td><td>3.240</td><td><b>0.448</b></td><td>2.792</td></tr>
+<tr><td>第 50 代前后（sims 封顶段）</td><td>792–800</td><td>2.911</td><td><b>0.316</b></td><td>2.595</td></tr>
+</table>
+<figure>
+<svg viewBox="0 0 760 250" font-family="serif">
+  <!-- axes: generations x KL -->
+  <g stroke="#6b6557"><line x1="70" y1="200" x2="710" y2="200"/><line x1="70" y1="200" x2="70" y2="26"/></g>
+  <text x="700" y="218" font-size="11.5" fill="#6b6557" text-anchor="end">轮（每轮留出集全量测一点 · Val/policy_kl，29 点连续编号）</text>
+  <text x="18" y="34" font-size="11.5" fill="#6b6557">KL</text>
+  <g font-size="10.5" fill="#6b6557" text-anchor="end"><text x="64" y="204">0.25</text><text x="64" y="120">0.32</text><text x="64" y="36">0.45</text></g>
+  <g font-size="10.5" fill="#6b6557"><text x="90" y="216" text-anchor="middle">#1</text><text x="400" y="216" text-anchor="middle">#15</text><text x="700" y="216" text-anchor="middle">#29</text></g>
+  <!-- polyline: y = 200 - (kl-0.25)/(0.45-0.25)*170 -->
+  <polyline points="90,50 112,55 134,133 156,142 178,148 200,146 222,150 244,167 266,178 288,182 310,190 332,186 354,176 376,176 398,173 420,169 442,167 464,160 486,160 508,156 530,159 552,159 574,152 596,165 618,162 640,159 662,156 684,153 700,156"
+    fill="none" stroke="#2f6b35" stroke-width="2.4"/>
+  <circle cx="90" cy="50" r="3.5" fill="#2f6b35"/><circle cx="310" cy="190" r="3.5" fill="#2f6b35"/><circle cx="700" cy="156" r="3.5" fill="#2f6b35"/>
+  <text x="100" y="42" font-size="11.5" fill="#3d6b35">0.436（440 sims 时代起点）</text>
+  <text x="248" y="204" font-size="11.5" fill="#3d6b35">0.277 最低点</text>
+  <text x="576" y="140" font-size="11.5" fill="#8b0000">尾段缓升 ≈ 目标同步变尖（D(π) 下移），非模型退步</text>
+  <text x="90" y="238" font-size="11.5" fill="#6b6557">判据：KL 连续 10 代不降 → 本网络收敛；届时应结合跨代对局（第 10 节）与价值 MSE 判断，不应据 CE 平坦得出"学不动"的结论。</text>
+</svg>
+<figcaption><b>策略 KL 轨迹（每轮留出集全量测一点，数据为 TensorBoard <code>Val/policy_kl</code> 的 29 个实测值；纵轴为示意刻度，精确数值以面板曲线为准）。</b>
+400→800 的 sims 爬坡期 KL 一路下探到 0.28；之后在 0.30–0.32 微升——目标分布本身在变尖
+（第 4 节式 (1)、表 3 的 D(π) 从 2.79 降到 2.60），KL 度量的是"对<b>当前</b>教材的拟合"，
+教材变难、分数回吐是预期行为。判断是否收敛，应依据<b>同教材断面</b>与跨代对局。</figcaption>
+</figure>
+
+<div class="callout good"><b>何时判定本网络收敛——四项终止判据（须同时满足）：</b>① KL 连续 10 代不再下降（须为同教材断面，见图 2 注）；② Val/value 最近 10 代波动幅度 &lt;5%（WDL 三头下为 CE，与双头 MSE 数值不可比，判据用同网络相对断面）；③ 晋升战胜率均值跌破 54%（新代普遍不及现任）；④ 跨 10 代对局得分率 &lt;60%。若 ①② 已到而 ④ 仍在涨，瓶颈在<b>容量</b>——升网络规模优于继续增加训练轮数；①②④ 同时满足，方触及当前表示与搜索配置下的能力上限。</div>
+<h2 id="s8">8　守擂赛：晋升机制</h2>
+<p>新模型必须战胜<b>现任最强</b>才上岗，防止 loss 降而棋弱的"高分低能"。最多 <span class="v">n</span>=100 局
+（双方各用独立推理引擎，300 sims、K 随 CONFIG；开局为<b>库线无放回轮换 + 标准开局固定 4 槽</b>——新模型红黑各 2，杜绝同线重放烧样本），得分与判定：</p>
+<div class="eq"><div class="f">
+  得分率 = <span class="frac"><span class="up"><span class="v">W</span> + <span class="v">D</span>/2</span><span class="den"><span class="v">n</span></span></span>
+  　（和棋 0.5 分）　;　晋升 ⟺ 得分率 &gt; <span class="v">θ</span><sub>win</sub> = 0.52</div><span class="no"></span></div>
+<p>两条提前终止规则省掉无信息局：即便余局全胜/全负也翻不了盘时立刻掐断——通常 85–96 局收工、
+约 50 秒。候选编号恒取"现存最大号 +1"，未晋升模型的 checkpoint 当场删除——于是下一位候选会复用同一编号，
+"代数"曲线出现平台甚至回退一格（实测 5,4,4,5,5,6,7,7 的段式前进）——面板如实呈现：这是语义行为，不是缺陷。</p>
+<div class="callout"><b>和棋率曾达四到五成，协议修正后降至 ~24%</b>（库线无放回 + 开局多样化，11-05 实测；病理性三次重复大减）——剩余和局仍是象棋规则属性：三次重复判和、长将判负、120 步时钟（久无进展判和）都按官方口径裁决（§2 篇 4.2），但缺少按子力结构评估"和局必然性"的裁决——进展缓慢的残局多被拖至重复判和或时钟判和。和棋样本的 z≈0 并非坏数据
+（教会模型"均势观"），但晋升判定的区分度会因此下降。改进路线（子力不足细分、逼和规则调参）
+属于 §2 篇的规则层，见彼处"边界与待办"。</div>
+<p>晋升率本身是健康度指标（下为 11-05 修复 versus 胜负映射并清榜前的旧口径断面，只示意量级）：s 网络累计 25 次评估 14 次晋升（56%），胜率分布集中在 52–63%——
+门槛略高于半子的设计让"每代小步、方向为正"。</p>
+
+<h2 id="s9">9　停止语义：三种模式与一条底线</h2>
+<div class="tbl-cap"><b>停止方式</b>（HTTP 接口与控制台按钮一一对应，§6 篇；信号语义在 <code>scripts/train_server.py</code>）。</div>
+<table>
+<tr><th>模式</th><th>信号</th><th>行为</th><th>本轮数据</th></tr>
+<tr><td>跑完整轮（finish_round，面板「收尾后停」）</td><td>SIGUSR1</td><td>②→⑤ 含 fit、守擂、perf 全做完再退</td><td>完整</td></tr>
+<tr><td>优雅停止（interrupt）</td><td>SIGINT</td><td>停止派局、取消未开跑；<b>在跑的局收完入仓</b>、存盘、退；fit 中被叫停则存 ckpt 跳守擂</td><td>已完成局全留</td></tr>
+<tr><td>立即结束（kill）</td><td>SIGKILL</td><td>操作系统硬杀</td><td>当轮未落盘部分丢</td></tr>
+</table>
+<p>底线纪律（全部由演练在 1027–1028 踩出来并回归测试）：</p>
+<ul>
+<li><b>信号处理器先于重活注册。</b>启动装载仓要一分多钟，期间 SIGINT 若走默认动作，主线程吃一个
+KeyboardInterrupt、进程以 -2 退出（此时并无可保存数据，但面板呈现异常退出码，易造成误判）。</li>
+<li><b>收尾限时。</b>引擎线程 join 每条 ≤5s；总收尾 ≤20s，到点 <code>os._exit</code>——
+"数据已存、进程不肯退"曾被外部升级成 SIGKILL，状态从此误导（test_graceful_stop / test_admin_tasks 回归）。</li>
+<li><b>宽限期动态延长。</b>优雅停止进入收局期后心跳带 <code>stopping</code> 标记，
+runner 看到新鲜心跳就不把 SIGINT 升级成 SIGKILL（固定 150s 宽限在慢收尾时误杀过一次，
+演练 D 复现并修复：<code>test_drain_keeps_grace</code>）。</li>
+</ul>
+
+<h2 id="sA">10　实验与成绩</h2>
+<h3>10.1　成本结构（51 轮累计 9.22 小时，perf.jsonl 聚合）</h3>
+<figure>
+<svg viewBox="0 0 760 120" font-family="serif" font-size="12">
+  <rect x="40" y="30" width="520" height="40" fill="#cfe3c8" stroke="#2f4f4f"/>
+  <rect x="560" y="30" width="88" height="40" fill="#f0e2c8" stroke="#2f4f4f"/>
+  <rect x="648" y="30" width="72" height="40" fill="#dfe9f5" stroke="#2f4f4f"/>
+  <text x="300" y="47" text-anchor="middle" font-weight="bold">自博弈 78.3%（7.22 h）</text>
+  <text x="300" y="63" text-anchor="middle" font-size="11">G×K 常驻在飞 · 均批 p90 打满 · 800-sims 配置 ~35 局/分 · 51 轮合计 7.22 h</text>
+  <text x="604" y="47" text-anchor="middle" font-weight="bold">fit 13.2%</text>
+  <text x="604" y="63" text-anchor="middle" font-size="10.5">86–93 s/轮</text>
+  <text x="684" y="47" text-anchor="middle" font-weight="bold" font-size="11">守擂+存盘</text>
+  <text x="684" y="63" text-anchor="middle" font-size="10.5">~50 s + 零星</text>
+  <text x="40" y="98" font-size="11.8" fill="#6b6557">结论：墙钟的八成在"生产教材"。所以第 3、4 节的方向是——更快的生产（§2/§4 篇）
+与更值的教材（sims 爬坡），而不是"上课"（fit 本就只有 90 秒）。</text>
+</svg>
+<figcaption><b>一轮的时间去哪了。</b>自博弈阶段包含数据全部生成与存盘；fit 与守擂合计约两成。</figcaption>
+</figure>
+<h3>10.2　跨代强度：对局才是硬道理</h3>
+<p>留出集 KL 度量"拟合当前教材"，跨代对局度量"实际棋力提升"。<code>tests/drills/model_match.py</code>
+（任意两代直接打，200 sims/手、黑白/先后手交替、和棋半分）：</p>
+<div class="tbl-cap"><b>s 网络跨代对抗</b>（GPU 实测，1028 凌晨；对照组说明测量环境敏感性）。</div>
+<table>
+<tr><th>对局</th><th>结果</th><th>得分率</th><th>环境</th></tr>
+<tr><td>s:34 vs s:24（差 10 代）</td><td>5 胜 0 负 1 和（n=6）</td><td><b>91.7% ± 8%</b></td><td>GPU，200 sims/手</td></tr>
+<tr><td>同一对局（CPU 误测对照）</td><td>0 胜 1 负 3 和（n=4）</td><td>37.5%</td><td>CPU ~80 sims/秒——搜索预算被算力饿死，<b>测量无效</b></td></tr>
+</table>
+<p class="note">教训记入：强度测量必须在与训练同量级的算力上做，并在报告里写明 sims/手——
+跨环境的数字没有可比性（同一对局换 CPU 结论直接反转）。</p>
+<h3>10.3　与 m/498 的对照（跨网络定量参照）</h3>
+<div class="tbl-cap"><b>498 时代 vs 现在</b>（数字取自两端 checkpoint 元数据与 perf.jsonl）。</div>
+<table>
+<tr><th>项</th><th>m/498（老网络最强，10-31 断面）</th><th>s/48（一夜后现役守擂者，同断面）</th></tr>
+<tr><td>网络规模</td><td>256ch×15 blocks，24.7M 参数</td><td>128ch×6 blocks，8.06M 参数（<b>1/3 大小</b>）</td></tr>
+<tr><td>累计 fit 步数</td><td>61,031</td><td>54,401</td></tr>
+<tr><td>训练时长</td><td>数月（存盘 2026-01-17）</td><td>约 13 小时（含两次中断重启）</td></tr>
+<tr><td>每手搜索预算</td><td>200 sims（时代限制）</td><td>400→800 按代爬坡（第 4 节式 (1)），现 800</td></tr>
+<tr><td>仓口径</td><td>增强 ×8 写仓（8/9 是重复）</td><td>一存多采，30 万全是不同局面</td></tr>
+</table>
+<p>三条线合起来解释了"为什么小网络追得上"：<b>每步教材更准（sims×2–4）、每格仓更值（去重×8）、
+单位时间样本更多（§2/§4 篇吞吐）</b>。跨网络直接对局（s/48 vs m/498，后被 11-05 真榜证伪——旧榜倒置）显示两者接近，
+正式数字待 GPU 空闲时以同一 drill 复测。</p>
+
+<h2 id="sB">附录　测试与工具</h2>
+<table>
+<tr><th>套件 / 工具</th><th>覆盖范围</th></tr>
+<tr><td><code>test_replay_online_augment</code>（6）</td><td>式 (3) 与全量增强逐位等值；留出互斥；fit 端到端与 Val 写盘（含 sidecar 与确定性断言）</td></tr>
+<tr><td><code>test_graceful_stop</code>（2）</td><td>取消不丢在跑数据（断言两池合计）；stop_event 置位时 run() 不 fit 不评估</td></tr>
+<tr><td><code>test_evaluation_loop</code>（2）</td><td>守擂赛整环 + 引擎线程回收（曾拦下一次静默卡死）</td></tr>
+<tr><td><code>test_sims_ramp</code>（3）</td><td>式 (1) 按绝对代、单调、封顶、重启不重置</td></tr>
+<tr><td><code>test_admin_api</code>（13）</td><td>三级停止（收尾后停/立即结束/强制）的 HTTP 语义、动态宽限（drain 心跳）、资产删除护栏</td></tr>
+<tr><td><code>drills/model_match.py</code></td><td>跨代/跨网络强度测量协议（本篇 10.2、10.3 数据出处）</td></tr>
+</table>
+<p class="where">[1] Silver et al., Science 362, 1140 (2018).　学习对象与晋升思想遵循原文；三处工程化差异在文中注明：
+进度指标体系（第 7 节）、轮组织与开局策略（第 3 节）、验证集按样本互斥划出（第 5.2 节）。
+另：原文章棋每步 800 次模拟——与本框架爬坡封顶值一致（第 4 节）。</p>
+
+<footer>ZenZero 文档集 · §5 训练管线 · 2026-11（v2.3.0 断面） · 代码为准：services/train/{selfplay,heartbeat}.py · services/inference/train_server.py · core/utils/replay.py</footer>
+</main>
+<script>
+(function () {
+  var hide = function () { document.querySelectorAll('.svc-link').forEach(function (a) { a.style.display = 'none'; }); };
+  fetch('/info', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json().catch(function () { return null; }) : null; })
+    .then(function (d) { if (!d || d.device === undefined) hide(); })
+    .catch(hide);
+})();
+</script>
+</body>
+
+</html>
