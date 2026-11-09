@@ -73,17 +73,17 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
 
 <div class="abstract">
   <b class="t">引　言</b>
-  <p>这套文档按"一个 AlphaZero 闭环"组织为六篇：第 6 篇是使用手册，其余五篇阐述原理；技术篇体例统一为科技文章式：每篇有摘要、编号章节、
+  <p>这套文档按"一个 AlphaZero 闭环"组织为六篇：第 1 篇是使用手册，其余五篇阐述原理；技术篇体例统一为科技文章式：每篇有摘要、编号章节、
   记号表、图注与公式编号，数字全部标注测量条件，负结果与故障教训如实入文。
-  阅读顺序建议 §6 如何使用（上手运行）→ §5 → §1 → §2 → §3 → §4（深入原理），但每篇都自足，可当参考手册跳读。
-  全部公式符号在所在篇的"记号"一节先行定义；跨篇引用形如"§3 篇式 (1)"。</p>
+  阅读顺序建议 §1 如何使用（上手运行）→ §6 → §2 → §3 → §4 → §5（深入原理），但每篇都自足，可当参考手册跳读。
+  全部公式符号在所在篇的"记号"一节先行定义；跨篇引用形如"§4 篇式 (1)"。</p>
 </div>
 
 <h2>六篇目录</h2>
 <div class="toc">
 
   <a href="usage.html">
-    <div class="no">第 6 篇 · 使用手册</div>
+    <div class="no">第 1 篇 · 使用手册</div>
     <div class="t">如何使用（Getting Started）</div>
     <div class="d">三步上手 · 安装与 Cython 构建 · 对战与服务 · 管理台启停训练 · 监控速览 ·
       命令行/协议/天梯/强度测量入口 · 环境变量与神经网络速查 · 排障表 · 测试验收。</div>
@@ -91,7 +91,7 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
   </a>
 
   <a href="xiangqi-env.html">
-    <div class="no">第 1 篇 · 物理层</div>
+    <div class="no">第 2 篇 · 物理层</div>
     <div class="t">象棋环境（ChineseChess Env）</div>
     <div class="d">state 数组与历史窗口 · 视角归一 · 2086 动作 ABI · 合法着法制规则引擎
       （送将过滤 / 将死困毙 / 三次重复 / 长将 / 时钟）· 26 面棋盘表示 · feature epoch 多版本共存。
@@ -100,7 +100,7 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
   </a>
 
   <a href="mcts.html">
-    <div class="no">第 2 篇 · 决策层</div>
+    <div class="no">第 3 篇 · 决策层</div>
     <div class="t">MCTS 搜索与虚拟损失</div>
     <div class="d">PUCT 打分（式 1）与紧凑实现 · 虚拟损失的账本与守恒不变量（式 2）·
       无屏障流水线：收一条补一条（图 2 时序）· 终局短路 · 根噪声（式 4）· π 与温度（式 3）·
@@ -109,7 +109,7 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
   </a>
 
   <a href="inference-engine.html">
-    <div class="no">第 3 篇 · 算力层</div>
+    <div class="no">第 4 篇 · 算力层</div>
     <div class="t">推理引擎</div>
     <div class="d">前向成本模型 t(b)=t₀+κb（式 1，图 1 曲线）· 四段线程流水（图 2）·
       自适应凑批窗口（表 2）· 请求侧镜像增强及其等价性（式 3）· 设备一致性三件套 ·
@@ -118,7 +118,7 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
   </a>
 
   <a href="training.html">
-    <div class="no">第 4 篇 · 学习层</div>
+    <div class="no">第 5 篇 · 学习层</div>
     <div class="t">训练管线</div>
     <div class="d">大闭环与一轮的时间去哪了（图 1、3）· 400 局滚动摊薄 · sims 绝对代数爬坡（式 1）
       与"200-sim 教材六成是噪声"的量化（式 4）· 仓的一存多采（式 3）与互斥留出 ·
@@ -128,7 +128,7 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
   </a>
 
   <a href="architecture.html">
-    <div class="no">第 5 篇 · 系统层</div>
+    <div class="no">第 6 篇 · 系统层</div>
     <div class="t">架构、部署与接口</div>
     <div class="d">术语表 · 进程拓扑与四个契约面（图 1）· 目录导读 · 架构注册表与 s/m/l 神经网络
       （参数量实表）· 环境变量全表 · <b>对战 API 与控制台 API 的完整契约表</b> ·
@@ -142,21 +142,21 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
 <div class="map">
 <table>
 <tr><th style="width:42%">你想知道…</th><th>在这</th></tr>
-<tr><td>如何安装、部署服务并开始训练或对局？</td><td><b>§6 如何使用</b>（三步上手）</td></tr>
-<tr><td>为什么同等时间能多练一个数量级？</td><td>§2 篇 表 3（吞吐演进）＋ §4 篇 10.3（与 498 对照）</td></tr>
-<tr><td>虚拟损失会不会把统计记乱？</td><td>§2 篇 5.2–5.3（两条不变量）＋ 附录测试</td></tr>
-<tr><td>批是怎么凑出来的？为什么有时大有时小？</td><td>§3 篇 3–5（成本模型 + 自适应窗口）</td></tr>
-<tr><td>policy loss 降得慢，是学不动吗？</td><td>§4 篇 7（CE 有硬下界，看 KL；图 2 轨迹）</td></tr>
-<tr><td>什么时候该停止训练？</td><td>§4 篇 7 判据 + §5 篇 9 运维手册</td></tr>
-<tr><td>经验池能给大网络模型用吗？</td><td>§5 篇 4.2（跨网络通用）＋ §4 篇 5（质量上限提醒）</td></tr>
-<tr><td>面板上每个数字什么意思、是实时还是缓存？</td><td>§5 篇 7（snapshot 各字段）＋ 控制台卡片悬停说明</td></tr>
-<tr><td>优雅停止会丢数据吗？</td><td>§4 篇 9 三档表（含实现底线）</td></tr>
-<tr><td>想接入新棋种 / 新网络？</td><td>readme「扩展性」三步 ＋ §5 篇 4.1 注册表</td></tr>
+<tr><td>如何安装、部署服务并开始训练或对局？</td><td><b>§1 如何使用</b>（三步上手）</td></tr>
+<tr><td>为什么同等时间能多练一个数量级？</td><td>§3 篇 表 3（吞吐演进）＋ §5 篇 10.3（与 498 对照）</td></tr>
+<tr><td>虚拟损失会不会把统计记乱？</td><td>§3 篇 5.2–5.3（两条不变量）＋ 附录测试</td></tr>
+<tr><td>批是怎么凑出来的？为什么有时大有时小？</td><td>§4 篇 3–5（成本模型 + 自适应窗口）</td></tr>
+<tr><td>policy loss 降得慢，是学不动吗？</td><td>§5 篇 7（CE 有硬下界，看 KL；图 2 轨迹）</td></tr>
+<tr><td>什么时候该停止训练？</td><td>§5 篇 7 判据 + §6 篇 9 运维手册</td></tr>
+<tr><td>经验池能给大网络模型用吗？</td><td>§6 篇 4.2（跨网络通用）＋ §5 篇 5（质量上限提醒）</td></tr>
+<tr><td>面板上每个数字什么意思、是实时还是缓存？</td><td>§6 篇 7（snapshot 各字段）＋ 控制台卡片悬停说明</td></tr>
+<tr><td>优雅停止会丢数据吗？</td><td>§5 篇 9 三档表（含实现底线）</td></tr>
+<tr><td>想接入新棋种 / 新网络？</td><td>readme「扩展性」三步 ＋ §6 篇 4.1 注册表</td></tr>
 </table>
 </div>
 
 <h2>约定</h2>
-<p>① 性能数字标注测量环境（硬件、sims/手、线程数），无标注即沿用 §2 篇表 3 阶段 3 的配置；
+<p>① 性能数字标注测量环境（硬件、sims/手、线程数），无标注即沿用 §3 篇表 3 阶段 3 的配置；
 ② "实测/观测"区分一手实验与日志回顾，推断会写明"外推/估计"；
 ③ 每篇末列代码路径与对应测试套件，文档与代码冲突时以代码为准、差异以代码为准，欢迎经 issue 指正；
 ④ 关键故障与改判均已在对应篇正文以「实测/负结果/回归覆盖」形式落档。</p>

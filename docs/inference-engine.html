@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZenZero 文档 · §3 推理引擎</title>
+<title>ZenZero 文档 · §4 推理引擎</title>
 <style>
 :root{
   --ink:#1c1c1c; --paper:#faf7f0; --panel:#f2ede2; --line:#d8d0be;
@@ -87,9 +87,8 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 <header>
   <h1>推 理 引 擎</h1>
   <div class="sub">把「问一次网络」做成一条不断流的流水线 —— 凑批、镜像增强、设备一致性与多模型共享</div>
-  <div class="crumbs">ZenZero 文档集 · 第 3 篇｜<a href="index.html">目录</a> ·
-    <a href="xiangqi-env.html">§1 环境</a> · <a href="mcts.html">§2 MCTS</a> ·
-    <a href="training.html">§4 训练管线</a> · <a href="architecture.html">§5 架构与 API</a> · <a href="usage.html">§6 如何使用</a></div>
+  <div class="crumbs">ZenZero 文档集 · 第 4 篇｜<a href="index.html">目录</a> ·
+    <a href="usage.html">§1 如何使用</a> · <a href="xiangqi-env.html">§2 环境</a> · <a href="mcts.html">§3 MCTS</a> · <a href="training.html">§5 训练管线</a> · <a href="architecture.html">§6 架构与 API</a></div>
 </header>
 
 <nav>
@@ -121,15 +120,15 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 <li><b>零拷贝、零协议。</b>训练、对战、评估与引擎同进程，MCTS 与引擎之间只有一个
 <code>queue.Queue</code>；<code>ServerHub</code> 是进程内的引擎登记簿，不是网络组件；跨机器只有浏览器走 HTTP。</li>
 <li><b>一手一请求，攒批归引擎。</b>调用方可以只提交单个局面（批量提交也存在，§10），
-要不要等、等多久、凑多大由引擎按实时负载决定（第 5 节）。这样 §2 篇流水线的
+要不要等、等多久、凑多大由引擎按实时负载决定（第 5 节）。这样 §3 篇流水线的
 "发一条补一条"才写得直白。</li>
 <li><b>引擎三身份：架构、表示版本、神经网络。</b>权重文件里存着完整 config；引擎加载时读出
-<code>arch / feature_version / profile</code>，此后一切——特征转换的面数校验（§1 篇 §6）、
+<code>arch / feature_version / profile</code>，此后一切——特征转换的面数校验（§2 篇 §6）、
 命名、线程名、面板展示——以这三者为准。全局配置只是缺省值，<b>不是真相</b>（7.1 节）。</li>
 </ol>
 
 <h2 id="s2">2　记号</h2>
-<div class="tbl-cap"><b>符号表</b>（沿用 §2 篇表 1 的 <span class="v">G</span>、<span class="v">K</span>）。</div>
+<div class="tbl-cap"><b>符号表</b>（沿用 §3 篇表 1 的 <span class="v">G</span>、<span class="v">K</span>）。</div>
 <table class="sym">
 <tr><th>符号</th><th>含义</th><th>代码对应</th></tr>
 <tr><td><span class="v">b</span></td><td>一次前向的批大小（本批局面数）</td><td><code>len(requests)</code></td></tr>
@@ -143,7 +142,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 </table>
 
 <h2 id="s3">3　成本模型：一切策略的地基</h2>
-<p>s 网络（§5 篇 4.2 神经网络表）在 RTX 5090 D 上扫批实测，线性拟合良好（fp16 autocast，含 H2D）：</p>
+<p>s 网络（§6 篇 4.2 神经网络表）在 RTX 5090 D 上扫批实测，线性拟合良好（fp16 autocast，含 H2D）：</p>
 <div class="eq"><div class="f">
   <span class="v">t</span><sub>fwd</sub>(<span class="v">b</span>) ≈ <span class="v">t</span><sub>0</sub> + κ·<span class="v">b</span>
   　　,　　<span class="v">t</span><sub>0</sub> ≈ 1.21 ms，κ ≈ 4.5 µs</div><span class="no"></span></div>
@@ -229,19 +228,19 @@ CPU 设备上 infer 段可开 w 个 worker（默认 核数/4 封顶 8，<code>ZZ
 <tr><td>≥ 3</td><td>0.5 ms</td><td>残局段仅余数局</td><td>继续等待难以成批，宜尽快交付</td></tr>
 <tr><td>&lt; 3</td><td>0.1 ms</td><td>人机对战（一手一等）</td><td>延迟优先，几乎不等</td></tr>
 </table>
-<div class="callout"><b>两个正交旋钮。</b>§2 篇的 G×K 决定"有多少料"（供给），本节的 w 决定"愿意花多久凑"（耐心）。
+<div class="callout"><b>两个正交旋钮。</b>§3 篇的 G×K 决定"有多少料"（供给），本节的 w 决定"愿意花多久凑"（耐心）。
 把 K 调大是加供给，把 w 调大是加耐心。2026-11 实测 p90 已打满上限 2048（10 月末均批 215–245 / p90=256 系 B_max=256 时代口径）；
 若 <code>window</code> 列持续顶格而均批不涨，说明请求到达速率已足以在零等待下凑满批，此时应调整的是 B_max（历史上从 256→512→2048，式 (2)
 还许诺 +33%），而不是继续加 w。</div>
 
 <h2 id="s6">6　镜像增强：请求侧的免费多样性</h2>
-<p>自博弈请求在提交瞬间（<code>issue()</code>，§2 篇 6.1）被随机施加棋盘的一个对称变换
+<p>自博弈请求在提交瞬间（<code>issue()</code>，§3 篇 6.1）被随机施加棋盘的一个对称变换
 （象棋左右翻 ×2，五子棋二面体 ×8，记编号 g），返回时结果按 g 还原回原视角：</p>
 <div class="eq"><div class="f">
   g ~ Uniform(对称群)　,　(π̃, v̂) ← Engine(g·<span class="v">s</span>)　,　回填使用 (g<sup>−1</sup>·π̃, v̂)</div><span class="no"></span></div>
 <p>等价性讨论：不要求网络对对称群等变——变换只作用于"这一次请求"的输入输出对，树里存的永远是原视角。
 效果是把同一叶面的评估从"固定一张照片去问"变成"随机抽一张照片去问"，把<b>表示偏差</b>
-（若网络略偏爱某侧）平均掉；与仓里的在线增强（§4 篇 5.1）是同一家族的两半
+（若网络略偏爱某侧）平均掉；与仓里的在线增强（§5 篇 5.1）是同一家族的两半
 （仓管"训练时多视角"，引擎管"推理时多视角"）。人机对战与评估默认关闭此开关（<code>is_self_play=False</code>）。</p>
 
 <h2 id="s7">7　设备一致性：多模型并存不出事</h2>
@@ -252,7 +251,7 @@ CPU 设备上 infer 段可开 w 个 worker（默认 核数/4 封顶 8，<code>ZZ
 <li><b>读写门</b>（<code>_ModelAccess</code>）：forward 持共享锁（w 个 worker 并发读权重安全）；
 在线换设备（<code>relocate()</code>，Web 侧栏入口）持独占锁——等在途 forward 排空后搬迁，锁内原子完成。</li>
 <li><b>面数闸</b>：preprocess 校验输入通道数 == 模型出生时的 in_channels，不符抛错。
-feature_version 错位的特征是"能跑但全错"，静默比崩溃毒（§1 篇 §6 的教训写进了代码注释）。</li>
+feature_version 错位的特征是"能跑但全错"，静默比崩溃毒（§2 篇 §6 的教训写进了代码注释）。</li>
 </ul>
 <p>此外：混合精度按设备自适应（CUDA fp16 autocast，CPU 关闭）；forward 统一包在
 <code>torch.inference_mode()</code>；checkpoint 跨设备通用（加载先落 CPU 再按需迁移，
@@ -264,7 +263,7 @@ NVIDIA 上训好的权重可直接在 Mac/CPU 上对战）。</p>
 # AIServer.shutdown()/会话超时 → 引用 −1 → 归零才关线程、释放显存</code></pre>
 <p>引擎按三元组 <code>(棋种, 网络, 序号)</code> 命名登记：<code>ChineseChess_498</code>（m 网络保持历史格式）/
 <code>ChineseChess_s_34</code>（其余带网络前缀）。线程名、日志、面板、统计四处同一个键——
-"两个网络的同代模型"不会被当成同一个引擎。晋升评估赛（§4 篇第 8 节）的两位选手就是两个这样的实例。</p>
+"两个网络的同代模型"不会被当成同一个引擎。晋升评估赛（§5 篇第 8 节）的两位选手就是两个这样的实例。</p>
 
 <h2 id="s9">9　统计与失败纪律</h2>
 <ul>
@@ -283,7 +282,7 @@ deque/Counter 一律持锁、快照后再遍历——曾因打印统计时未加
 <h3>10.1　调用方（<code>services/inference/client.py</code>）</h3>
 <table>
 <tr><th>函数</th><th>语义</th></tr>
-<tr><td><code>issue(state, env, q, is_self_play, lane)</code> → <code>(request, sym_idx)</code></td><td>投递单局面、立即返回句柄（§2 篇流水线"发"侧；含第 6 节镜像）</td></tr>
+<tr><td><code>issue(state, env, q, is_self_play, lane)</code> → <code>(request, sym_idx)</code></td><td>投递单局面、立即返回句柄（§3 篇流水线"发"侧；含第 6 节镜像）</td></tr>
 <tr><td><code>harvest(request, sym_idx, env)</code> → <code>(policy, value)</code></td><td>已完成句柄取结果（还原镜像）</td></tr>
 <tr><td><code>send_many(states, env, q, is_self_play)</code></td><td>一批全投再统一等（先投后等是关键，投一条等一条就退化回串行）</td></tr>
 <tr><td><code>send_via_queue(state, env, q)</code></td><td>单条同步 ≡ <code>send_many([state])[0]</code>；人机/评估路径</td></tr>
@@ -295,13 +294,13 @@ deque/Counter 一律持锁、快照后再遍历——曾因打印统计时未加
 <tr><td><code>InferenceEngine(model_index, env_name, profile=None)</code> / <code>.start()</code> / <code>.shutdown()</code></td><td>构造即加载（失败自动降 CPU 并告警）；退役顺序见 §9</td></tr>
 <tr><td><code>feature_version / profile / model_index / name / arch_name</code></td><td>引擎身份；特征转换必须传 <code>planes_version = engine.feature_version</code></td></tr>
 <tr><td><code>request_queue</code></td><td>唯一提交入口</td></tr>
-<tr><td><code>infer_stats() / reset_statistic() / relocate(device)</code></td><td>整轮统计快照（§2 篇表 3 数据来源）/ 重置（每轮开头）/ 在线换设备</td></tr>
+<tr><td><code>infer_stats() / reset_statistic() / relocate(device)</code></td><td>整轮统计快照（§3 篇表 3 数据来源）/ 重置（每轮开头）/ 在线换设备</td></tr>
 </table>
 <p class="callout good"><code>TrainServer</code> <b>继承</b> <code>InferenceEngine</code>：训练进程本身就是
 一个常驻引擎（自博弈向它要推理），外加 fit 与存档。一个进程、一份权重、一次加载——训练侧没有"另一个服务"。</p>
 
-<h2 id="sB">11　实验（RTX 5090 D · s 网络 128×6 · 32 线程 × K=12（2026-10-27 端态；11 月已提档，见 §2 篇表 3））</h2>
-<div class="tbl-cap"><b>端态指标</b>（与 §2 篇表 3 阶段 3 同源；统计行每千条一回）。</div>
+<h2 id="sB">11　实验（RTX 5090 D · s 网络 128×6 · 32 线程 × K=12（2026-10-27 端态；11 月已提档，见 §3 篇表 3））</h2>
+<div class="tbl-cap"><b>端态指标</b>（与 §3 篇表 3 阶段 3 同源；统计行每千条一回）。</div>
 <table>
 <tr><th>指标</th><th>基线</th><th>现在</th><th>口径</th></tr>
 <tr><td>请求吞吐</td><td>5.8k 局面/秒</td><td><b>60k+（峰值 62.9k）</b></td><td>整轮均值；瞬时值由相邻统计行差分</td></tr>
@@ -312,9 +311,9 @@ deque/Counter 一律持锁、快照后再遍历——曾因打印统计时未加
 </table>
 <p class="where">理论核对：62.9k ≈ 0.58 × ρ(256)=10.8 万。缺口由"非纯前向时间"解释——树的选择与记账（Python 循环）、线程间队列搬运、凑批窗口等待，
 加上残余的特征转换与 H2D 拷贝。剩余最大单一杠杆是 B_max→512（式 (2) 外推 +33%），
-尚未启用；再往上就要看 §2 篇的每模拟 CPU 账本了。</p>
+尚未启用；再往上就要看 §3 篇的每模拟 CPU 账本了。</p>
 
-<footer>ZenZero 文档集 · §3 推理引擎 · 2026-11 · 代码为准：services/inference/{engine,client,request,hub}.py</footer>
+<footer>ZenZero 文档集 · §4 推理引擎 · 2026-11 · 代码为准：services/inference/{engine,client,request,hub}.py</footer>
 </main>
 <script>
 /* 离线模式（file:// 直开）：指向服务的入口（← 对弈 / ⚙ 控制台 / 首页）不可用，

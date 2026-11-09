@@ -2,6 +2,8 @@
 
 基于 AlphaZero 的通用棋类 AI 框架，当前支持**中国象棋**与**五子棋**。用 Python 3.14 free-threading（nogil）+ Cython 核心 + 动态批量推理，把"自博弈生成数据 → 训练 → 守擂晋升"整条闭环做到单机可跑、网页可玩。
 
+> 📖 **在线文档**：<https://yadiel-tien.github.io/ZenZero/>（六篇 · 第 1 篇《如何使用》上手）
+
 ![对局中](docs/assets/playing.png)
 
 ## 核心亮点

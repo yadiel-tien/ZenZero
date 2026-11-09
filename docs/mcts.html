@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZenZero 文档 · §2 MCTS 搜索与虚拟损失</title>
+<title>ZenZero 文档 · §3 MCTS 搜索与虚拟损失</title>
 <style>
 :root{
   --ink:#1c1c1c; --paper:#faf7f0; --panel:#f2ede2; --line:#d8d0be;
@@ -88,9 +88,8 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 <header>
   <h1>MCTS 搜索与虚拟损失</h1>
   <div class="sub">从「每步一次问答」到「永远 K 条在飞」—— 决策层的并行化与它的正确性</div>
-  <div class="crumbs">ZenZero 文档集 · 第 2 篇｜<a href="index.html">目录</a> ·
-    <a href="xiangqi-env.html">§1 环境</a> · <a href="inference-engine.html">§3 推理引擎</a> ·
-    <a href="training.html">§4 训练管线</a> · <a href="architecture.html">§5 架构与 API</a> · <a href="usage.html">§6 如何使用</a></div>
+  <div class="crumbs">ZenZero 文档集 · 第 3 篇｜<a href="index.html">目录</a> ·
+    <a href="usage.html">§1 如何使用</a> · <a href="xiangqi-env.html">§2 环境</a> · <a href="inference-engine.html">§4 推理引擎</a> · <a href="training.html">§5 训练管线</a> · <a href="architecture.html">§6 架构与 API</a></div>
 </header>
 
 <nav>
@@ -115,7 +114,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 </div>
 
 <h2 id="s1">1　引言：搜索为什么是瓶颈</h2>
-<p>AlphaZero 闭环 <span class="note">[1]</span> 的三层结构里（对局规则 → §1 篇，决策 → 本篇，算力 → §3 篇），
+<p>AlphaZero 闭环 <span class="note">[1]</span> 的三层结构里（对局规则 → §2 篇，决策 → 本篇，算力 → §4 篇），
 MCTS（Monte Carlo Tree Search，蒙特卡洛树搜索）负责把"网络的直觉"放大成"经过计算的决策"：
 对当前局面做数百至数千次推演；每次推演沿树下降到一个<b>未评估的叶子</b>，请神经网络给出该叶子的
 先验策略与局面评估，再把结果回填到路径上。最终决策取访问数分布 π（7.1 节）。</p>
@@ -123,7 +122,7 @@ MCTS（Monte Carlo Tree Search，蒙特卡洛树搜索）负责把"网络的直�
 <ul>
 <li><b>串行依赖</b>：一次推演的下降路径依赖此前所有推演的统计量——天真实现里"问网络 → 回填 → 再下降"
 必须顺序执行，GPU 每时刻只收到 1 个局面；</li>
-<li><b>高固定成本</b>：GPU 一次前向的开销大头是固定的（§3 篇式 (1)），单局面入批与 256 局面入批的
+<li><b>高固定成本</b>：GPU 一次前向的开销大头是固定的（§4 篇式 (1)），单局面入批与 256 局面入批的
 耗时差不到一倍，摊到每个局面的成本却差十几倍。</li>
 </ul>
 <p>因此本篇的全部内容可以概括为一句话：<b>在不改变搜索语义的前提下，把"一次一问"重排成
@@ -135,13 +134,13 @@ MCTS（Monte Carlo Tree Search，蒙特卡洛树搜索）负责把"网络的直�
 <div class="tbl-cap"><b>符号表</b>（首现节号便于回查；粗体向量/分布如 <b>P</b>, π）。</div>
 <table class="sym">
 <tr><th>符号</th><th>含义</th><th>代码对应</th></tr>
-<tr><td><span class="v">s</span>, <span class="v">a</span></td><td>局面（树节点）、动作（§1 篇定义的 2086 编号之一）</td><td><code>NeuronNode</code>、动作整数</td></tr>
+<tr><td><span class="v">s</span>, <span class="v">a</span></td><td>局面（树节点）、动作（§2 篇定义的 2086 编号之一）</td><td><code>NeuronNode</code>、动作整数</td></tr>
 <tr><td><span class="v">A</span>(<span class="v">s</span>)</td><td>局面 <span class="v">s</span> 的合法动作集合（象棋中局约 30–60 个）</td><td><code>valid_actions</code></td></tr>
 <tr><td><span class="v">N</span>(<span class="v">s</span>), <span class="v">N</span>(<span class="v">s</span>,<span class="v">a</span>)</td><td>节点访问数、边访问数；<span class="v">N</span>(<span class="v">s</span>) = Σ<sub><span class="v">b</span>∈<span class="v">A</span>(<span class="v">s</span>)</sub> <span class="v">N</span>(<span class="v">s</span>,<span class="v">b</span>)</td><td><code>n</code>、<code>child_n[a]</code></td></tr>
 <tr><td><span class="v">W</span>(<span class="v">s</span>,<span class="v">a</span>)</td><td>边回报<b>累加和</b>（注意不是均值）</td><td><code>child_w[a]</code></td></tr>
 <tr><td><span class="v">P</span>(<span class="v">s</span>,<span class="v">a</span>)</td><td>网络给出的先验策略（policy 头输出，限定在合法面）</td><td><code>child_p</code></td></tr>
 <tr><td><span class="v">c</span><sub>puct</sub></td><td>探索系数（本框架取 5，配置键 <code>c_puct</code>）</td><td><code>self.c</code></td></tr>
-<tr><td><span class="v">v</span><sub>θ</sub>(<span class="v">s</span>), <b>p</b><sub>θ</sub>(<span class="v">s</span>)</td><td>神经网络对局面的评估值（轮走方视角，∈[−1,1]）与策略分布；θ 为权重</td><td>§3 篇引擎返回的 (policy, value)</td></tr>
+<tr><td><span class="v">v</span><sub>θ</sub>(<span class="v">s</span>), <b>p</b><sub>θ</sub>(<span class="v">s</span>)</td><td>神经网络对局面的评估值（轮走方视角，∈[−1,1]）与策略分布；θ 为权重</td><td>§4 篇引擎返回的 (policy, value)</td></tr>
 <tr><td><span class="v">K</span></td><td>一手棋内同时在飞的搜索线数（虚拟损失预算，默认 64，并按凑批反馈在 8–128 间自适应微调，<code>_auto_tune_k</code>）</td><td><code>mcts_batch_leaves</code></td></tr>
 <tr><td><span class="v">ν</span></td><td>单笔虚拟损失的大小（常数 1.0）</td><td><code>VIRTUAL_LOSS</code></td></tr>
 <tr><td><span class="v">R</span><sub>t</sub></td><td>第 t 次模拟的回填回报（终局奖励或 −<span class="v">v</span><sub>θ</sub>；视角见 7.3 节）</td><td><code>back_propagate</code> 入参</td></tr>
@@ -170,16 +169,16 @@ MCTS（Monte Carlo Tree Search，蒙特卡洛树搜索）负责把"网络的直�
 这一步把打分工作量压到全动作口径的 1/35–1/70（2086 ÷ 30–60）。</div>
 
 <h3>3.1　叶子评估与终局短路</h3>
-<p>下降到未展开叶子后分两支。若该局面已被规则判终（将死/困毙/和/长将/时钟，§1 篇），直接取终局奖励回填，
-<b>不占用网络请求</b>——这一支称为终局短路，越接近残局占比越高；否则把局面转成张量（§1 篇 §5），
-提交推理引擎（§3 篇），以 −<span class="v">v</span><sub>θ</sub> 作为叶子回报回填（视角换算见 7.3 节）。</p>
+<p>下降到未展开叶子后分两支。若该局面已被规则判终（将死/困毙/和/长将/时钟，§2 篇），直接取终局奖励回填，
+<b>不占用网络请求</b>——这一支称为终局短路，越接近残局占比越高；否则把局面转成张量（§2 篇 §5），
+提交推理引擎（§4 篇），以 −<span class="v">v</span><sub>θ</sub> 作为叶子回报回填（视角换算见 7.3 节）。</p>
 
 <h2 id="s4">4　瓶颈定量：串行时批从哪来</h2>
 <p>设并发自弈局数为 <span class="v">G</span>。串行实现里每局每时刻至多 1 个未决请求，
 GPU 批的期望上限就是 <span class="v">G</span>；而"下降—等待"交替造成请求呈突发状到达，
 引擎实际凑到的批远小于 <span class="v">G</span>（第 9 节表 3 首行即此形态）。两点实测给出定量依据：</p>
 <ul>
-<li><b>凑批成本模型</b>（§3 篇式 (1)：前向耗时 <span class="v">t</span><sub>fwd</sub>(<span class="v">b</span>) ≈
+<li><b>凑批成本模型</b>（§4 篇式 (1)：前向耗时 <span class="v">t</span><sub>fwd</sub>(<span class="v">b</span>) ≈
 1.21&nbsp;ms + 4.5&nbsp;µs·<span class="v">b</span>）：批 32 时每局面 42&nbsp;µs，批 256 时每局面 9.2&nbsp;µs，
 同一张卡吞吐差 4.5 倍；</li>
 <li>中间形态<b>带屏障批量</b>（发 K 条 → 全数返回 → 再发下一批）吞吐翻倍，但"等齐"期间本线程不再产出
@@ -293,7 +292,7 @@ while rem &gt; 0 或 inflight ≠ ∅:
 </svg>
 <figcaption><b>屏障与流水线的时序对照（示意，非等比例）。</b>上：单线程"下降—停等"交替，GPU 只见涓流；
 下：线程持续"收一条、补一条"，请求以恒定速率进入队列；凑批的节奏控制放在引擎侧
-（自适应窗口，§3 篇 §2），搜索层不感知。</figcaption>
+（自适应窗口，§4 篇 §2），搜索层不感知。</figcaption>
 </figure>
 
 <h3>6.2　两个正确性细节（各对应一起真实故障）</h3>
@@ -301,7 +300,7 @@ while rem &gt; 0 或 inflight ≠ ∅:
 <li><b>① 撞车不得烧预算。</b>树浅时 K 次 select 可能全部落回同一未展开叶。早期实现把跳过也计入模拟预算，
 48 次模拟被"跳过"耗尽、根节点尚未展开即返回，下游 <code>get_pi</code> 拿到空分布直接崩溃。
 正解：撤销假账、<b>不扣预算</b>、让出补位循环去收割；树撑开后再继续。</li>
-<li><b>② 收割经信号量而非逐条等待。</b>每条完成释放一个许可（§3 篇 <code>RequestLane</code>），主循环
+<li><b>② 收割经信号量而非逐条等待。</b>每条完成释放一个许可（§4 篇 <code>RequestLane</code>），主循环
 <code>acquire()</code> 后在在途表里找<b>任意一条</b>已完成者处理——避免"挑着等某一条"造成死等，
 乱序完成天然成立。</li>
 </ul>
@@ -349,8 +348,8 @@ while rem &gt; 0 或 inflight ≠ ∅:
 <tr><td><code>NeuronMCTS</code></td><td><code>make_queue_mcts(infer_q, env_class, state, last_action, player_to_move, planes_version, is_self_play)</code>；
 <code>run(n, K=1)</code>；<code>run_pipelined(n, K=8, timeout=300)</code>（签名默认值；线上调用方按 <code>mcts_batch_leaves</code>≈64 传入）；<code>get_pi(τ)</code>；
 <code>choose_action()</code>；<code>apply_action(a)</code>；<code>set_root(…)</code>；<code>shutdown()</code></td>
-<td><code>infer_q</code> 是目标引擎的请求队列（§3 篇）；<code>planes_version</code> 必须等于该引擎的
-feature_version（§1 篇 §6，错位会被引擎的面数闸拒绝）；<code>apply_action</code> 做真人对局的树复用
+<td><code>infer_q</code> 是目标引擎的请求队列（§4 篇）；<code>planes_version</code> 必须等于该引擎的
+feature_version（§2 篇 §6，错位会被引擎的面数闸拒绝）；<code>apply_action</code> 做真人对局的树复用
 （根下移 + 剪枝），前一手几千次模拟的账不作废</td></tr>
 </table>
 <h3>8.2　两种跑法怎么选</h3>
@@ -367,17 +366,17 @@ feature_version（§1 篇 §6，错位会被引擎的面数闸拒绝）；<code>
 <tr><td>0</td><td>改造前基线</td><td>5.8k</td><td>6.7</td><td>~1</td><td>串行；进程间 socket 推理</td></tr>
 <tr><td>1</td><td>+ 虚拟损失·屏障批量</td><td>20.8k</td><td>—</td><td>~40</td><td>第 5 节；K=8</td></tr>
 <tr><td>2</td><td>+ 无屏障流水线</td><td>41.6k</td><td>—</td><td>~130</td><td>第 6 节；GPU 占空比 34% → 连续</td></tr>
-<tr><td>3</td><td>+ Cython 特征 / 32 线程 / 紧凑打分</td><td><b>62.9k</b></td><td>95.4</td><td>~244</td><td>§1 篇 §5、第 3 节注②；CPU 43% · GPU 37%·203W</td></tr>
-<tr><td>4</td><td>目标质量优先（sims 爬坡 400→800）</td><td>45–60k</td><td>30–40 <span class="note">@700–800 sims（10 月末口径）</span></td><td>215–245</td><td>§4 篇第 4 节</td></tr>
+<tr><td>3</td><td>+ Cython 特征 / 32 线程 / 紧凑打分</td><td><b>62.9k</b></td><td>95.4</td><td>~244</td><td>§2 篇 §5、第 3 节注②；CPU 43% · GPU 37%·203W</td></tr>
+<tr><td>4</td><td>目标质量优先（sims 爬坡 400→800）</td><td>45–60k</td><td>30–40 <span class="note">@700–800 sims（10 月末口径）</span></td><td>215–245</td><td>§5 篇第 4 节</td></tr>
 <tr><td>5</td><td>并发提档（G=128 · K=64 自适应 · 批上限 2048）</td><td>50–78k</td><td>28–57（均 ~45）<span class="note">@~780 sims，11-06 m8 实测</span></td><td>p90=2048</td><td>perf.jsonl；选叶 0.5ms / 等引擎 1.4ms</td></tr>
 </table>
 <p>第 3→4 行的名义降速是<b>有意交换</b>：吞吐买目标质量。交换比的依据（"200-sim 的教材噪声占可学空间 64%"）
-在 §4 篇第 4 节（式 (2)）与第 7 节（式 (6)）量化给出。</p>
+在 §5 篇第 4 节（式 (2)）与第 7 节（式 (6)）量化给出。</p>
 <h3>9.1　测量学</h3>
 <ul>
-<li>吞吐分母为局面数（一次前向入批 B 个记 B），由引擎每千条打印的统计行聚合（§3 篇 9 节），
+<li>吞吐分母为局面数（一次前向入批 B 个记 B），由引擎每千条打印的统计行聚合（§4 篇 9 节），
 非端侧估算；批统计另存整轮直方图，面板头条取整轮均值、滑动窗口只作尾部指示——
-用滑动窗口当整轮均值曾把 245 误报成 16（已由回归测试覆盖；§3 篇"整轮 237"即同批数据的整轮口径）。</li>
+用滑动窗口当整轮均值曾把 245 误报成 16（已由回归测试覆盖；§4 篇"整轮 237"即同批数据的整轮口径）。</li>
 <li>线程数存在实测拐点：24–32 线程 ≈ 47–50k 模拟/秒，64 线程回落到 35.9k——free-threading 下
 锁竞争与内存带宽接棒成为瓶颈，故 G=32 为默认。</li>
 <li>每次模拟的 CPU 账本随统计输出：选叶子 0.13–0.14ms、等推理 0.28–0.33ms（阶段 3 配置）——
@@ -391,14 +390,14 @@ feature_version（§1 篇 §6，错位会被引擎的面数闸拒绝）；<code>
 终局短路不发请求；<code>run</code> 与 <code>run_pipelined</code> 语义一致性抽查；超时行为</td></tr>
 <tr><td><code>tests/test_mcts_reward_sign.py</code>（7 项）</td><td>7.3 视角链逐层核对；象棋换边
 <code>switch_side_policy</code> 与噪声（式 (4)）复合的正确性</td></tr>
-<tr><td><code>tests/test_evaluation_loop.py</code>（2 项）</td><td>搜索 → 对局 → 晋升的整环（§4 篇第 8 节）；
+<tr><td><code>tests/test_evaluation_loop.py</code>（2 项）</td><td>搜索 → 对局 → 晋升的整环（§5 篇第 8 节）；
 曾拦住一次静默卡死的 import 回归</td></tr>
 </table>
 <p class="where">[1] Silver, D. et al. <i>A general reinforcement learning algorithm that masters chess, shogi,
 and Go through self-play.</i> Science 362, 1140–1144 (2018).　本篇的 PUCT 形式、狄利克雷噪声与训练目标
 均取自该文；"虚拟损失"（virtual loss）一词沿用并行博弈树搜索社区的惯用叫法。</p>
 
-<footer>ZenZero 文档集 · §2 MCTS 搜索与虚拟损失 · 2026-11（v2.3.0 断面） · 代码为准：core/mcts/deepMcts.py</footer>
+<footer>ZenZero 文档集 · §3 MCTS 搜索与虚拟损失 · 2026-11（v2.3.0 断面） · 代码为准：core/mcts/deepMcts.py</footer>
 </main>
 <script>
 /* 离线模式（file:// 直开）：指向服务的入口（← 对弈 / ⚙ 控制台 / 首页）不可用，

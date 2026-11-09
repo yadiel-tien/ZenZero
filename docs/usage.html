@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZenZero 文档 · §6 如何使用</title>
+<title>ZenZero 文档 · §1 如何使用</title>
 <style>
 :root{
   --ink:#1c1c1c; --paper:#faf7f0; --panel:#f2ede2; --line:#d8d0be;
@@ -76,10 +76,8 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
 <header>
   <h1>如 何 使 用</h1>
   <div class="sub">ZenZero 上手手册 —— 安装、对战、训练、监控与排障，全部命令可复制</div>
-  <div class="crumbs">ZenZero 文档集 · 第 6 篇｜<a href="index.html">目录</a> ·
-    <a href="xiangqi-env.html">§1 环境</a> · <a href="mcts.html">§2 MCTS</a> ·
-    <a href="inference-engine.html">§3 推理引擎</a> · <a href="training.html">§4 训练管线</a> ·
-    <a href="architecture.html">§5 架构与 API</a></div>
+  <div class="crumbs">ZenZero 文档集 · 第 1 篇｜<a href="index.html">目录</a> ·
+    <a href="xiangqi-env.html">§2 环境</a> · <a href="mcts.html">§3 MCTS</a> · <a href="inference-engine.html">§4 推理引擎</a> · <a href="training.html">§5 训练管线</a> · <a href="architecture.html">§6 架构与 API</a></div>
 </header>
 
 <nav>
@@ -152,8 +150,8 @@ ZZ_BATCH_LEAVES=64 ZZ_DEVICE=auto python -X gil=0 -m scripts.train_server</code>
 <ul>
 <li><code>-X gil=0</code> 必须保留（首次 forward 会惰性 import triton 试图重开 GIL，不加则多线程 MCTS 假并行）。</li>
 <li>续训自动从"最新 checkpoint + 仓"接上：同一神经网络目录里有 ckpt 即热启动；冷启动首个模型自动晋升（无守擂者）。</li>
-<li>表示版本换代的处理是自动的：feature_version 与 best 模型不匹配时从新网络开训、旧 best 留任守擂（§1 篇 §6）。</li>
-<li>何时该停：§4 篇第 7 节四条判据（KL 连续 10 代不降 / value 平台 / 晋升胜率均值 &lt;54% / 跨代对局 &lt;60%）。</li>
+<li>表示版本换代的处理是自动的：feature_version 与 best 模型不匹配时从新网络开训、旧 best 留任守擂（§2 篇 §6）。</li>
+<li>何时该停：§5 篇第 7 节四条判据（KL 连续 10 代不降 / value 平台 / 晋升胜率均值 &lt;54% / 跨代对局 &lt;60%）。</li>
 </ul>
 
 <h2 id="s4">4　监控台速览（<code>/admin</code>）</h2>
@@ -165,34 +163,34 @@ ZZ_BATCH_LEAVES=64 ZZ_DEVICE=auto python -X gil=0 -m scripts.train_server</code>
 <tr><td>工具</td><td>scripts/ 其余功能的 Web 启停：piskvork（Gomocup 协议服，网络/模型级联下拉选择）/ bench（引擎批扫描）/ build_cython（安全构建）——参数白名单校验、日志在线看、服务重启自动收养</td></tr>
 <tr><td>监控</td><td>六张概览卡（局/分与引擎吞吐、搜索效率·选叶/等推理拆分、训练步数、经验池、验证集、评估守擂）+ 八幅曲线（Loss·policy/value、策略 KL+熵、胜率、吞吐、硬件）；滚轮缩放、双击复位、每卡悬停释义；≥1024 宽一行六卡，手机两列</td></tr>
 <tr><td>竞技场</td><td>对局平台：多场次各自独立榜（新建/删除）、名册悬浮穿梭窗管理参赛选手、智能约架/车轮战/自定义对决三模式、自适应并行桌；实时对阵直播+排名/实力阶梯/对阵胜率矩阵</td></tr>
-<tr><td>训练</td><td>启停 + 三档停止；表单即环境变量（见 §5 篇 5 节对照表）</td></tr>
+<tr><td>训练</td><td>启停 + 三档停止；表单即环境变量（见 §6 篇 5 节对照表）</td></tr>
 <tr><td>资产</td><td>checkpoint / 经验池（含克隆）/ 运行目录；三表皆可勾选批量删除（逐项护栏，best 拒删）；日志不在资产管理之列——查看去日志页，轮转由系统自管；<b>设为最强</b>（回滚守擂者）；按护栏删除（拒删 best、删仓需二次确认）</td></tr>
 <tr><td>日志</td><td><b>训练进程实时尾部</b>（含停止按钮联动）置顶；任选日志文件尾读：模块日志、轮转历史、console 原始输出</td></tr>
 </table>
-<p class="note">接口契约（供脚本/集成调用）在 §5 篇第 7 节；写操作若设了 <code>ZZ_ADMIN_TOKEN</code> 需带请求头 <code>X-ZZ-Token</code>。</p>
+<p class="note">接口契约（供脚本/集成调用）在 §6 篇第 7 节；写操作若设了 <code>ZZ_ADMIN_TOKEN</code> 需带请求头 <code>X-ZZ-Token</code>。</p>
 
 <h2 id="s5">5　其它玩法</h2>
 <table>
 <tr><th>命令</th><th>场景</th></tr>
 <tr><td><code>python -m scripts.cli_play</code></td><td>终端下棋：进程内自带引擎，不依赖服务</td></tr>
 <tr><td><code>python -m scripts.piskvork_server --host 0.0.0.0 --port 12345</code></td><td>Gomocup 协议对外（Piskvork GUI 可连）</td></tr>
-<tr><td colspan="2"><b>以上 piskvork / bench / build_cython 已接入控制台「工具」页</b>（竞技场对局入口在「竞技场」页）：在线启停、参数白名单校验、日志查看（接口契约见 §5 篇 7 节）。</td></tr>
+<tr><td colspan="2"><b>以上 piskvork / bench / build_cython 已接入控制台「工具」页</b>（竞技场对局入口在「竞技场」页）：在线启停、参数白名单校验、日志查看（接口契约见 §6 篇 7 节）。</td></tr>
 <tr><td><code>python -m scripts.arena</code></td><td>ELO 天梯：向 <code>data/&lt;Game&gt;/rates/candidates.txt</code> 写候选（如 <code>10,20,34</code>）批量互刷等级分</td></tr>
-<tr><td><code>python -m tests.drills.model_match --a s:48 --b m:498 --games 40 --sims 800</code></td><td>任意两个"网络:代数"真金对打，得分率 ±2σ 判强弱（<b>务必 GPU</b>：CPU 测量无效，§4 篇 10.2）</td></tr>
+<tr><td><code>python -m tests.drills.model_match --a s:48 --b m:498 --games 40 --sims 800</code></td><td>任意两个"网络:代数"真金对打，得分率 ±2σ 判强弱（<b>务必 GPU</b>：CPU 测量无效，§5 篇 10.2）</td></tr>
 <tr><td><code>python scripts/bench_batch_sweep.py</code></td><td>引擎批扫描，看成本模型还准不准</td></tr>
 </table>
 
 <h2 id="s6">6　选网络与配置速查</h2>
 <ul>
-<li><b>起点与经验池</b>：训练表单可选<b>起点</b>（续训 / 从头训练：随机新网络但代数接续永不覆盖 / 从指定代数分叉）与<b>经验池</b>。<b>经验池是棋种级资源</b>（<code>data/&lt;Game&gt;/buffers/&lt;name&gt;/</code>，主池+留出集成对），不按网络分家——下拉列出已有池、悬停看详情（表示版本、容量/已用、<b>最新数据来自哪个网络的第几代</b>）、末项新建。任何网络都可以接着已有池训练（跨表示版本被启动闸门拒绝，§5 篇 4.3）。想拿老池做实验又怕覆写坏它：资产页「经验池」面板点「⧉ 克隆」——整体复制成新编号池，回训练表单选副本即可，原池不动（训练进行中不可克隆）。**经验池必选**——控制台不提供"不选"；新建无需起名，默认按棋种递增编号（pool1、pool2…），建好后可改名使用。模型目录里的原位池仅作历史兼容（裸命令训练未指定时使用）。</li>
+<li><b>起点与经验池</b>：训练表单可选<b>起点</b>（续训 / 从头训练：随机新网络但代数接续永不覆盖 / 从指定代数分叉）与<b>经验池</b>。<b>经验池是棋种级资源</b>（<code>data/&lt;Game&gt;/buffers/&lt;name&gt;/</code>，主池+留出集成对），不按网络分家——下拉列出已有池、悬停看详情（表示版本、容量/已用、<b>最新数据来自哪个网络的第几代</b>）、末项新建。任何网络都可以接着已有池训练（跨表示版本被启动闸门拒绝，§6 篇 4.3）。想拿老池做实验又怕覆写坏它：资产页「经验池」面板点「⧉ 克隆」——整体复制成新编号池，回训练表单选副本即可，原池不动（训练进行中不可克隆）。**经验池必选**——控制台不提供"不选"；新建无需起名，默认按棋种递增编号（pool1、pool2…），建好后可改名使用。模型目录里的原位池仅作历史兼容（裸命令训练未指定时使用）。</li>
 <li><b>自定义网络</b>：控制台「训练 → 网络配置」给规模组合起名字（如 <code>mini64</code>），保存后训练表单、对弈页、资产页的网络下拉即刻可选；删除只移除名字、磁盘上的模型（权重）原样保留（重加同名网络即接上）。</li>
-<li><b>网络怎么选</b>：s（8M）练得快、一夜可追平老 m 网络（§4 篇 10.3）；m（25M）默认、老资产在这；
+<li><b>网络怎么选</b>：s（8M）练得快、一夜可追平老 m 网络（§5 篇 10.3）；m（25M）默认、老资产在这；
 l（30M）天花板实验；m8/mini/mini2 为自定义命名配置（profiles.json）。<b>仓跨网络通用</b>（同表示版本），大网络热身可拷小网络的仓。</li>
-<li><b>全部运行期旋钮</b> = 环境变量（全表见 §5 篇）（<code>ZZ_GAME / ZZ_PROFILE / ZZ_DEVICE / ZZ_WORKERS /
+<li><b>全部运行期旋钮</b> = 环境变量（全表见 §6 篇）（<code>ZZ_GAME / ZZ_PROFILE / ZZ_DEVICE / ZZ_WORKERS /
 ZZ_GAMES_PER_ROUND / ZZ_BATCH_LEAVES / ZZ_MAX_BATCH / ZZ_INFER_WORKERS / ZZ_ADMIN_TOKEN</code>），
-语义与默认值见 §5 篇表 4；不改仓库 config 文件。</li>
+语义与默认值见 §6 篇表 4；不改仓库 config 文件。</li>
 <li><b>版本从哪看</b>：对弈页「设置」底部与控制台标题徽章（形如 <code>v2.3.0 · 9f2c1ab</code>），
-或 <code>python main.py --version</code>；四轴版本（应用/表示/网络/模型代数）的分工见 §5 篇 4.4。
+或 <code>python main.py --version</code>；四轴版本（应用/表示/网络/模型代数）的分工见 §6 篇 4.4。
 <li><b>静态默认值</b>在 <code>core/utils/config.py</code>（c_puct、温度调度、dirichlet、阈值、sims 爬坡、presets 规模）。</li>
 </ul>
 
@@ -204,7 +202,7 @@ ZZ_GAMES_PER_ROUND / ZZ_BATCH_LEAVES / ZZ_MAX_BATCH / ZZ_INFER_WORKERS / ZZ_ADMI
 <tr><td>训练启动即停</td><td>日志页「● 实时」跟随（文件即 <code>logs/train/console.log</code>，历次会话追加）。最常见：仓不足以喂一个 batch（将自动先行填充缓冲区，等待其完成即可）；或显式设备不可用（设计如此，改 <code>ZZ_DEVICE=auto</code>）</td></tr>
 <tr><td>面板数字是"缓存"</td><td>看卡片副标题：标"实时"走心跳，标"上轮/已停"是 perf 记录或日志启发式；训练进程不在时全部转灰属正常</td></tr>
 <tr><td>怀疑哪里炸了</td><td><code>logs/crash/latest.log</code>（线程级异常全进这里，带堆栈）；面板顶部红色横幅同址提示</td></tr>
-<tr><td>GPU 训练吞吐骤降</td><td>监控页看 GPU 利用率与"凑批等待"：若与占用 GPU 的进程并发，应错峰运行；若 window 顶格而均批不涨，调大 <code>ZZ_MAX_BATCH</code>（§3 篇 5 节）</td></tr>
+<tr><td>GPU 训练吞吐骤降</td><td>监控页看 GPU 利用率与"凑批等待"：若与占用 GPU 的进程并发，应错峰运行；若 window 顶格而均批不涨，调大 <code>ZZ_MAX_BATCH</code>（§4 篇 5 节）</td></tr>
 </table>
 
 <h2 id="s8">8　测试与验收</h2>
@@ -218,7 +216,7 @@ for t in tests/test_*.py; do echo "== $t"; ZZ_DEVICE=cpu .venv/bin/python "$t" |
 <div class="callout good"><b>读文档的路线：</b>掌握用法后深入原理 → §1 环境 → §2 MCTS → §3 推理引擎 → §4 训练管线；
 要接系统/写脚本 → §5 架构与接口。</div>
 
-<footer>ZenZero 文档集 · §6 如何使用 · 2026-11 · 命令与 README、代码注释冲突时，以后两者为准</footer>
+<footer>ZenZero 文档集 · §1 如何使用 · 2026-11 · 命令与 README、代码注释冲突时，以后两者为准</footer>
 </main>
 <script>
 /* 离线模式（file:// 直开）：指向服务的入口（← 对弈 / ⚙ 控制台 / 首页）不可用，

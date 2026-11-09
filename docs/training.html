@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZenZero 文档 · §4 训练管线</title>
+<title>ZenZero 文档 · §5 训练管线</title>
 <style>
 :root{
   --ink:#1c1c1c; --paper:#faf7f0; --panel:#f2ede2; --line:#d8d0be;
@@ -87,9 +87,8 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
 <header>
   <h1>训 练 管 线</h1>
   <div class="sub">一轮一夜如何炼成 —— 自博弈数据生成、目标质量、仓与验证、晋升机制、停止语义</div>
-  <div class="crumbs">ZenZero 文档集 · 第 4 篇｜<a href="index.html">目录</a> ·
-    <a href="xiangqi-env.html">§1 环境</a> · <a href="mcts.html">§2 MCTS</a> ·
-    <a href="inference-engine.html">§3 推理引擎</a> · <a href="architecture.html">§5 架构与 API</a> · <a href="usage.html">§6 如何使用</a></div>
+  <div class="crumbs">ZenZero 文档集 · 第 5 篇｜<a href="index.html">目录</a> ·
+    <a href="usage.html">§1 如何使用</a> · <a href="xiangqi-env.html">§2 环境</a> · <a href="mcts.html">§3 MCTS</a> · <a href="inference-engine.html">§4 推理引擎</a> · <a href="architecture.html">§6 架构与 API</a></div>
 </header>
 
 <nav>
@@ -142,7 +141,7 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
   <text x="380" y="14" text-anchor="middle" font-size="12.5" fill="#6b6557">① 填仓（仅首启）：仓不足下限时纯自博弈攒数据</text>
   <text x="700" y="98" font-size="11" fill="#8b0000" text-anchor="end">样本 (x, π, z)</text>
   <text x="128" y="100" font-size="11" fill="#3d6b35">新 checkpoint 入仓评估基准不变</text>
-  <text x="380" y="206" text-anchor="middle" font-size="11.5" fill="#6b6557">TrainServer 本身就是推理引擎（§3 篇 10.2）：左右互搏与上课做题共享同一份权重、同一个进程</text>
+  <text x="380" y="206" text-anchor="middle" font-size="11.5" fill="#6b6557">TrainServer 本身就是推理引擎（§4 篇 10.2）：左右互搏与上课做题共享同一份权重、同一个进程</text>
   <text x="380" y="292" text-anchor="middle" font-size="11.5" fill="#6b6557">800-sims 配置每轮 ≈ 10–12 分钟＝自博弈 ~9 min（400 局 @ ~45 局/分，11-06 m8 实测）+ fit ~90 s + 守擂 ~30–60 s + 存盘间隙</text>
 </svg>
 <figcaption><b>训练大闭环。</b>五步顺序执行、循环推进；②→⑤ 构成"一轮"，每轮产出一个候选代。
@@ -150,7 +149,7 @@ buffer 与 TrainServer 共享同一内存实例（旧版各持一份，象棋配
 </figure>
 
 <h2 id="s2">2　记号</h2>
-<div class="tbl-cap"><b>符号表</b>（沿用 §2 篇表 1、§3 篇表 1；本节新增如下）。</div>
+<div class="tbl-cap"><b>符号表</b>（沿用 §3 篇表 1、§4 篇表 1；本节新增如下）。</div>
 <table class="sym">
 <tr><th>符号</th><th>含义</th><th>当前值 / 代码对应</th></tr>
 <tr><td><span class="v">g</span></td><td><b>代</b>（iteration）：模型版本号，每完成一轮 +1；跨重启单调</td><td><code>read_latest_index()+1</code></td></tr>
@@ -159,9 +158,9 @@ buffer 与 TrainServer 共享同一内存实例（旧版各持一份，象棋配
 <tr><td><span class="v">C</span></td><td>训练仓容量（样本条数，一存一采口径）</td><td>30 万（s 网络）</td></tr>
 <tr><td><span class="v">P</span></td><td>每轮训练把全仓过的遍数（passes）</td><td><code>training_passes_per_buffer</code>=8</td></tr>
 <tr><td><span class="v">B</span></td><td>fit 批大小</td><td>2048</td></tr>
-<tr><td>(<span class="v">x</span>, π<sub>tgt</sub>, z)</td><td>一条样本：状态张量、搜索访问分布（策略目标）、带符号回报（价值目标，轮走方视角）</td><td>§2 篇 7.3</td></tr>
+<tr><td>(<span class="v">x</span>, π<sub>tgt</sub>, z)</td><td>一条样本：状态张量、搜索访问分布（策略目标）、带符号回报（价值目标，轮走方视角）</td><td>§3 篇 7.3</td></tr>
 <tr><td><span class="v">D</span>(π) = −Σ π log π</td><td>目标分布的熵（交叉熵的不可降下界）</td><td><code>Val/policy_entropy</code></td></tr>
-<tr><td>θ</td><td>网络权重；<span class="v">v</span><sub>θ</sub>, <b>p</b><sub>θ</sub> 见 §2 篇表 1</td><td><code>fit_model</code></td></tr>
+<tr><td>θ</td><td>网络权重；<span class="v">v</span><sub>θ</sub>, <b>p</b><sub>θ</sub> 见 §3 篇表 1</td><td><code>fit_model</code></td></tr>
 <tr><td><span class="v">θ</span><sub>win</sub></td><td>晋升得分率阈值</td><td><code>win_threshold</code>=0.52</td></tr>
 </table>
 
@@ -187,7 +186,7 @@ buffer 与 TrainServer 共享同一内存实例（旧版各持一份，象棋配
   (<span class="v">N</span><sub>max</sub> − <span class="v">N</span><sub>0</sub>) · min(1, <span class="v">g</span>/<span class="v">g</span><sub>ramp</sub>)
   　,　<span class="v">N</span><sub>0</sub>=400，<span class="v">N</span><sub>max</sub>=800，<span class="v">g</span><sub>ramp</sub>=50</div><span class="no"></span></div>
 <p>为什么起点是 400 而不是"能跑就行"？MCTS 的训练目标 π<sub>tgt</sub> 就是这棵树自己数出来的访问分布
-（§2 篇式 (3)——下文把这份目标分布称作"教材"），教材自身的误差直接构成学习上限。同批中局实测（checkpoint_3，每局面 200 与 800 模拟各跑一遍）：</p>
+（§3 篇式 (3)——下文把这份目标分布称作"教材"），教材自身的误差直接构成学习上限。同批中局实测（checkpoint_3，每局面 200 与 800 模拟各跑一遍）：</p>
 <div class="eq"><div class="f">
   KL( π<sub>200</sub> ‖ π<sub>800</sub> ) ≈ 0.36　（4 个中局样本，范围 0.27–0.46）　,　H(π<sub>200</sub>) = 3.04 &lt; H(π<sub>800</sub>) = 3.50</div><span class="no"></span></div>
 <p>第 7 节将定义 KL 是"可学空间"的度量。0.36 这个数放在那里看：200-sim 时代整个可学空间约 0.57，
@@ -238,7 +237,7 @@ z ∈ {胜,和,负}，用交叉熵学三分类（比 MSE 回归 ±1 多出"和"�
 <tr><td>验证</td><td>fit 末尾在留出集<b>全量、固定视角</b>（不增强）跑一遍</td><td>曾用随机 4 批抽样，±0.01 的抽样噪声淹没信号，故改为全量确定性</td></tr>
 </table>
 <p>TensorBoard 每步写 <code>Loss/{total,policy,value}</code>；每轮写 <code>Val/{policy,value,policy_kl,policy_entropy}</code>
-与 <code>Perf/*</code>（吞吐类）。面板曲线从这里来（§5 篇）。</p>
+与 <code>Perf/*</code>（吞吐类）。面板曲线从这里来（§6 篇）。</p>
 
 <h2 id="s7">7　指标方法论：别把地板当瓶颈</h2>
 <p>策略目标是分布拟合，交叉熵有一个不可约下界（Gibbs 不等式；π 为搜索目标、p<sub>θ</sub> 为网络输出）：</p>
@@ -288,15 +287,15 @@ CE 的表面进步里有多少是地板下移，一目了然）。</div>
 <p>两条提前终止规则省掉无信息局：即便余局全胜/全负也翻不了盘时立刻掐断——通常 85–96 局收工、
 约 50 秒。候选编号恒取"现存最大号 +1"，未晋升模型的 checkpoint 当场删除——于是下一位候选会复用同一编号，
 "代数"曲线出现平台甚至回退一格（实测 5,4,4,5,5,6,7,7 的段式前进）——面板如实呈现：这是语义行为，不是缺陷。</p>
-<div class="callout"><b>和棋率曾达四到五成，协议修正后降至 ~24%</b>（库线无放回 + 开局多样化，11-05 实测；病理性三次重复大减）——剩余和局仍是象棋规则属性：三次重复判和、长将判负、120 步时钟（久无进展判和）都按官方口径裁决（§1 篇 4.1），但缺少按子力结构评估"和局必然性"的裁决——进展缓慢的残局多被拖至重复判和或时钟判和。和棋样本的 z≈0 并非坏数据
-三次重复判和、长将判负、120 步时钟（久无进展判和）都按官方口径裁决（§1 篇 4.1），但缺少按子力结构评估"和局必然性"的裁决——进展缓慢的残局多被拖至重复判和或时钟判和。和棋样本的 z≈0 并非坏数据
+<div class="callout"><b>和棋率曾达四到五成，协议修正后降至 ~24%</b>（库线无放回 + 开局多样化，11-05 实测；病理性三次重复大减）——剩余和局仍是象棋规则属性：三次重复判和、长将判负、120 步时钟（久无进展判和）都按官方口径裁决（§2 篇 4.1），但缺少按子力结构评估"和局必然性"的裁决——进展缓慢的残局多被拖至重复判和或时钟判和。和棋样本的 z≈0 并非坏数据
+三次重复判和、长将判负、120 步时钟（久无进展判和）都按官方口径裁决（§2 篇 4.1），但缺少按子力结构评估"和局必然性"的裁决——进展缓慢的残局多被拖至重复判和或时钟判和。和棋样本的 z≈0 并非坏数据
 （教会模型"均势观"），但晋升判定的区分度会因此下降。改进路线（子力不足细分、逼和规则调参）
-属于 §1 篇的规则层，见彼处"边界与待办"。</div>
+属于 §2 篇的规则层，见彼处"边界与待办"。</div>
 <p>晋升率本身是健康度指标（下为 11-05 修复 versus 胜负映射并清榜前的旧口径断面，只示意量级）：s 网络累计 25 次评估 14 次晋升（56%），胜率分布集中在 52–63%——
 门槛略高于半子的设计让"每代小步、方向为正"。</p>
 
 <h2 id="s9">9　停止语义：三种模式与一条底线</h2>
-<div class="tbl-cap"><b>停止方式</b>（HTTP 接口与控制台按钮一一对应，§5 篇；信号语义在 <code>scripts/train_server.py</code>）。</div>
+<div class="tbl-cap"><b>停止方式</b>（HTTP 接口与控制台按钮一一对应，§6 篇；信号语义在 <code>scripts/train_server.py</code>）。</div>
 <table>
 <tr><th>模式</th><th>信号</th><th>行为</th><th>本轮数据</th></tr>
 <tr><td>跑完整轮（finish_round，面板「收尾后停」）</td><td>SIGUSR1</td><td>②→⑤ 含 fit、守擂、perf 全做完再退</td><td>完整</td></tr>
@@ -327,7 +326,7 @@ runner 看到新鲜心跳就不把 SIGINT 升级成 SIGKILL（固定 150s 宽限
   <text x="604" y="63" text-anchor="middle" font-size="10.5">86–93 s/轮</text>
   <text x="684" y="47" text-anchor="middle" font-weight="bold" font-size="11">守擂+存盘</text>
   <text x="684" y="63" text-anchor="middle" font-size="10.5">~50 s + 零星</text>
-  <text x="40" y="98" font-size="11.8" fill="#6b6557">结论：墙钟的八成在"生产教材"。所以第 3、4 节的方向是——更快的生产（§2/§3 篇）
+  <text x="40" y="98" font-size="11.8" fill="#6b6557">结论：墙钟的八成在"生产教材"。所以第 3、4 节的方向是——更快的生产（§2/§4 篇）
 与更值的教材（sims 爬坡），而不是"上课"（fit 本就只有 90 秒）。</text>
 </svg>
 <figcaption><b>一轮的时间去哪了。</b>自博弈阶段包含数据全部生成与存盘；fit 与守擂合计约两成。</figcaption>
@@ -354,7 +353,7 @@ runner 看到新鲜心跳就不把 SIGINT 升级成 SIGKILL（固定 150s 宽限
 <tr><td>仓口径</td><td>增强 ×8 写仓（8/9 是重复）</td><td>一存多采，30 万全是不同局面</td></tr>
 </table>
 <p>三条线合起来解释了"为什么小网络追得上"：<b>每步教材更准（sims×2–4）、每格仓更值（去重×8）、
-单位时间样本更多（§2/§3 篇吞吐）</b>。跨网络直接对局（s/48 vs m/498，后被 11-05 真榜证伪——旧榜倒置）显示两者接近，
+单位时间样本更多（§2/§4 篇吞吐）</b>。跨网络直接对局（s/48 vs m/498，后被 11-05 真榜证伪——旧榜倒置）显示两者接近，
 正式数字待 GPU 空闲时以同一 drill 复测。</p>
 
 <h2 id="sB">附录　测试与工具</h2>
@@ -371,7 +370,7 @@ runner 看到新鲜心跳就不把 SIGINT 升级成 SIGKILL（固定 150s 宽限
 进度指标体系（第 7 节）、轮组织与开局策略（第 3 节）、验证集按样本互斥划出（第 5.2 节）。
 另：原文章棋每步 800 次模拟——与本框架爬坡封顶值一致（第 4 节）。</p>
 
-<footer>ZenZero 文档集 · §4 训练管线 · 2026-11（v2.3.0 断面） · 代码为准：services/train/{selfplay,heartbeat}.py · services/inference/train_server.py · core/utils/replay.py</footer>
+<footer>ZenZero 文档集 · §5 训练管线 · 2026-11（v2.3.0 断面） · 代码为准：services/train/{selfplay,heartbeat}.py · services/inference/train_server.py · core/utils/replay.py</footer>
 </main>
 <script>
 /* 离线模式（file:// 直开）：指向服务的入口（← 对弈 / ⚙ 控制台 / 首页）不可用，
