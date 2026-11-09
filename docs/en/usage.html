@@ -91,8 +91,8 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
   <a href="#s4">4 Console</a><a href="#s5">5 Other modes</a><a href="#s6">6 Nets &amp; config</a><a href="#s7">7 Troubleshooting</a>
   <a href="#s8">8 Tests</a>
 
-  <a href="/" style="margin-left:auto;color:#f0d9a8!important;opacity:.85" title="Back to the play page">← Play</a>
-  <a href="/admin" style="opacity:.85" title="Training console">⚙ Console</a>
+  <a href="/" class="svc-link" style="margin-left:auto;color:#f0d9a8!important;opacity:.85" title="Back to the play page">← Play</a>
+  <a href="/admin" class="svc-link" style="opacity:.85" title="Training console">⚙ Console</a>
 </nav>
 
 <main>
@@ -241,20 +241,15 @@ to integrate systems / write scripts → §6 Architecture &amp; APIs.</div>
 <footer>ZenZero Docs · §1 How to Use · 2026-11 · where commands disagree with the README or code comments, those two win</footer>
 </main>
 <script>
-/* Offline mode (opened via file://): entries pointing at the running service are dead;
-   retarget them to this getting-started chapter (which explains how to start the service).
-   Zero effect when served over HTTP (first line returns). */
 (function () {
   try { localStorage.setItem('zz_lang', 'en'); } catch (e) {}
-  if (location.protocol !== 'file:') return;
-  document.querySelectorAll('a[href^="/"]').forEach(function (a) {
-    a.setAttribute('data-offline-href', a.getAttribute('href'));
-    a.setAttribute('href', 'usage.html');
-    a.style.opacity = '.62';
-    a.style.borderBottom = '1px dashed currentColor';
-    a.title = 'Not available offline · opens How to Use (incl. starting the service)';
-  });
+  var hide = function () { document.querySelectorAll('.svc-link').forEach(function (a) { a.style.display = 'none'; }); };
+  fetch('/info', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json().catch(function () { return null; }) : null; })
+    .then(function (d) { if (!d || d.device === undefined) hide(); })
+    .catch(hide);
 })();
 </script>
 </body>
+
 </html>

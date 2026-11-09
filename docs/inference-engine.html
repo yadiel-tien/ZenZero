@@ -98,8 +98,8 @@ figcaption b::before{content:"图 " counter(fig) "　";color:var(--accent);font-
   <a href="#sA">10 接口</a><a href="#sB">11 实验</a>
 
   <a href="usage.html">如何使用</a>
-  <a href="/" style="margin-left:auto;color:#f0d9a8!important;opacity:.85" title="返回对弈首页">← 对弈</a>
-  <a href="/admin" style="opacity:.85" title="训练控制台">⚙ 控制台</a>
+  <a href="/" class="svc-link" style="margin-left:auto;color:#f0d9a8!important;opacity:.85" title="返回对弈首页">← 对弈</a>
+  <a href="/admin" class="svc-link" style="opacity:.85" title="训练控制台">⚙ 控制台</a>
 </nav>
 
 <main>
@@ -316,19 +316,14 @@ deque/Counter 一律持锁、快照后再遍历——曾因打印统计时未加
 <footer>ZenZero 文档集 · §4 推理引擎 · 2026-11 · 代码为准：services/inference/{engine,client,request,hub}.py</footer>
 </main>
 <script>
-/* 离线模式（file:// 直开）：指向服务的入口（← 对弈 / ⚙ 控制台 / 首页）不可用，
-   就地改跳本篇文档集的使用指南《如何使用》（含起服务的步骤），悬停给一句短提示。
-   经 play_server 在线访问时此脚本零作用（首行即返回）。 */
 (function () {
-  if (location.protocol !== 'file:') return;
-  document.querySelectorAll('a[href^="/"]').forEach(function (a) {
-    a.setAttribute('data-offline-href', a.getAttribute('href'));
-    a.setAttribute('href', 'usage.html');
-    a.style.opacity = '.62';
-    a.style.borderBottom = '1px dashed currentColor';
-    a.title = '离线版不可用 · 点击查看《如何使用》（含启动服务的步骤）';
-  });
+  var hide = function () { document.querySelectorAll('.svc-link').forEach(function (a) { a.style.display = 'none'; }); };
+  fetch('/info', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json().catch(function () { return null; }) : null; })
+    .then(function (d) { if (!d || d.device === undefined) hide(); })
+    .catch(hide);
 })();
 </script>
 </body>
+
 </html>

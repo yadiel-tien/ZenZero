@@ -68,8 +68,8 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
   <h1>ZenZero Documentation</h1>
   <div class="sub">A high-performance AlphaZero board-game AI framework · design rationale · implementation details · API contracts</div>
   <div style="margin-top:14px;font-size:13px">
-    <a href="/" style="color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:4px 12px;border-radius:99px">← Play</a>
-    <a href="/admin" style="color:#e8dfc8;text-decoration:none;border:1px solid rgba(232,223,200,.35);padding:4px 12px;border-radius:99px;margin-left:8px">⚙ Console</a>
+    <a href="/" class="svc-link" style="color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:4px 12px;border-radius:99px">← Play</a>
+    <a href="/admin" class="svc-link" style="color:#e8dfc8;text-decoration:none;border:1px solid rgba(232,223,200,.35);padding:4px 12px;border-radius:99px;margin-left:8px">⚙ Console</a>
   </div>
   <div class="langrow"><a href="../index.html" onclick="try{localStorage.setItem('zz_lang','zh')}catch(e){}">中文</a> <a class="on" href="index.html">English</a></div>
 </header>
@@ -177,15 +177,13 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
 <script>
 (function () {
   try { localStorage.setItem('zz_lang', 'en'); } catch (e) {}
-  if (location.protocol !== 'file:') return;
-  document.querySelectorAll('a[href^="/"]').forEach(function (a) {
-    a.setAttribute('data-offline-href', a.getAttribute('href'));
-    a.setAttribute('href', 'usage.html');
-    a.style.opacity = '.62';
-    a.style.borderBottom = '1px dashed currentColor';
-    a.title = 'Not available offline · opens How to Use (incl. starting the service)';
-  });
+  var hide = function () { document.querySelectorAll('.svc-link').forEach(function (a) { a.style.display = 'none'; }); };
+  fetch('/info', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json().catch(function () { return null; }) : null; })
+    .then(function (d) { if (!d || d.device === undefined) hide(); })
+    .catch(hide);
 })();
 </script>
 </body>
+
 </html>

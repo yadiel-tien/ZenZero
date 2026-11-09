@@ -64,8 +64,8 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
   <h1>ZenZero 文档集</h1>
   <div class="sub">高性能 AlphaZero 棋类 AI 框架 · 设计思想 · 实现细节 · 接口契约</div>
   <div style="margin-top:14px;font-size:13px">
-    <a href="/" style="color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:4px 12px;border-radius:99px">← 返回对弈</a>
-    <a href="/admin" style="color:#e8dfc8;text-decoration:none;border:1px solid rgba(232,223,200,.35);padding:4px 12px;border-radius:99px;margin-left:8px">⚙ 训练控制台</a>
+    <a href="/" class="svc-link" style="color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:4px 12px;border-radius:99px">← 返回对弈</a>
+    <a href="/admin" class="svc-link" style="color:#e8dfc8;text-decoration:none;border:1px solid rgba(232,223,200,.35);padding:4px 12px;border-radius:99px;margin-left:8px">⚙ 训练控制台</a>
   </div>
   <div style="margin-top:10px;font-size:12.5px">
     <a style="color:#f0d9a8;text-decoration:none;border:1px solid rgba(240,217,168,.45);padding:2px 10px;border-radius:99px" href="index.html">中文</a>
@@ -169,19 +169,14 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:30px 10px 5
 </main>
 <script>try{if(localStorage.getItem('zz_lang')==='en'&&!/[?&]nolang/.test(location.search))location.replace('en/index.html');}catch(e){}</script>
 <script>
-/* 离线模式（file:// 直开）：指向服务的入口（← 对弈 / ⚙ 控制台 / 首页）不可用，
-   就地改跳本篇文档集的使用指南《如何使用》（含起服务的步骤），悬停给一句短提示。
-   经 play_server 在线访问时此脚本零作用（首行即返回）。 */
 (function () {
-  if (location.protocol !== 'file:') return;
-  document.querySelectorAll('a[href^="/"]').forEach(function (a) {
-    a.setAttribute('data-offline-href', a.getAttribute('href'));
-    a.setAttribute('href', 'usage.html');
-    a.style.opacity = '.62';
-    a.style.borderBottom = '1px dashed currentColor';
-    a.title = '离线版不可用 · 点击查看《如何使用》（含启动服务的步骤）';
-  });
+  var hide = function () { document.querySelectorAll('.svc-link').forEach(function (a) { a.style.display = 'none'; }); };
+  fetch('/info', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json().catch(function () { return null; }) : null; })
+    .then(function (d) { if (!d || d.device === undefined) hide(); })
+    .catch(hide);
 })();
 </script>
 </body>
+
 </html>

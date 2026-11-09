@@ -7,7 +7,7 @@
 |---|---|
 | **GitHub Pages**（推荐，开启后同站直读，样式完整） | `https://yadiel-tien.github.io/ZenZero/`（站点根即本目录） |
 | **本地服务**（起了 play_server 就有） | `http://<主机>:5000/docs/` |
-| **离线** | 下载后浏览器打开 `index.html`（零外部依赖、零 CDN；指向服务的入口会自动改跳《如何使用》） |
+| **离线** | 下载后浏览器打开 `index.html`（零外部依赖、零 CDN；「返回对弈 / 训练控制台」按钮在无后台环境下自动隐藏） |
 
 > 开启 Pages：仓库 Settings → Pages → Build and deployment → Source 选
 > `Deploy from a branch`，分支 `main`、目录 `/docs`。（已放 `.nojekyll` 跳过 Jekyll 处理。）
