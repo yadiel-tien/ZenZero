@@ -126,7 +126,6 @@ ZenZero/
 | [§5 训练管线](docs/training.html) | 大闭环、sims 爬坡、留出集、CE = KL + 熵、停止语义 |
 | [§6 架构与 API](docs/architecture.html) | 进程拓扑、目录导读、环境变量全表、对战/控制台 API 契约 |
 
-总览与第 1 篇另有英文版（[docs/en/](docs/en/index.html)），其余各篇翻译中。
 
 > **feature epoch 2（2026-10）**：象棋规则升级为官方口径（送将非法、将死/困毙判负、三次重复判和、长将判负、120 步时钟），棋盘表示重排为 26 面。旧模型按出生 epoch 继续可对战；epoch 切换后训练自动从新网络开训。回归验证：`tests/test_chess_rules.py`（21 项）。
 

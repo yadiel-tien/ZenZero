@@ -113,7 +113,7 @@ ZenZero/
 
 ## Documentation (docs/)
 
-Six chapters — a getting-started manual plus five design articles. Read them in a browser or at `http://<host>:5000/docs/` (English: `docs/en/` for the overview and Chapter 1; Chinese in the meantime for the rest):
+Six chapters — a getting-started manual plus five design articles. Read them in a browser or at `http://<host>:5000/docs/` (English edition: `docs/en/`):
 
 | Chapter | Contents |
 | :--- | :--- |
